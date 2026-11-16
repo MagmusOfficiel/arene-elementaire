@@ -15,45 +15,69 @@
     <div class="panel">
       <h1>ARÈNE <span>ÉLÉMENTAIRE</span></h1>
       <p class="sub">Deux éléments. Une fusion. Un seul survivant.</p>
-      <div id="grimoireTitle"></div>
-      <div id="gallery"></div>
-      <div id="classement"></div>
-      <div id="rangBox"></div>
-      <div id="survieBox"></div>
-      <div id="fiche" class="hidden"><div class="fi-in"><button class="fi-x">✕</button><div class="fi-h"></div><div class="sb-list"></div></div></div>
-      <div id="defis"></div>
-      <div id="titreBox">
-        <div id="profil"></div>
-        <div id="compteBox"><span id="compteTxt">☁ Compte : connexion…</span><button id="compteCopier" type="button">Copier le code</button><details><summary>J'ai déjà un compte</summary><input id="compteCode" maxlength="9" placeholder="K7QF-2XMB" autocomplete="off" /><button id="compteRecup" type="button">Récupérer</button></details></div>
-        <div class="cosm"><label>🏅 Titre <select id="titreSel"></select></label><label>🎨 Couleur du nom <select id="coulSel"></select></label><label>🖼 Cadre <select id="cadreSel"></select></label></div>
-        <span id="gloire"></span>
-        <details><summary>Voir tous les titres</summary><div id="titresListe"></div></details>
-      </div>
-      <input id="name" maxlength="16" placeholder="Ton pseudo" autocomplete="off" />
-      <div class="modes">
-        <button id="play" data-mode="arena">🌍 Monde ouvert<small>zombies · réapparition</small></button>
-        <button id="playRoyale" data-mode="royale">👑 Battle royale<small>50 joueurs · 1 vie</small></button>
-        <button id="playTournoi" data-mode="tournoi">🏆 Tournoi<small>8 · duels à élimination</small></button>
-        <button id="playClasse" data-mode="classe">⚔ Classé<small>tournoi · ta cote en jeu</small></button>
-        <button id="playSurvie" data-mode="survie">☠ Survie<small>vagues infinies · 1 vie</small></button>
-        <button id="playDuo" data-mode="duo">🤝 Duo 2v2<small>en équipe · combos d'éléments</small></button>
-      </div>
-      <div id="volumes"><label>🎵 Musique <input type="range" id="volMusique" min="0" max="1" step="0.05"></label><label>🔊 Effets <input type="range" id="volEffets" min="0" max="1" step="0.05"></label><small>M en jeu : couper le son</small></div>
-      <label class="solo"><input type="checkbox" id="solo"> 🤖 Jouer hors-ligne (solo contre les mannequins)</label>
-      <div class="salon">
-        <label><input type="checkbox" id="prive"> 🔒 Créer un salon privé (choisis le mode ci-dessus)</label>
-        <div class="join"><input id="code" maxlength="4" placeholder="CODE" autocomplete="off" /><button id="joinCode">Rejoindre un ami</button></div>
-      </div>
-      <p id="status"></p>
-      <div class="ctrlTouch">🕹 Joystick à gauche pour bouger · <b>Touche</b> un sort = visée auto · <b>Glisse</b> depuis le sort = vise toi-même · reviens sur le bouton pour annuler</div>
-      <div class="controls touch-hide">
-        <div><b>ZQSD</b> / <b>WASD</b> se déplacer</div>
-        <div><b>Clic gauche</b> attaque de base (maintenir)</div>
-        <div><b>E</b> ou <b>clic droit</b> Sort 1 · <b>Shift</b> Sort 2 · <b>F</b> Sort 3 · <b>Espace</b> Esquive</div>
-        <div><b>1 / 2 / 3</b> choisir une amélioration quand tu montes de niveau</div>
-        <div><b>R</b> Ultime (quand la jauge est pleine) · <b>M</b> couper le son</div>
-        <div>🧟 Tuer des zombies charge ton ultime — une horde déferle toutes les 75 s</div>
-      </div>
+      <nav id="onglets">
+        <button type="button" data-o="jouer" class="on">⚔ Jouer</button><button type="button" data-o="profil">👤 Profil</button><button type="button" data-o="classements">🏆 Rangs</button><button type="button" data-o="defis">🎯 Défis <i id="defisBadge"></i></button><button type="button" data-o="reglages">⚙ Réglages</button>
+      </nav>
+      <section class="onglet" data-o="jouer">
+        <input id="name" maxlength="16" placeholder="Ton pseudo" autocomplete="off" />
+        <div class="modes">
+          <button id="play" data-mode="arena">🌍 Monde ouvert<small>zombies · réapparition</small></button>
+          <button id="playRoyale" data-mode="royale">👑 Battle royale<small>50 joueurs · 1 vie</small></button>
+          <button id="playTournoi" data-mode="tournoi">🏆 Tournoi<small>8 · duels à élimination</small></button>
+          <button id="playClasse" data-mode="classe">⚔ Classé<small>tournoi · ta cote en jeu</small></button>
+          <button id="playSurvie" data-mode="survie">☠ Survie<small>vagues infinies · 1 vie</small></button>
+          <button id="playDuo" data-mode="duo">🤝 Duo 2v2<small>en équipe · combos d'éléments</small></button>
+        </div>
+        <p id="status"></p>
+        <label class="solo"><input type="checkbox" id="solo"> 🤖 Jouer hors-ligne (solo contre les mannequins)</label>
+        <div class="salon">
+          <label><input type="checkbox" id="prive"> 🔒 Créer un salon privé (choisis le mode ci-dessus)</label>
+          <div class="join"><input id="code" maxlength="4" placeholder="CODE" autocomplete="off" /><button id="joinCode">Rejoindre un ami</button></div>
+        </div>
+        <div class="ctrlTouch">🕹 Joystick à gauche pour bouger · <b>Touche</b> un sort = visée auto · <b>Glisse</b> depuis le sort = vise toi-même · reviens sur le bouton pour annuler</div>
+        <div class="controls touch-hide">
+          <div><b>ZQSD</b> / <b>WASD</b> se déplacer</div>
+          <div><b>Clic gauche</b> attaque de base (maintenir)</div>
+          <div><b>E</b> ou <b>clic droit</b> Sort 1 · <b>Shift</b> Sort 2 · <b>F</b> Sort 3 · <b>Espace</b> Esquive</div>
+          <div><b>1 / 2 / 3</b> choisir une amélioration quand tu montes de niveau</div>
+          <div><b>R</b> Ultime (quand la jauge est pleine) · <b>M</b> couper le son</div>
+          <div>🧟 Tuer des zombies charge ton ultime — une horde déferle toutes les 75 s</div>
+        </div>
+      </section>
+      <section class="onglet hidden" data-o="profil">
+        <div id="titreBox">
+          <div id="profil"></div>
+          <div id="compteBox"><span id="compteTxt">☁ Compte : connexion…</span><button id="compteCopier" type="button">Copier le code</button><details><summary>J'ai déjà un compte</summary><input id="compteCode" maxlength="9" placeholder="K7QF-2XMB" autocomplete="off" /><button id="compteRecup" type="button">Récupérer</button></details></div>
+          <div class="cosm"><label>🏅 Titre <select id="titreSel"></select></label><label>🎨 Couleur du nom <select id="coulSel"></select></label><label>🖼 Cadre <select id="cadreSel"></select></label></div>
+          <span id="gloire"></span>
+          <details><summary>Voir tous les titres</summary><div id="titresListe"></div></details>
+        </div>
+        <div id="grimoireTitle"></div>
+        <div id="gallery"></div>
+        <div id="fiche" class="hidden"><div class="fi-in"><button class="fi-x">✕</button><div class="fi-h"></div><div class="sb-list"></div></div></div>
+      </section>
+      <section class="onglet hidden" data-o="classements">
+        <div id="rangBox"></div>
+        <div id="survieBox"></div>
+        <div id="classement"></div>
+      </section>
+      <section class="onglet hidden" data-o="defis">
+        <div id="defis"></div>
+      </section>
+      <section class="onglet hidden" data-o="reglages">
+        <div id="reglages">
+          <h3>🔊 Son</h3>
+  <div id="volumes"><label>🎵 Musique <input type="range" id="volMusique" min="0" max="1" step="0.05"></label><label>🔊 Effets <input type="range" id="volEffets" min="0" max="1" step="0.05"></label><small>M en jeu : couper le son</small></div>
+          <h3>🖥 Graphismes</h3>
+          <label class="rg">Qualité <select id="rgQualite"><option value="auto">Automatique (s'adapte à l'appareil)</option><option value="haut">Haute — tous les effets</option><option value="moyen">Moyenne — moins de particules</option><option value="bas">Basse — pour téléphone ou PC lent</option></select></label>
+          <label class="rg"><input type="checkbox" id="rgPing"> Afficher la latence (ping)</label>
+          <label class="rg"><input type="checkbox" id="rgFps"> Afficher les images par seconde</label>
+          <h3>🎮 Contrôles</h3>
+          <label class="rg">Taille de l'interface <select id="rgInterface"><option value="0.85">Petite</option><option value="1">Normale</option><option value="1.15">Grande</option></select></label>
+          <label class="rg">Sensibilité du joystick (téléphone) <input type="range" id="rgJoystick" min="0.15" max="0.55" step="0.05"><small id="rgJoystickV"></small></label>
+          <label class="rg"><input type="checkbox" id="rgVibration"> Vibrations (téléphone)</label>
+        </div>
+      </section>
     </div>
   </div>
 

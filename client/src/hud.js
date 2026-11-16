@@ -1,5 +1,6 @@
 import { sfx } from './sfx.js';
 import { couleurDe, cadreDe, EMOTES } from '../../shared/cosmetiques.js';
+import { reglages } from './reglages.js';
 // couleur de nom (cosmétique) pour les listes HTML ; « prismatique » = dégradé
 const nomCss = (p) => { const c = p.coul && couleurDe(p.coul).css; return !c ? '#e8ecf4' : c === 'prisme' ? '#ff9ad5' : c; };
 import { iconesBoutons } from './touch.js';
@@ -484,6 +485,30 @@ export class Hud {
   }
 
   // ---------------- Salon privé ----------------
+  // Bandeau « reconnexion en cours »
+  reconnexion(on) {
+    let el = document.getElementById('reco');
+    if (!el) { el = document.createElement('div'); el.id = 'reco'; el.innerHTML = '<div class="sp"></div>📡 Connexion perdue — reconnexion…<small>ta partie est gardée quelques secondes</small>'; document.getElementById('hud').appendChild(el); }
+    el.classList.toggle('on', !!on);
+  }
+
+  // Images par seconde (réglage « Afficher les images par seconde »)
+  fps(n) {
+    let el = document.getElementById('fpsTxt');
+    if (!el) { el = document.createElement('div'); el.id = 'fpsTxt'; document.getElementById('hud').appendChild(el); }
+    el.style.display = reglages.fps ? '' : 'none';
+    if (reglages.fps) el.textContent = `${n} img/s`;
+  }
+
+  // Latence affichée sous la mini-carte (seulement en ligne)
+  ping(ms) {
+    let el = document.getElementById('pingTxt');
+    if (!el) { el = document.createElement('div'); el.id = 'pingTxt'; document.getElementById('hud').appendChild(el); }
+    if (ms < 2 || !reglages.ping) { el.style.display = 'none'; return; }
+    el.style.display = ''; el.textContent = `📶 ${ms} ms`;
+    el.style.color = ms < 90 ? '#7fe0a0' : ms < 180 ? '#ffcf3a' : '#ff7a6a';
+  }
+
   // Roue d'emotes : touche T ou bouton 💬, puis choisir (clic, toucher, ou touches 4 à 9)
   roueEmotes(ouvrir) {
     let r = document.getElementById('roue');

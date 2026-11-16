@@ -26,6 +26,20 @@ const BOT_DMG = 0.6; // les bots tapent moins fort
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
 
+// Portée utile d'un sort (pour décider quand les bots le lancent)
+// Durée de l'annonce (zone d'impact visible) avant les ultimes qui frappent tout de suite
+const ANNONCE_ULT = { nova: 0.45, rayon_ult: 0.45, dragon: 0.4, tornade: 0.4, domaine: 0.35 };
+
+function porteeSort(sp) {
+  switch (sp.forme) {
+    case 'melee': case 'frappe': case 'tourbillon': case 'nova': case 'domaine': return (sp.radius || 90) + 40;
+    case 'charge': case 'dash': case 'blink': case 'saut': return (sp.distance || sp.range || 300) + 30;
+    case 'tornade': case 'dragon': return 480;
+    case 'invocation': return 380;
+    default: return sp.range || 450;
+  }
+}
+
 export class ArenaLogic {
 
   onCreate(options = {}) {
@@ -54,6 +68,7 @@ export class ArenaLogic {
       e.emoteT = (this.now || 0) + 1.5;
       this.emit('fx', { t: 'emote', o: client.sessionId, e: id, x: Math.round(p.x), y: Math.round(p.y), global: this.mode === 'duo' });
     });
+    this.onMessage('ping', (client, m) => client.send('pong', m));   // mesure de la latence par le client
     this.onMessage('pret', (client) => {
       const e = this.ent.get(client.sessionId);
       if (!e || e.ready) return;
@@ -80,7 +95,13 @@ export class ArenaLogic {
     this.zombieTimer = 0;
 
     this.setPatchRate(this.mode === 'royale' ? 80 : 50);   // 100 joueurs : patchs un peu moins fréquents
-    this.setSimulationInterval((dtMs) => this.update(Math.min(dtMs, 100) / 1000), 50);
+    // Si le serveur a pris du retard (CPU partagé sur l'offre gratuite), on rattrape le temps en plusieurs
+    // petits pas au lieu de le perdre : sinon les joueurs avancent moins vite côté serveur que sur leur écran.
+    this.setSimulationInterval((dtMs) => {
+      let reste = Math.min(dtMs, 300);
+      while (reste > 0.5) { const pas = Math.min(reste, 50); this.update(pas / 1000); reste -= pas; }
+      this.state.horloge = Math.round((this.now || 0) * 1000) >>> 0;
+    }, 50);
   }
 
   // ------------------------------------------------------------------
@@ -274,6 +295,11 @@ export class ArenaLogic {
   updatePlayer(p, id, dt) {
     const e = this.ent.get(id);
     if (!e || !p.alive) return;
+    // Ultime annoncé : la zone d'impact a été montrée, on le déclenche maintenant
+    if (e.annonce && (e.annonce.t -= dt) <= 0) {
+      const a = e.annonce; e.annonce = null; this.annonces--; p.locked = 0; p.ult = 100; e.annonceOk = true;
+      this.cast(id, 'ultime', a.tx, a.ty); e.annonceOk = false;
+    }
 
     if (e.bot) this.botThink(p, id, e, dt);
 
@@ -495,8 +521,18 @@ export class ArenaLogic {
     if (slot === 'esquive') return this.dodge(p, id, e, tx, ty);
     let spell;
     if (slot === 'ultime') {
-      if (p.ult < 100) return;
+      if (p.ult < 100 || e.annonce) return;
       spell = e.kit.ultime;
+      // Ultimes à impact immédiat : on montre d'abord la zone touchée (~0,4 s) pour qu'on puisse réagir
+      const pause = ANNONCE_ULT[spell.forme];
+      if (pause && !e.annonceOk) {
+        p.ult = 0; e.ultLock = CONFIG.ultLock; p.locked = pause;
+        e.annonce = { t: pause, tx, ty }; this.annonces = (this.annonces || 0) + 1;
+        const a = Math.atan2(ty - p.y, tx - p.x);
+        const len = spell.forme === 'rayon_ult' ? spell.length : spell.forme === 'dragon' || spell.forme === 'tornade' ? Math.min(900, spell.speed * Math.min(spell.duree, 1.6)) : 0;
+        this.emit('fx', { t: 'annonce', o: id, f: spell.forme, x: Math.round(p.x), y: Math.round(p.y), a: +a.toFixed(3), r: spell.radius || 0, len: Math.round(len), w: spell.width || (spell.radius || 60) * 2, d: pause, el: spell.element });
+        return;
+      }
       p.ult = 0; e.ultLock = CONFIG.ultLock;
       this.emit('fx', { t: 'ult', nom: spell.nom, who: p.name, x: p.x, y: p.y, el: spell.element, f: p.fusion, me: id });
     } else if (slot in e.cds) {
@@ -857,6 +893,7 @@ export class ArenaLogic {
   }
 
   die(t, tid, killerId) {
+    { const ed = this.ent.get(tid); if (ed?.annonce) { ed.annonce = null; this.annonces--; } }   // ultime annoncé annulé par la mort
     if (t instanceof Zombie) return this.zombieDie(t, tid, killerId);
     const de = this.ent.get(tid);
     if (de?.rel?.R_phenix && !de.phenixUsed) {   // relique : on revient à la vie une fois
@@ -1726,20 +1763,40 @@ export class ArenaLogic {
       if (d < z.r + 30) { mx = (p.x - z.x) / (d || 1); my = (p.y - z.y) / (d || 1); urgent = true; }
     });
 
-    // 2) Esquiver un projectile qui arrive
-    if (e.dodgeCd <= 0 && (ai.dodgeLook = (ai.dodgeLook || 0) - dt) <= 0) {
+    // 1 bis) Un ultime ennemi est annoncé : sortir de sa zone (cercle autour du lanceur ou ligne devant lui)
+    if (!urgent && this.annonces > 0) for (const [oid, oe] of this.ent) {
+      if (oid === id || !oe.annonce || (tournoi && !this.canHarm(oid, id))) continue;
+      const o = st.players.get(oid); if (!o) continue;
+      const U = oe.kit?.ultime; if (!U) continue;
+      const rx = p.x - o.x, ry = p.y - o.y, d = Math.hypot(rx, ry) || 1;
+      if (['nova', 'domaine'].includes(U.forme)) { if (d < (U.radius || 200) + 40) { mx = rx / d; my = ry / d; urgent = true; } }
+      else {
+        const a = Math.atan2(oe.annonce.ty - o.y, oe.annonce.tx - o.x), ux = Math.cos(a), uy = Math.sin(a);
+        const along = rx * ux + ry * uy, perp = rx * uy - ry * ux;
+        if (along > 0 && along < 1000 && Math.abs(perp) < (U.width || (U.radius || 80) * 2) / 2 + 40 && Math.random() < ai.skill + 0.2) { const sd = perp > 0 ? 1 : -1; mx = uy * sd; my = -ux * sd; urgent = true; }
+      }
+      if (urgent) break;
+    }
+
+    // 2) Esquiver un projectile qui arrive : roulade si disponible, sinon pas de côté
+    if (ai.pasCote > 0) { ai.pasCote -= dt; mx = ai.pcx; my = ai.pcy; urgent = true; }
+    else if ((ai.dodgeLook = (ai.dodgeLook || 0) - dt) <= 0) {
       ai.dodgeLook = ai.react;
       for (const pr of this.projs.values()) {
         if (pr.owner === id || (tournoi && !this.canHarm(pr.owner, id))) continue;
         const rx = p.x - pr.x, ry = p.y - pr.y, d = Math.hypot(rx, ry);
-        if (d > 280) continue;
+        if (d > 300) continue;
         const sp = Math.hypot(pr.vx, pr.vy) || 1, ux = pr.vx / sp, uy = pr.vy / sp;
         const along = rx * ux + ry * uy, perp = Math.abs(rx * uy - ry * ux);
         if (along > 0 && perp < pr.r + 30 && Math.random() < ai.skill) {
           const side = rx * uy - ry * ux > 0 ? 1 : -1;
-          e.input = { r: -uy * side > 0.3, l: -uy * side < -0.3, d: ux * side > 0.3, u: ux * side < -0.3 };
-          this.dodge(p, id, e, p.x - uy * side * 100, p.y + ux * side * 100);
-          return;
+          if (e.dodgeCd <= 0) {
+            e.input = { r: -uy * side > 0.3, l: -uy * side < -0.3, d: ux * side > 0.3, u: ux * side < -0.3 };
+            this.dodge(p, id, e, p.x - uy * side * 100, p.y + ux * side * 100);
+            return;
+          }
+          ai.pasCote = 0.3; ai.pcx = -uy * side; ai.pcy = ux * side; mx = ai.pcx; my = ai.pcy; urgent = true;
+          break;
         }
       }
     }
@@ -1759,10 +1816,14 @@ export class ArenaLogic {
     if (target && !urgent) {
       const dx = (target.x - p.x) / bestD, dy = (target.y - p.y) / bestD;
       ai.strafeT -= dt;
-      if (ai.strafeT <= 0) { ai.strafe *= -1; ai.strafeT = 0.8 + Math.random() * 1.8; }
-      const melee = e.kit?.melee;
-      const near = melee ? 55 : 230, far = melee ? 80 : 380;
+      if (ai.strafeT <= 0) { ai.strafe *= -1; ai.strafeT = (0.9 - ai.skill * 0.5) + Math.random() * (1.6 - ai.skill * 0.8); }   // les bons bots changent de sens plus souvent (plus durs à viser)
+      const melee = e.kit?.melee, K = e.kit;
+      // distance de combat : au contact pour les corps à corps, aux 2/3 de la portée du tir pour les autres
+      const portee = K?.basique?.range || 520;
+      const near = melee ? 55 : Math.max(200, portee * 0.5), far = melee ? 80 : Math.max(300, portee * 0.75);
       const fleeing = hpPct < 0.3 && !(target instanceof Zombie) && !tournoi;
+      const cc = target.root > 0 || target.frost > 0 || target.slow > 0 || target.vine > 0 || target.locked > 0;   // cible ralentie / immobilisée
+      const S2 = K?.sort2, mobilite = S2 && ['dash', 'blink'].includes(S2.forme), defensif = S2 && ['armure', 'bouclier', 'hate', 'soin'].includes(S2.forme);
       if (fleeing) {
         // fuite : s'éloigne, en allant vers un orbe si possible
         mx = -dx; my = -dy;
@@ -1776,23 +1837,48 @@ export class ArenaLogic {
         else if (bestD < near) { mx = -dx * 0.7 - dy * ai.strafe * 0.7; my = -dy * 0.7 + dx * ai.strafe * 0.7; }
         else { mx = -dy * ai.strafe; my = dx * ai.strafe; }
       }
+      // bloqué contre un mur pendant qu'il tourne autour : il change de sens
+      ai.bloqueT = (ai.bloqueT || 0) + dt;
+      if (ai.bloqueT > 0.5) { if (ai.bx != null && dist(p.x, p.y, ai.bx, ai.by) < 6 && (mx || my)) { ai.strafe *= -1; ai.strafeT = 1.2; } ai.bx = p.x; ai.by = p.y; ai.bloqueT = 0; }
 
       // Visée anticipée : on vise là où la cible sera
-      const tv = ai.tLast && ai.tId === tid ? { vx: (target.x - ai.tLast.x) / dt, vy: (target.y - ai.tLast.y) / dt } : { vx: 0, vy: 0 };
+      // vitesse de la cible lissée sur quelques dixièmes de seconde (moins de fausses anticipations)
+      if (ai.tLast && ai.tId === tid) { const k = Math.min(1, dt * 6); ai.tvx = (ai.tvx || 0) * (1 - k) + ((target.x - ai.tLast.x) / dt) * k; ai.tvy = (ai.tvy || 0) * (1 - k) + ((target.y - ai.tLast.y) / dt) * k; }
+      else { ai.tvx = 0; ai.tvy = 0; }
+      const tv = { vx: ai.tvx, vy: ai.tvy };
       ai.tLast = { x: target.x, y: target.y }; ai.tId = tid;
-      const lead = melee ? 0 : Math.min(0.9, bestD / 620) * ai.skill;
+      const lead = melee ? 0 : Math.min(0.9, bestD / (K?.basique?.speed || 620)) * ai.skill;   // temps de vol réel du projectile
       const err = (1 - ai.skill) * 70;
       const aimX = target.x + tv.vx * lead + (Math.random() - 0.5) * err, aimY = target.y + tv.vy * lead + (Math.random() - 0.5) * err;
 
       ai.shoot -= dt;
-      const reach = melee ? e.kit.basique.range + 35 : 520;
+      const reach = melee ? K.basique.range + 35 : portee;
       if (bestD < reach && ai.shoot <= 0) { this.cast(id, 'basique', aimX, aimY); ai.shoot = (melee ? 0.4 : 0.6) + Math.random() * 0.4; }
-      if (bestD < 460 && e.cds.sort3 <= 0 && Math.random() < dt * 0.8) this.cast(id, 'sort3', aimX, aimY);
-      if (bestD < 560 && e.cds.sort1 <= 0 && Math.random() < dt * 0.9) this.cast(id, 'sort1', aimX, aimY);
-      if (p.ult >= 100 && bestD < 340 && (!(target instanceof Zombie) || Math.random() < dt * 0.2)) this.cast(id, 'ultime', target.x, target.y);
+      // sorts offensifs : seulement à bonne portée, tout de suite si la cible est immobilisée
+      const envie = (cc ? 4 : 1) * dt;
+      for (const slot of ['sort1', 'sort3']) {
+        const sp = K?.[slot]; if (!sp || e.cds[slot] > 0) continue;
+        if (sp.forme === 'bouclier') { if (hpPct < 0.75 && Math.random() < envie * 1.5) this.cast(id, slot, p.x, p.y); continue; }
+        const pr = porteeSort(sp);
+        if (bestD < pr * 0.9 && Math.random() < envie * (slot === 'sort1' ? 0.9 : 0.8)) this.cast(id, slot, aimX, aimY);
+      }
+      // sort 2 : défense quand on prend des coups, mobilité pour engager (corps à corps) ou se replacer
+      if (S2 && e.cds.sort2 <= 0 && !fleeing) {
+        if (defensif && (hpPct < (S2.forme === 'soin' ? 0.55 : 0.7)) && Math.random() < dt * 1.5) this.cast(id, 'sort2', p.x, p.y);
+        else if (defensif && S2.forme === 'hate' && bestD > far + 80 && Math.random() < dt) this.cast(id, 'sort2', p.x, p.y);
+        else if (mobilite && melee && bestD > near + 90 && bestD < (S2.distance || 300) + 60 && hpPct > 0.4 && Math.random() < dt * 1.5 * ai.skill) this.cast(id, 'sort2', target.x, target.y);
+        else if (mobilite && !melee && bestD < near * 0.6 && Math.random() < dt * 2 * ai.skill) this.cast(id, 'sort2', p.x - dx * 300 - dy * ai.strafe * 120, p.y - dy * 300 + dx * ai.strafe * 120);
+      }
+      // ultime : sur une cible affaiblie, immobilisée, ou quand plusieurs ennemis sont groupés
+      if (p.ult >= 100) {
+        const U = K?.ultime, pu = U ? porteeSort(U) : 340;
+        let groupe = 0;
+        for (const c of this.cibles || []) if (c.id !== id && c.alive && !c.z && dist(c.x, c.y, target.x, target.y) < 220 && (!tournoi || this.canHarm(id, c.id))) groupe++;
+        const bonMoment = target.hp / (target.maxHp || 1) < 0.65 || cc || groupe >= 2 || target instanceof Zombie;
+        if (bestD < pu * 0.85 && bonMoment && (!(target instanceof Zombie) || Math.random() < dt * 0.2)) this.cast(id, 'ultime', target.x, target.y);
+      }
       // un corps à corps adverse trop collant : roulade sur le côté
       if (!melee && bestD < 90 && e.dodgeCd <= 0 && Math.random() < dt * 2 * ai.skill) this.dodge(p, id, e, p.x - dy * ai.strafe * 200, p.y + dx * ai.strafe * 200);
-      if (!fleeing && hpPct < 0.5 && e.cds.sort2 <= 0 && Math.random() < dt * 0.6) this.cast(id, 'sort2', p.x - dx * 250, p.y - dy * 250);
     } else if (!urgent) {
       const pit = tournoi && p.duel !== 255 ? tournoiPit(p.duel, this.duels?.length || 1) : null;
       if (pit) { const d = dist(p.x, p.y, pit.x, pit.y) || 1; mx = (pit.x - p.x) / d; my = (pit.y - p.y) / d; }

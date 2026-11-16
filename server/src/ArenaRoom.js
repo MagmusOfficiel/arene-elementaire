@@ -32,3 +32,18 @@ ArenaRoom.prototype.onJoin = function (client, options = {}) {
   // jeton inconnu : on reprend la cote du navigateur (parties hors-ligne), plafonnée pour éviter la triche
   return baseJoin.call(this, client, { ...options, cote: c ? c.cote : Math.min(Number(options.cote) || 1000, 1200) });
 };
+
+// Connexion perdue (pas un départ volontaire) : on garde le personnage 15 s pour laisser le joueur revenir
+// dans la même partie (wifi qui coupe, téléphone en veille…). Il reste immobile en attendant.
+const baseLeave = ArenaLogic.prototype.onLeave;
+ArenaRoom.prototype.onLeave = async function (client, consented) {
+  const e = this.ent?.get(client.sessionId);
+  if (!consented && e) {
+    e.input = { u: false, d: false, l: false, r: false };
+    try {
+      await this.allowReconnection(client, 15);
+      return;   // revenu : on continue comme si de rien n'était
+    } catch { /* pas revenu à temps */ }
+  }
+  return baseLeave.call(this, client);
+};

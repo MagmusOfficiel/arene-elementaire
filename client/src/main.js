@@ -29,7 +29,7 @@ const chargerMoteur = () => (moteur ||= Promise.all([import('phaser'), import('c
 // Préchargement des images et musiques du jeu dans le cache du navigateur, en tâche de fond
 function prechargerAssets() {
   const urls = [
-    ...[0, 1].flatMap((i) => [0, 1].map((j) => `/art/ground_${i}_${j}.webp`)),
+    ...[0, 1].flatMap((i) => [0, 1].map((j) => `/art/ground_${i}_${j}${reglages.qualite === 'bas' || (reglages.qualite === 'auto' && ('ontouchstart' in window)) ? '_bas' : ''}.webp`)),
     ...Object.keys(FUSIONS).map((k) => `/sprites/${encodeURIComponent(k)}.webp`),
     '/audio/monde.ogg',
   ];
@@ -41,6 +41,7 @@ const auRepos = window.requestIdleCallback || ((f) => setTimeout(f, 600));
 auRepos(() => { chargerMoteur(); setTimeout(prechargerAssets, 800); });
 
 import { creerCompte } from './compte.js';
+import { reglages, changerReglage } from './reglages.js';
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé')), ms))]);
 
 const $ = (id) => document.getElementById(id);
@@ -164,6 +165,26 @@ for (const [id, k] of [['volMusique', 'musique'], ['volEffets', 'effets']]) {
   el.value = volumes[k]; el.oninput = () => setVolume(k, parseFloat(el.value));
 }
 
+// Le serveur gratuit de Render s'endort après 15 min sans joueur et met jusqu'à ~1 min à se réveiller :
+// on patiente (avec un compteur) au lieu de basculer tout de suite en solo. Bouton pour jouer en solo en attendant.
+async function verifierServeur() {
+  const debut = Date.now();
+  let abandon = false;
+  while (Date.now() - debut < 75000 && !abandon) {
+    const v = await withTimeout(fetch(`${HTTP_URL}/api/version`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : r.status === 404 ? 'absent' : null)), 5000).catch(() => null);
+    if (v === 'absent') return null;   // pas de serveur de jeu à cette adresse : solo tout de suite
+    if (v) { $('status').textContent = 'Connexion à l\'arène…'; return v; }
+    const sec = Math.round((Date.now() - debut) / 1000);
+    $('status').style.color = '#ffcf3a';
+    $('status').innerHTML = `⏳ Réveil du serveur… ${sec} s <small>(jusqu'à 1 min après une pause)</small> <button type="button" id="soloAttente">Jouer en solo</button>`;
+    $('soloAttente').onclick = () => { abandon = true; };
+    await new Promise((ok) => setTimeout(ok, 2500));
+  }
+  $('status').style.color = '#9aa3b5';
+  return null;
+}
+fetch(`${HTTP_URL}/api/version`, { cache: 'no-store' }).catch(() => {});   // réveille le serveur dès l'ouverture du menu
+
 async function play(mode = 'arena', forceSolo = false, salon = null) {
   const name = nameInput.value.trim() || `Joueur${Math.floor(Math.random() * 1000)}`;
   localStorage.setItem('pseudo', name);
@@ -192,7 +213,7 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
       } else room = await withTimeout(client.create(mode, { ...opts, prive: true }), 6000);
     } else if (!forceSolo) {
       // Le serveur en ligne doit avoir la même version que le jeu, sinon cartes et règles ne correspondent pas
-      const v = await withTimeout(fetch(`${HTTP_URL}/api/version`).then((r) => (r.ok ? r.json() : null)), 4000).catch(() => null);
+      const v = await verifierServeur();
       if (!v || v.version !== VERSION_JEU) {
         console.warn('Serveur absent ou pas à jour (version', v?.version, '≠', VERSION_JEU, ') : partie solo');
         solo = true; versionKo = !!v || versionKo;
@@ -204,49 +225,64 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
     const force = new URLSearchParams(location.search).get('force')?.split(',');
     if (solo && force?.length === 2) globalThis.FORCE_FUSION = force;
     if (solo) room = new LocalRoom(mode, name, progress.titre, { cote: classe.cote, jeton: classe.jeton, coul: progress.coul, cadre: progress.cadre });
+    // En ligne : attendre le premier état complet du serveur (mode de jeu, carte, joueurs) avant de construire
+    // la scène. Sinon la carte du monde ouvert serait chargée par erreur dans le Colisée ou la Brèche
+    // (murs invisibles côté écran, recalages permanents côté serveur).
+    if (!solo && !room.state?.mode) {
+      await new Promise((ok) => {
+        const fini = () => { clearTimeout(t); ok(); };
+        const t = setTimeout(fini, 8000);
+        room.onStateChange.once(fini);
+      });
+    }
     const hud = new Hud();
     // Suivi des défis : tout ce qui me concerne
     progress.onToast = (t, c) => hud.toast(t, c);
     if (versionKo) setTimeout(() => hud.toast('Serveur en ligne pas à jour : partie en solo (redéploie le serveur)', '#ffb03a'), 1500);
     const myCtx = () => { const p = room.state.players.get(room.sessionId); if (!p) return {}; const k = bus.scene?.kitOf(p); return { a: p.a, b: p.b, classe: k?.classe }; };
     hud.onCombo = (n) => { if (n >= 5) progress.on('combo', n); };
-    room.onMessage('orbe', (m) => { if (!m.k) progress.on('orb'); });
     const bus = { scene: null };
 
-    // Les messages arrivent dès la connexion : on les branche tout de suite
     hud.onPick = (i) => room.send('upgrade', { i });
-    room.onMessage('lvl', (m) => { hud.levelUp(m); progress.on('lvl', m.n); });
-    room.onMessage('salon', (m) => hud.salon(m.code));
-    room.onMessage('survieFin', (m) => {   // Survie : fin de partie + record
-      const rec = Math.max(m.vague, +(localStorage.getItem('survie_record') || 0)), nouveau = m.vague > +(localStorage.getItem('survie_record') || 0);
-      localStorage.setItem('survie_record', rec); hud.survieFin(m, rec, nouveau); progress.on('vague', m.vague);
-    });
-    room.onMessage('cote', (m) => {
-      if (m.init) { classe.set(m.cote); if (mode === 'classe') setTimeout(() => hud.banner(`⚔ Tournoi classé — ${rangDe(m.cote).label} (${m.cote})`, rangDe(m.cote).css), 3700); return; }
-      const ra = rangDe(m.avant), rb = rangDe(m.cote);
-      classe.set(m.cote, m.place);
-      setTimeout(() => hud.coteResult(m, ra, rb, badge(m.cote)), m.place === 1 ? 2500 : 1200);
-    });
-    room.onMessage('roll', (m) => { localStorage.setItem('derniereFusion', m.fusion); hud.clearUpgrades(); hud.showRoll(m); grimoire.add(m.fusion); localStorage.setItem('grimoire', JSON.stringify([...grimoire])); renderGrimoire(); });
     hud.monEq = () => room.state.players.get(room.sessionId)?.eq;
     hud.nivCompte = () => progress.niv;
     hud.onEmote = (e) => room.send('emote', { e });
-    room.onMessage('win', (m) => { hud.victory(m, m.id === room.sessionId); if (m.id === room.sessionId) progress.on(m.tournoi ? 'winTournoi' : 'winRoyale'); if (m.duo && room.state.players.get(room.sessionId)?.eq === m.eq) progress.on('winDuo'); });
-    room.onMessage('kill', (m) => {
-      hud.addKill(m, room.sessionId);
-      if (m.kid === room.sessionId) progress.on('kill', 1, myCtx());
-      // élimination par moi : petit coup de zoom + flash
-      if (m.kid === room.sessionId && bus.scene) { const cam = bus.scene.cameras.main; bus.scene.tweens.add({ targets: cam, zoom: bus.scene.baseZoom * 1.08, duration: 90, yoyo: true, hold: 180 }); cam.flash(120, 255, 255, 255, false); }
-    });
-    room.onMessage('fx', (m) => bus.scene?.fx(m));
-    room.onMessage('proj', (m) => bus.scene?.projSpawn(m));
-    room.onMessage('pend', (m) => bus.scene?.projEnd(m));
-    room.onMessage('anim', (m) => bus.scene?.castAnim(m.o, m.x, m.y, m.el, m.k, m.d, m.f));
-    room.onMessage('cd', (m) => hud.setCooldown(m));
     window.onbeforeunload = null;
-    room.onLeave(() => {
+    // Messages du serveur : branchés sur la salle (et rebranchés après une reconnexion)
+    const brancher = (r) => {
+      // Les messages arrivent dès la connexion : on les branche tout de suite
+      r.onMessage('lvl', (m) => { hud.levelUp(m); progress.on('lvl', m.n); });
+      r.onMessage('salon', (m) => hud.salon(m.code));
+      r.onMessage('survieFin', (m) => {   // Survie : fin de partie + record
+        const rec = Math.max(m.vague, +(localStorage.getItem('survie_record') || 0)), nouveau = m.vague > +(localStorage.getItem('survie_record') || 0);
+        localStorage.setItem('survie_record', rec); hud.survieFin(m, rec, nouveau); progress.on('vague', m.vague);
+      });
+      r.onMessage('cote', (m) => {
+        if (m.init) { classe.set(m.cote); if (mode === 'classe') setTimeout(() => hud.banner(`⚔ Tournoi classé — ${rangDe(m.cote).label} (${m.cote})`, rangDe(m.cote).css), 3700); return; }
+        const ra = rangDe(m.avant), rb = rangDe(m.cote);
+        classe.set(m.cote, m.place);
+        setTimeout(() => hud.coteResult(m, ra, rb, badge(m.cote)), m.place === 1 ? 2500 : 1200);
+      });
+      r.onMessage('roll', (m) => { localStorage.setItem('derniereFusion', m.fusion); hud.clearUpgrades(); hud.showRoll(m); grimoire.add(m.fusion); localStorage.setItem('grimoire', JSON.stringify([...grimoire])); renderGrimoire(); });
+      r.onMessage('win', (m) => { hud.victory(m, m.id === room.sessionId); if (m.id === room.sessionId) progress.on(m.tournoi ? 'winTournoi' : 'winRoyale'); if (m.duo && room.state.players.get(room.sessionId)?.eq === m.eq) progress.on('winDuo'); });
+      r.onMessage('kill', (m) => {
+        hud.addKill(m, room.sessionId);
+        if (m.kid === room.sessionId) progress.on('kill', 1, myCtx());
+        // élimination par moi : petit coup de zoom + flash
+        if (m.kid === room.sessionId && bus.scene) { const cam = bus.scene.cameras.main; bus.scene.tweens.add({ targets: cam, zoom: bus.scene.baseZoom * 1.08, duration: 90, yoyo: true, hold: 180 }); cam.flash(120, 255, 255, 255, false); }
+      });
+      r.onMessage('fx', (m) => bus.scene?.fx(m));
+      r.onMessage('proj', (m) => bus.scene?.projSpawn(m));
+      r.onMessage('pend', (m) => bus.scene?.projEnd(m));
+      r.onMessage('anim', (m) => bus.scene?.castAnim(m.o, m.x, m.y, m.el, m.k, m.d, m.f, true));
+      r.onMessage('cd', (m) => hud.setCooldown(m));
+      r.onMessage('orbe', (m) => { if (!m.k) progress.on('orb'); });
+      r.onLeave((code) => perdu(r, code));
+    };
+    const retourMenu = (txt) => {
+      hud.reconnexion?.(false);
       $('status').style.color = '#ff8a8a';
-      $('status').textContent = 'Déconnecté du serveur.';
+      $('status').textContent = txt;
       $('lobby').classList.remove('hidden');
       $('hud').classList.add('hidden');
       document.body.classList.remove('ingame');
@@ -258,8 +294,26 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
       setButtons(false);
       game?.destroy(true);
       game = null;
-    });
-
+    };
+    // Connexion perdue (wifi qui coupe, téléphone mis en veille…) : on tente de revenir dans la même partie
+    // pendant ~15 s ; le serveur garde notre personnage en attendant.
+    let quitte = false;
+    const perdu = async (ancienne, code) => {
+      if (quitte || ancienne !== room) return;
+      if (solo || code === 1000) return retourMenu('Partie terminée.');
+      hud.reconnexion?.(true);
+      const client = new Client(SERVER_URL);
+      for (let i = 0; i < 7 && !quitte; i++) {
+        try {
+          const nr = await withTimeout(client.reconnect(ancienne.reconnectionToken), 5000);
+          room = nr; brancher(nr); bus.scene?.nouvelleRoom?.(nr);
+          hud.reconnexion?.(false); hud.toast('📡 Reconnecté !', '#7fe0c2');
+          return;
+        } catch (e) { await new Promise((ok) => setTimeout(ok, 2000)); }
+      }
+      retourMenu('Connexion perdue avec le serveur. Relance une partie.');
+    };
+    brancher(room);
     $('lobby').classList.add('hidden');
     hud.show();
     document.body.classList.add('ingame');
@@ -282,7 +336,7 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
     setButtons(false);
   }
 }
-function setButtons(dis) { ['play', 'playRoyale', 'playTournoi', 'playClasse', 'playSurvie'].forEach((b) => { $(b).disabled = dis; }); }
+function setButtons(dis) { ['play', 'playRoyale', 'playTournoi', 'playClasse', 'playSurvie', 'playDuo'].forEach((b) => { $(b).disabled = dis; }); }
 
 $('play').addEventListener('click', () => play('arena', $('solo').checked));
 $('playRoyale').addEventListener('click', () => play('royale', $('solo').checked));
@@ -297,3 +351,26 @@ $('joinCode').addEventListener('click', () => {
 });
 $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinCode').click(); });
 nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') play('arena', $('solo').checked); });
+
+// ---------------- Onglets du menu ----------------
+function onglet(nom) {
+  document.querySelectorAll('#onglets button').forEach((b) => b.classList.toggle('on', b.dataset.o === nom));
+  document.querySelectorAll('#lobby .onglet').forEach((sec) => sec.classList.toggle('hidden', sec.dataset.o !== nom));
+  try { localStorage.setItem('onglet', nom === 'reglages' ? 'jouer' : nom); } catch { /* rien */ }
+}
+document.querySelectorAll('#onglets button').forEach((b) => { b.onclick = () => onglet(b.dataset.o); });
+onglet(salonParam ? 'jouer' : localStorage.getItem('onglet') || 'jouer');
+// Badge « défis restants » sur l'onglet Défis
+function badgeDefis() { const n = progress.d.defis?.filter((d) => !d.done).length || 0; $('defisBadge').textContent = n ? n : ''; }
+badgeDefis(); setInterval(badgeDefis, 5000);
+
+// ---------------- Réglages ----------------
+$('rgQualite').value = reglages.qualite;
+$('rgQualite').onchange = (e) => changerReglage('qualite', e.target.value);
+$('rgPing').checked = reglages.ping; $('rgPing').onchange = (e) => changerReglage('ping', e.target.checked);
+$('rgFps').checked = reglages.fps; $('rgFps').onchange = (e) => changerReglage('fps', e.target.checked);
+$('rgInterface').value = String(reglages.interface); $('rgInterface').onchange = (e) => changerReglage('interface', parseFloat(e.target.value));
+$('rgVibration').checked = reglages.vibration; $('rgVibration').onchange = (e) => changerReglage('vibration', e.target.checked);
+const majJoy = () => { $('rgJoystickV').textContent = reglages.joystick <= 0.25 ? 'très sensible' : reglages.joystick <= 0.4 ? 'normale' : 'peu sensible'; };
+$('rgJoystick').value = reglages.joystick; majJoy();
+$('rgJoystick').oninput = (e) => { changerReglage('joystick', parseFloat(e.target.value)); majJoy(); };

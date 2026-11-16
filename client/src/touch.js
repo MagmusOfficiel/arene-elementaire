@@ -1,3 +1,4 @@
+import { reglages } from './reglages.js';
 // =====================================================================
 //  Contrôles tactiles (téléphone / tablette)
 //  - joystick qui apparaît sous le pouce gauche
@@ -54,7 +55,7 @@ export function initTouch() {
       const r = b.getBoundingClientRect(); x0 = r.left + r.width / 2; y0 = r.top + r.height / 2; glisse = false;
       if (slot === 'basique') touch.attack = true;
       else if (slot === 'esquive') touch.onCast?.(slot);          // l'esquive part tout de suite
-      if (navigator.vibrate) navigator.vibrate(12);
+      if (reglages.vibration && navigator.vibrate) navigator.vibrate(12);
     });
     b.addEventListener('pointermove', (e) => {
       if (e.pointerId !== pid || slot === 'esquive') return;

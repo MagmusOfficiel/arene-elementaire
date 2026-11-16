@@ -70,7 +70,8 @@ export class ArenaState extends Schema {
     this.mode = 'melee'; this.phase = 'jeu'; this.timer = 0;
     this.zoneX = 0; this.zoneY = 0; this.zoneR = 0; this.alive = 0; this.winner = ''; this.round = 0;
     this.event = ''; this.eventT = 0; this.eventEl = '';
-    this.sA = 0; this.sB = 0;   // Duo : manches gagnées par les Bleus (A) et les Rouges (B)
+    this.sA = 0; this.sB = 0;
+    this.horloge = 0;   // temps serveur (ms) : sert au client à lisser les mouvements des autres   // Duo : manches gagnées par les Bleus (A) et les Rouges (B)
   }
 }
 defineTypes(ArenaState, {
@@ -80,6 +81,6 @@ defineTypes(ArenaState, {
   zombies: { map: Zombie },
   hordeIn: 'uint8',
   mode: 'string', phase: 'string', timer: 'float32',
-  zoneX: 'float32', zoneY: 'float32', zoneR: 'float32', alive: 'uint8', winner: 'string', round: 'uint8', sA: 'uint8', sB: 'uint8',
+  zoneX: 'float32', zoneY: 'float32', zoneR: 'float32', alive: 'uint8', winner: 'string', round: 'uint8', sA: 'uint8', sB: 'uint8', horloge: 'uint32',
   event: 'string', eventT: 'uint8', eventEl: 'string',
 });

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { couleurDe, emoteDe } from '../../shared/cosmetiques.js';
+import { reglages, surReglage, fxMul } from './reglages.js';
 import { RigSprite } from './rig.js';
 import { Ambiance } from './ambiance.js';
 import { Hero, HEROS } from './hero.js';
@@ -96,7 +97,9 @@ export class ArenaScene extends Phaser.Scene {
     this.load.on('loaderror', () => {}); // une image manquante ne bloque pas le jeu
 
     if (!this.colisee && !this.breche) {   // le Colisée et la Brèche n'ont besoin ni du sol, ni des bâtiments, ni des décors du monde
-      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) this.load.image(`ground_${i}_${j}`, `/art/ground_${i}_${j}.webp`);
+      // Sol en demi-résolution en qualité basse, ou sur téléphone en automatique : 4 fois moins de mémoire graphique
+      const solLeger = reglages.qualite === 'bas' || (reglages.qualite === 'auto' && TOUCH);
+      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) this.load.image(`ground_${i}_${j}`, `/art/ground_${i}_${j}${solLeger ? '_bas' : ''}.webp`);
       this.load.json('bmeta', '/art/buildings.json');
       // bâtiments + décors réunis dans un seul atlas : le GPU dessine tout le décor d'un coup
       this.load.atlas('decor', '/art/atlas_decor.webp', '/art/atlas_decor.json');
@@ -125,11 +128,29 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
+  // Réponse au ping (rebranchée après une reconnexion)
+  brancherPong() {
+    this.room.onMessage('pong', (m) => {
+      const r = Math.max(0, (performance.now() - (m?.t || 0)) / 1000);
+      // on garde le plus petit des derniers essais : un pong traité en retard (image lente) ne fausse pas la mesure
+      if (r < 3) { (this.rtts ||= []).push(r); if (this.rtts.length > 6) this.rtts.shift(); this.rtt = Math.min(...this.rtts); this.pingN++; }
+      this.hud.ping?.(Math.round(this.rtt * 1000), this.room.state.horloge != null);
+    });
+  }
+  // Reconnexion : la scène continue avec la nouvelle connexion (même joueur, même partie)
+  nouvelleRoom(r) { this.room = r; this.brancherPong(); this.srvPos = null; this.histo = []; }
+
   create() {
+    // Latence : un « ping » par seconde, aller-retour lissé (sert au recalage de notre perso)
+    this.rtt = 0.1;
+    this.brancherPong();
+    this.pingN = 0;
+    this.time.addEvent({ delay: 1000, loop: true, callback: () => { this.room.send('ping', { t: performance.now() }); this.hud.fps?.(Math.round(this.game.loop.actualFps)); } });
     const cam = this.cameras.main;
     cam.setBounds(-300, -300, ARENA.width + 600, ARENA.height + 600);
     cam.setBackgroundColor('#0b0d10');
     this.buildWorld();
+    this.preparerCulling();
 
     this.shadowG = this.add.graphics().setDepth(D_GROUND + 5);   // ombres et auras au sol
     this.uiG = this.add.graphics().setDepth(D_UI);               // barres de vie, statuts
@@ -143,6 +164,8 @@ export class ArenaScene extends Phaser.Scene {
     for (const [el, c] of Object.entries(FX)) {
       const { tex, frequency, ...cfg } = c;
       this.burst[el] = this.add.particles(0, 0, tex, { ...cfg, speed: { min: 80, max: 240 }, lifespan: (c.lifespan || 300) * 1.3, emitting: false }).setDepth(D_FX + 10);
+      const exp = this.burst[el].explode.bind(this.burst[el]);   // moins de particules en qualité moyenne / basse
+      this.burst[el].explode = (n, x, y) => exp(Math.max(1, Math.round(n * fxMul())), x, y);
     }
 
     // Vignettage
@@ -154,6 +177,9 @@ export class ArenaScene extends Phaser.Scene {
 
     this.keys = this.input.keyboard.addKeys('Z,Q,S,D,W,A,UP,DOWN,LEFT,RIGHT');
     this.ambiance = new Ambiance(this, this.colisee ? 'colisee' : this.breche ? 'breche' : null);
+    // Qualité graphique choisie dans les réglages
+    if (reglages.qualite === 'bas') { this.lowFx = true; this.ambiance.setLow(true); this.detailSol?.setVisible(false); }
+    surReglage((k, v) => { if (k !== 'qualite' || !this.sys?.isActive()) return; const bas = v === 'bas'; this.lowFx = bas; this.ambiance?.setLow(bas); this.detailSol?.setVisible(!bas); });
     globalThis.__scene = this;   // accès de débogage depuis la console
     for (const [k, h] of [['fx_ribbon', 30], ['fx_ribbon_m', 20], ['fx_ribbon_s', 7]]) {   // rubans : dégradé doux, transparent sur les bords
       if (this.textures.exists(k)) continue;
@@ -263,6 +289,30 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   // ---------------- Monde : sol peint, bâtiments, décors ----------------
+  // Décor hors de l'écran : on ne le dessine pas (et on met en pause ses particules).
+  // Le monde compte ~800 éléments fixes dont seule une petite partie est visible à la fois.
+  preparerCulling() {
+    this.cullables = [];
+    for (const o of this.children.list) {
+      if (!o.visible || o.scrollFactorX === 0 || o === this.detailSol) continue;
+      let b;
+      if (o.type === 'ParticleEmitter') b = new Phaser.Geom.Rectangle(o.x - 160, o.y - 160, 320, 320);
+      else if (o.getBounds) { b = o.getBounds(); if (!Number.isFinite(b.width) || b.width * b.height > 4e6) continue; }
+      else continue;
+      this.cullables.push({ o, b, vis: true });
+    }
+    this.time.addEvent({ delay: 120, loop: true, callback: () => this.culling() });
+  }
+  culling() {
+    const v = this.cameras.main.worldView, m = 260, V = new Phaser.Geom.Rectangle(v.x - m, v.y - m, v.width + m * 2, v.height + m * 2);
+    for (const c of this.cullables) {
+      const vis = Phaser.Geom.Rectangle.Overlaps(c.b, V);
+      if (vis === c.vis) continue;
+      c.vis = vis; c.o.setVisible(vis);
+      if (c.o.type === 'ParticleEmitter') vis ? c.o.resume() : c.o.pause();
+    }
+  }
+
   buildWorld() {
     if (this.colisee) return this.buildColisee();
     if (this.breche) return this.buildBreche();
@@ -270,7 +320,7 @@ export class ArenaScene extends Phaser.Scene {
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
       this.add.image(i * tw, j * th, `ground_${i}_${j}`).setOrigin(0).setDisplaySize(tw, th).setDepth(-100);
     }
-    this.add.tileSprite(0, 0, ARENA.width, ARENA.height, 'detail').setOrigin(0).setAlpha(0.22).setDepth(-99);
+    this.detailSol = this.add.tileSprite(0, 0, ARENA.width, ARENA.height, 'detail').setOrigin(0).setAlpha(0.22).setDepth(-99);
 
     this.buildTerrains();
 
@@ -511,7 +561,21 @@ export class ArenaScene extends Phaser.Scene {
     const dir = this.lastDir || { x: d.face || 1, y: 0 };
     return { x: d.x + dir.x * 300, y: d.y + dir.y * 300 };
   }
-  cast(slot, v) { const { x, y } = this.aim(v); this.room.send('cast', { slot, x, y }); this.hud.tutoEvent?.(slot); }
+  cast(slot, v) {
+    const { x, y } = this.aim(v);
+    this.room.send('cast', { slot, x, y });
+    this.hud.tutoEvent?.(slot);
+    // Retour immédiat à l'écran (geste + son) sans attendre l'aller-retour du serveur,
+    // seulement si le sort est disponible d'après les recharges connues
+    const myId = this.room.sessionId, p = this.room.state.players.get(myId), kit = p && this.kitOf(p), sp = kit?.[slot];
+    if (!sp || !p.alive || p.locked > 0 || slot === 'esquive') return;
+    const now = performance.now();
+    if (slot === 'ultime' ? p.ult < 100 : (this.hud.cdEnd?.[slot] || 0) > now + 60) return;
+    if (slot === 'basique' && now - (this.localCast?.basique || 0) < (sp.cd || 0.4) * 900) return;
+    (this.localCast ||= {})[slot] = now; this.localCastAny = now;
+    this.castAnim(myId, x, y, sp.element, null, 0, sp.forme);
+    sfx.cast(sp.element, 1, 0);
+  }
 
   // ---------------- Boucle ----------------
   update(time, delta) {
@@ -530,7 +594,8 @@ export class ArenaScene extends Phaser.Scene {
     this.fpsAcc = (this.fpsAcc || 0) + delta; this.fpsN = (this.fpsN || 0) + 1;
     if (this.fpsAcc > 4000) {
       const fps = (this.fpsN * 1000) / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0;
-      if (!this.lowFx && fps < 40 && time > 8000) { this.lowFx = true; this.ambiance?.setLow(true); }
+      this.fpsMesure = Math.round(fps);
+      if (!this.lowFx && fps < 40 && time > 8000 && (reglages.qualite === 'auto' || reglages.qualite === 'moyen')) { this.lowFx = true; this.ambiance?.setLow(true); }
     }
     this.drawZones(time);
     this.drawOrbs(time);
@@ -552,7 +617,18 @@ export class ArenaScene extends Phaser.Scene {
       const best = this.specId;
       if (best) md = this.disp.get(best);
     }
-    if (md) this.cameras.main.centerOn(md.x, md.y - 30);
+    // Caméra : légèrement en avant, vers la souris (ou la direction du déplacement sur téléphone)
+    if (md) {
+      let ax = 0, ay = 0;
+      if (me?.alive && md === this.disp.get(myId)) {
+        if (TOUCH) { ax = (md.vx || 0) * 9; ay = (md.vy || 0) * 9; }
+        else { const ptr = this.input.activePointer; ax = (ptr.x - this.scale.width / 2) * 0.12; ay = (ptr.y - this.scale.height / 2) * 0.12; }
+        const L = Math.hypot(ax, ay); if (L > 70) { ax *= 70 / L; ay *= 70 / L; }
+      }
+      this.camAv = this.camAv || { x: 0, y: 0 };
+      const k = Math.min(1, dt * 4); this.camAv.x += (ax - this.camAv.x) * k; this.camAv.y += (ay - this.camAv.y) * k;
+      this.cameras.main.centerOn(md.x + this.camAv.x, md.y - 30 + this.camAv.y);
+    }
     // Tactile : flèche de visée pendant qu'on glisse sur un bouton de sort
     if (TOUCH) {
       this.viseG ||= this.add.graphics().setDepth(D_FX + 5);
@@ -590,24 +666,51 @@ export class ArenaScene extends Phaser.Scene {
 
   sendInput(time) {
     const k = this.keys;
-    const inp = { u: k.Z.isDown || k.W.isDown || k.UP.isDown || touch.my < -0.38, d: k.S.isDown || k.DOWN.isDown || touch.my > 0.38,
-      l: k.Q.isDown || k.A.isDown || k.LEFT.isDown || touch.mx < -0.38, r: k.D.isDown || k.RIGHT.isDown || touch.mx > 0.38 };
+    const J = reglages.joystick;   // zone morte du joystick (réglage)
+    const inp = { u: k.Z.isDown || k.W.isDown || k.UP.isDown || touch.my < -J, d: k.S.isDown || k.DOWN.isDown || touch.my > J,
+      l: k.Q.isDown || k.A.isDown || k.LEFT.isDown || touch.mx < -J, r: k.D.isDown || k.RIGHT.isDown || touch.mx > J };
     if (inp.u || inp.d || inp.l || inp.r) this.hud.tutoEvent?.('move');
     const sig = `${+inp.u}${+inp.d}${+inp.l}${+inp.r}`;
     if (sig !== this.lastInput || time - this.lastInputSent > 250) { this.room.send('input', inp); this.lastInput = sig; this.lastInputSent = time; }
   }
 
+  // Horloge serveur : estime le décalage avec la nôtre et la gigue du réseau (pour l'interpolation)
+  horlogeServeur() {
+    const st = this.room.state, now = this.time.now / 1000;
+    if (st.horloge && st.horloge !== this.hDern) {
+      this.hDern = st.horloge;
+      const o = now - st.horloge / 1000;
+      if (this.hOff == null || o < this.hOff) this.hOff = o;           // le paquet le plus rapide donne le décalage
+      else this.hOff += Math.min(o - this.hOff, 0.5) * 0.002;          // dérive lente si le réseau change
+      this.gigue = lerp(this.gigue ?? 0.02, Math.min(0.3, o - this.hOff), 0.05);
+    }
+    // instant (en temps serveur) affiché pour les autres : un peu dans le passé pour toujours avoir 2 positions à mélanger
+    this.tRendu = this.hOff == null ? null : now - this.hOff - Math.min(0.25, 0.075 + this.gigue * 1.5);
+  }
+
+  // Autres joueurs et monstres : interpolation entre deux positions reçues du serveur (mouvement fluide
+  // même si les paquets arrivent irrégulièrement), au lieu de courir après la dernière reçue
   follow(key, x, y, t, snap = 400) {
     let d = this.disp.get(key);
-    if (!d || Math.abs(d.x - x) + Math.abs(d.y - y) > snap) { d = { x, y, vx: 0, vy: 0, face: 1 }; this.disp.set(key, d); }
-    const ox = d.x, oy = d.y;
-    d.x = lerp(d.x, x, t); d.y = lerp(d.y, y, t);
+    const ts = this.room.state.horloge / 1000;
+    if (!d || Math.abs(d.x - x) + Math.abs(d.y - y) > snap) { d = { x, y, vx: 0, vy: 0, face: 1, buf: [] }; this.disp.set(key, d); }
+    const ox = d.x, oy = d.y, B = (d.buf ||= []);
+    if (!B.length || B[B.length - 1][0] !== ts) { B.push([ts, x, y]); if (B.length > 12) B.shift(); }
+    const rt = this.tRendu;
+    let a = null, b = null;
+    if (rt != null) for (let i = B.length - 1; i > 0; i--) if (B[i - 1][0] <= rt) { a = B[i - 1]; b = B[i]; break; }
+    if (a && b && b[0] > a[0]) {
+      const k = Math.min(1, (rt - a[0]) / (b[0] - a[0]));
+      d.x = a[1] + (b[1] - a[1]) * k; d.y = a[2] + (b[2] - a[2]) * k;
+      if (Math.abs(d.x - x) + Math.abs(d.y - y) > snap) { d.x = x; d.y = y; B.length = 0; }
+    } else { d.x = lerp(d.x, x, t); d.y = lerp(d.y, y, t); }
     d.vx = lerp(d.vx, d.x - ox, 0.3); d.vy = lerp(d.vy, d.y - oy, 0.3);
     return d;
   }
 
   // ---------------- Persos ----------------
   drawPlayers(time, dt, myId) {
+    this.horlogeServeur();
     const seen = new Set();
     const t = Math.min(1, dt * 16);
     this.room.state.players.forEach((p, id) => {
@@ -866,32 +969,50 @@ export class ArenaScene extends Phaser.Scene {
   // Prédiction côté client : le joueur local bouge tout de suite, puis on se recale sur le serveur
   predict(p, dt) {
     let d = this.disp.get(this.room.sessionId);
-    if (!d || !p.alive || p.locked > 0) { d = { x: p.x, y: p.y, vx: 0, vy: 0, face: 1 }; this.disp.set(this.room.sessionId, d); return d; }
+    if (!d || !p.alive || p.locked > 0) { d = { x: p.x, y: p.y, vx: 0, vy: 0, face: 1 }; this.disp.set(this.room.sessionId, d); this.histo = []; return d; }
     const k = this.keys;
     let ix = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.Q.isDown || k.A.isDown || k.LEFT.isDown ? 1 : 0);
     let iy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.Z.isDown || k.W.isDown || k.UP.isDown ? 1 : 0);
-    if (!ix && !iy) { ix = touch.mx > 0.38 ? 1 : touch.mx < -0.38 ? -1 : 0; iy = touch.my > 0.38 ? 1 : touch.my < -0.38 ? -1 : 0; }   // joystick
+    const J = reglages.joystick;
+    if (!ix && !iy) { ix = touch.mx > J ? 1 : touch.mx < -J ? -1 : 0; iy = touch.my > J ? 1 : touch.my < -J ? -1 : 0; }   // joystick
     const len = Math.hypot(ix, iy) || 1;
     let speed = CONFIG.playerSpeed * (this.kitOf(p)?.vitesse || 1) * terrainSpeed(terrainAt(d.x, d.y, this.ters), p.a, p.b) * (S(p, 'slow') ? 1 - TAGS.lourd.slow : 1) * (S(p, 'frost') ? 1 - TAGS.gel.slow : 1) * (S(p, 'haste') ? 1.4 : 1);
     if (S(p, 'root')) speed = 0;
     const ox = d.x, oy = d.y;
-    const pos = resolveCollisions({
-      x: Phaser.Math.Clamp(d.x + (ix / len) * speed * dt, R, ARENA.width - R),
-      y: Phaser.Math.Clamp(d.y + (iy / len) * speed * dt, R, ARENA.height - R),
-    }, R, this.blds);
-    d.x = pos.x; d.y = pos.y;
+    // Déplacement en petits pas (≤ 10 px) : si une image dure longtemps, on ne traverse pas les murs et piliers
+    const pasN = Math.min(12, Math.max(1, Math.ceil((speed * dt) / 10)));
+    for (let k = 0; k < pasN; k++) {
+      const pos = resolveCollisions({
+        x: Phaser.Math.Clamp(d.x + (ix / len) * speed * (dt / pasN), R, ARENA.width - R),
+        y: Phaser.Math.Clamp(d.y + (iy / len) * speed * (dt / pasN), R, ARENA.height - R),
+      }, R, this.blds);
+      d.x = pos.x; d.y = pos.y;
+    }
     if (this.breche) { const A = SURVIE.arene, dd = Math.hypot(d.x - A.x, d.y - A.y), RR = A.r - R; if (dd > RR) { d.x = A.x + ((d.x - A.x) / dd) * RR; d.y = A.y + ((d.y - A.y) / dd) * RR; } }
     if (this.colisee) {   // on ne sort pas de son arène (même règle que le serveur)
       const st = this.room.state, c = this.duo ? DUO.arene : p.duel !== 255 && st.phase === 'jeu' ? tournoiPit(p.duel, Math.max(1, this.nbDuels())) : areneProche(d.x, d.y);
       const dd = Math.hypot(d.x - c.x, d.y - c.y), RR = c.r - R;
       if (dd > RR) { d.x = c.x + ((d.x - c.x) / dd) * RR; d.y = c.y + ((d.y - c.y) / dd) * RR; }
     }
-    // Recalage : on tolère un petit écart pendant le mouvement (latence), on converge à l'arrêt
-    const ex = p.x - d.x, ey = p.y - d.y, err = Math.hypot(ex, ey);
-    if (err > 160) { d.x = p.x; d.y = p.y; }
-    else {
-      const moving = ix || iy, dead = moving ? 36 : 0;
-      if (err > dead) { const f = (1 - dead / err) * Math.min(1, dt * 8); d.x += ex * f; d.y += ey * f; }
+    // Recalage avec compensation de latence : la position reçue du serveur correspond à là où NOUS étions
+    // il y a environ un aller-retour (le temps que nos touches lui arrivent et que sa réponse revienne).
+    // On la compare donc à notre position de ce moment-là, gardée dans un historique, et on corrige
+    // doucement la différence (sinon le perso serait tiré en arrière en permanence pendant qu'on bouge).
+    const now = this.time.now / 1000, H = (this.histo ||= []);
+    H.push([now, d.x, d.y]);
+    while (H.length > 2 && H[0][0] < now - 2) H.shift();
+    if (p.x !== this.srvPos?.x || p.y !== this.srvPos?.y) this.srvPos = { x: p.x, y: p.y, t: now };
+    const tt = this.srvPos.t - this.rtt - 0.03;
+    let h = H[0];
+    for (let i = H.length - 1; i >= 0; i--) if (H[i][0] <= tt) { h = H[i]; break; }
+    const ex = p.x - h[1], ey = p.y - h[2], err = Math.hypot(ex, ey);
+    if (err > 220) { d.x = p.x; d.y = p.y; H.length = 0; }   // vrai décalage (repoussé, téléporté…) : recalage net
+    else if (err > 3) {
+      // plus l'écart est grand, plus on corrige vite… sans jamais dépasser la moitié de la vitesse de marche
+      // pendant qu'on bouge (le perso ne doit jamais avoir l'air bloqué ou tiré en arrière)
+      const bouge = ix || iy, f = Math.min(1, dt * ((bouge ? 3 : 6) + err / 30));
+      const max = (bouge ? 0.5 : 2) * CONFIG.playerSpeed * dt, c = Math.min(err * f, max) / err, cx = ex * c, cy = ey * c;
+      d.x += cx; d.y += cy; for (const e of H) { e[1] += cx; e[2] += cy; }
     }
     d.vx = lerp(d.vx, d.x - ox, 0.3); d.vy = lerp(d.vy, d.y - oy, 0.3);
     return d;
@@ -973,9 +1094,11 @@ export class ArenaScene extends Phaser.Scene {
 
   // ---------------- Projectiles ----------------
   // Élan du lanceur : le perso se penche vers la cible, flash d'élément à la main
-  castAnim(owner, tx, ty, el, kind, dur, forme) {
+  castAnim(owner, tx, ty, el, kind, dur, forme, echo = false) {
     const c = this.chars.get(owner), d = this.disp.get(owner);
     if (!c || !d) return;
+    // écho du serveur d'un sort déjà animé tout de suite chez nous : on ne le rejoue pas (sauf saut / tourbillon)
+    if (echo && owner === this.room.sessionId && !kind && performance.now() - (this.localCastAny || 0) < 600) return;
     c.castMelee = ['melee', 'charge', 'frappe', 'tourbillon', 'saut'].includes(forme) || kind === 'spin';
     if (kind === 'saut') { c.jumpT = this.time.now; c.jumpD = dur * 1000; }
     if (kind === 'spin') { c.spinT = this.time.now; c.spinD = dur * 1000; c.spinEl = el; }
@@ -988,9 +1111,10 @@ export class ArenaScene extends Phaser.Scene {
 
   projSpawn(m) {
     this.projSim.set(m.i, { ...m, trav: 0 });
-    if (m.o) this.castAnim(m.o, m.x + m.vx, m.y + m.vy, m.el);
+    const deja = m.o === this.room.sessionId && performance.now() - (this.localCastAny || 0) < 600;   // déjà joué localement
+    if (m.o && !deja) this.castAnim(m.o, m.x + m.vx, m.y + m.vy, m.el);
     const [v, pan] = this.ear(m.x, m.y);
-    if (v > 0) sfx.cast(m.el, v, pan);
+    if (v > 0 && !deja) sfx.cast(m.el, v, pan);
   }
   projEnd(m) {
     const p = this.projSim.get(m.i);
@@ -998,6 +1122,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   drawProjectiles(dt) {
+    const v = this.cameras.main.worldView, M = 300;
     for (const [id, pr] of this.projSim) {
       if (!pr.dead) {
         pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.trav += Math.hypot(pr.vx, pr.vy) * dt;
@@ -1005,6 +1130,14 @@ export class ArenaScene extends Phaser.Scene {
         if (pr.trav > pr.rg + 60 || insideBuilding(pr.x, pr.y, 2, this.blds)) pr.dead = true;   // le serveur confirmera
       }
       let o = this.projObjs.get(id);
+      // Projectile loin de l'écran : on ne crée pas (ou on cache) ses effets visuels, très coûteux en Battle royale
+      const pres = pr.x > v.x - M && pr.x < v.right + M && pr.y > v.y - M && pr.y < v.bottom + M;
+      if (!pres) {
+        if (pr.dead) { if (o) this.finProjectile(o, false); this.projObjs.delete(id); this.projSim.delete(id); }
+        else if (o && o.vis !== false) { o.vis = false; for (const k of ['glow', 'glow2', 'tail', 'core', 'light', 'rib', 'rib2', 'em', 'em2']) o[k].setVisible(false); o.em.pause(); o.em2.pause(); }
+        continue;
+      }
+      if (o && o.vis === false) { o.vis = true; for (const k of ['glow', 'glow2', 'tail', 'core', 'light', 'rib', 'rib2', 'em', 'em2']) o[k].setVisible(true); o.em.resume(); o.em2.resume(); }
       const col = elColor(pr.el), cfg = FX[pr.el] || FX.feu;
       if (!o) {
         // Style du champion qui a lancé le projectile (forme, traînée, impact)
@@ -1054,14 +1187,72 @@ export class ArenaScene extends Phaser.Scene {
         o.st.hit.forEach((h, k) => this.shapeBurst(h, pr.x, y, 5, k % 2 ? col : o.colB));
         const ring = this.add.image(pr.x, y, 'fx_ring_thin').setTint(o.colB).setBlendMode('ADD').setDepth(D_FX + 2).setScale(0.05);
         this.tweens.add({ targets: ring, scale: pr.r / 40, alpha: 0, duration: 260, onComplete: () => ring.destroy() });
-        o.glow.destroy(); o.glow2.destroy(); o.tail.destroy(); o.core.destroy();
-        const rb = [o.rib, o.rib2]; this.tweens.add({ targets: rb, alpha: 0, duration: 160, onComplete: () => rb.forEach((r) => r.destroy()) });
-        o.light.destroy();
+        this.finProjectile(o, true);
         this.scorch(pr.x, pr.y, pr.r * 2.2, o.el);
-        o.em.stop(); o.em2.stop(); this.time.delayedCall(700, () => { o.em.destroy(); o.em2.destroy(); });
         this.projObjs.delete(id); this.projSim.delete(id);
       }
     }
+  }
+  finProjectile(o, fondu) {
+    o.glow.destroy(); o.glow2.destroy(); o.tail.destroy(); o.core.destroy(); o.light.destroy();
+    const rb = [o.rib, o.rib2];
+    if (fondu) this.tweens.add({ targets: rb, alpha: 0, duration: 160, onComplete: () => rb.forEach((r) => r.destroy()) }); else rb.forEach((r) => r.destroy());
+    o.em.stop(); o.em2.stop();
+    if (fondu) this.time.delayedCall(700, () => { o.em.destroy(); o.em2.destroy(); }); else { o.em.destroy(); o.em2.destroy(); }
+  }
+
+  // Coup reçu : arc rouge orienté vers l'attaquant + vignette rouge sur les bords de l'écran
+  coupRecu(angle, force) {
+    const me = this.disp.get(this.room.sessionId);
+    if (me && angle != null) {
+      const g = this.add.graphics().setDepth(D_UI - 1);
+      const o = { a: 1 };
+      const tracer = () => { const d = this.disp.get(this.room.sessionId) || me; g.clear(); g.lineStyle(7, 0xff3030, 0.85 * o.a).beginPath(); g.arc(d.x, d.y - 40, 78, angle - 0.45, angle + 0.45); g.strokePath(); };
+      tracer();
+      this.tweens.add({ targets: o, a: 0, duration: 650, onUpdate: tracer, onComplete: () => g.destroy() });
+    }
+    let v = document.getElementById('vignette');
+    if (!v) { v = document.createElement('div'); v.id = 'vignette'; document.getElementById('hud').appendChild(v); }
+    v.style.opacity = String(Math.min(0.85, 0.25 + force * 0.6));
+    clearTimeout(this._vig); this._vig = setTimeout(() => { v.style.opacity = '0'; }, 120);
+  }
+  // Micro-pause : le jeu « accroche » 60 ms sur un gros coup (ralentit seulement les effets à l'écran)
+  pauseImpact() {
+    if (this.lowFx || this._pause) return;
+    this._pause = true; this.tweens.timeScale = 0.15;
+    for (const em of Object.values(this.burst || {})) em.timeScale = 0.15;
+    setTimeout(() => { this.tweens.timeScale = 1; for (const em of Object.values(this.burst || {})) em.timeScale = 1; this._pause = false; }, 60);
+  }
+
+  // Annonce d'un ultime : contour + remplissage qui se « charge » jusqu'au moment de l'impact
+  annonceUlt(m) {
+    const moi = m.o === this.room.sessionId, col = elColor(m.el), danger = moi ? col : 0xff3a3a;
+    const g = this.add.graphics().setDepth(D_GROUND + 8), t0 = this.time.now, D = m.d * 1000;
+    const dessiner = () => {
+      const k = Math.min(1, (this.time.now - t0) / D), pul = 0.5 + Math.sin(this.time.now / 60) * 0.25;
+      const c = this.disp.get(m.o), x = c?.x ?? m.x, y = c?.y ?? m.y;
+      g.clear();
+      if (m.f === 'nova' || m.f === 'domaine') {
+        g.fillStyle(danger, 0.1 + k * 0.12).fillCircle(x, y, m.r);
+        g.fillStyle(danger, 0.22).fillCircle(x, y, m.r * k);
+        g.lineStyle(4, danger, 0.6 + pul * 0.4).strokeCircle(x, y, m.r);
+        g.lineStyle(2, col, 0.9).strokeCircle(x, y, m.r * k);
+      } else {
+        const ux = Math.cos(m.a), uy = Math.sin(m.a), nx = -uy * m.w / 2, ny = ux * m.w / 2, L = m.len;
+        const coin = (l, s2) => ({ x: x + ux * l + nx * s2, y: y + uy * l + ny * s2 });
+        const poly = (l0, l1) => [coin(l0, 1), coin(l1, 1), coin(l1, -1), coin(l0, -1)];
+        g.fillStyle(danger, 0.1 + k * 0.1).fillPoints(poly(0, L), true);
+        g.fillStyle(danger, 0.25).fillPoints(poly(0, L * k), true);
+        g.lineStyle(3, danger, 0.6 + pul * 0.4).strokePoints(poly(0, L), true);
+        const pt = coin(L, 0), b1 = coin(L - 50, 1.4), b2 = coin(L - 50, -1.4);   // pointe de flèche
+        g.fillStyle(danger, 0.7).fillTriangle(pt.x + ux * 30, pt.y + uy * 30, b1.x, b1.y, b2.x, b2.y);
+      }
+      if (k >= 1) { g.destroy(); return; }
+      this.time.delayedCall(16, dessiner);
+    };
+    dessiner();
+    const [v, pan] = this.ear(m.x, m.y);
+    if (v > 0 && !moi) sfx.elite?.(v, pan);   // petit signal d'alerte
   }
 
   // Trace laissée au sol par un impact (brûlure, flaque, givre…), qui s'efface en quelques secondes
@@ -1273,8 +1464,13 @@ export class ArenaScene extends Phaser.Scene {
         }
         this.orbObjs.set(id, o);
       }
+      // hors de l'écran : caché, sans calcul (sauf la colonne de lumière des orbes légendaires, visible de loin)
+      const v = this.cameras.main.worldView, vis = orb.x > v.x - 150 && orb.x < v.right + 150 && orb.y > v.y - 150 && orb.y < v.bottom + 150;
+      if (vis !== o.vis) { o.vis = vis; o.img.setVisible(vis); o.glow.setVisible(vis); o.rays?.setVisible(vis); }
+      if (!vis) { if (o.beam) o.beam.setAlpha(0.35 + Math.sin(time / 200) * 0.15); return; }
       const f = Math.sin(time / 300 + orb.x) * 5;
-      o.img.setPosition(orb.x, orb.y - 6 + f).setDepth(orb.y);
+      if (o.img.depth !== orb.y) o.img.setDepth(orb.y);
+      o.img.setPosition(orb.x, orb.y - 6 + f);
       o.glow.setPosition(orb.x, orb.y).setScale((orb.k ? 1.6 : 0.5) + Math.sin(time / 300) * 0.05, orb.k ? 0.6 : 0.22);
       if (o.beam) { o.beam.setAlpha(0.35 + Math.sin(time / 200) * 0.15); o.rays.setAngle(time / 40); if (Math.random() < 0.3) this.burst.eclair?.explode(1, orb.x + (Math.random() - 0.5) * 60, orb.y - Math.random() * 120); }
     });
@@ -1426,7 +1622,15 @@ export class ArenaScene extends Phaser.Scene {
       if (v > 0) sfx.impact(m.el, v, pan);
       this.markFlash(m.x, m.y);
       { const moi = this.room.state.players.get(myId), surMoi = moi && Math.abs(moi.x - m.x) < 2 && Math.abs(moi.y - m.y) < 2;
-        if (surMoi) { sfx.hurt(); if (TOUCH && navigator.vibrate) navigator.vibrate(25); } else if (m.o === myId) sfx.hitmark();
+        if (surMoi) {
+          sfx.hurt(); if (TOUCH && reglages.vibration && navigator.vibrate) navigator.vibrate(25);
+          // d'où vient le coup : arc rouge autour de moi + bords de l'écran qui rougissent
+          const src = m.o && (this.disp.get(m.o) || this.room.state.players.get(m.o));
+          this.coupRecu(src ? Math.atan2(src.y - m.y, src.x - m.x) : null, Math.min(1, m.v / 25));
+        } else if (m.o === myId) {
+          sfx.hitmark();
+          if (m.v >= 30) { this.cameras.main.shake(90, 0.0035); this.pauseImpact(); }   // gros coup donné : petite secousse + micro-pause
+        }
         if (this.colisee && m.v >= 25 && v > 0.3) foule(0.45, 1); }
       this.burst[m.el]?.explode(6, m.x, m.y - 40);
       const crit = m.v >= 25;
@@ -1527,6 +1731,8 @@ export class ArenaScene extends Phaser.Scene {
     } else if (m.t === 'tround') {
       this.hud.banner(`🏆 ${m.nom}`, '#ffcf3a'); sfx.gong();
       this.cameras.main.flash(250, 255, 220, 120, false);
+    } else if (m.t === 'annonce') {   // zone d'impact d'un ultime, montrée juste avant qu'il frappe
+      this.annonceUlt(m);
     } else if (m.t === 'emote') {   // bulle au-dessus du joueur
       const E = emoteDe(m.e); if (!E) return;
       const c = this.chars.get(m.o); if (!c) return;
