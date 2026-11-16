@@ -1,0 +1,14 @@
+# Déploiement Netlify depuis GitHub (version web du jeu).
+# Netlify n'héberge que des fichiers : sans serveur, le jeu tourne en mode solo.
+# Pour le multijoueur, renseigne l'adresse de ton serveur Render dans client/public/config.js.
+[build]
+  command = "npm ci && npm run build"
+  publish = "client/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

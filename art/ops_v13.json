@@ -1,0 +1,21 @@
+{
+ "eau+lumiere": "8cdc575e-256a-4c4e-9e2c-aad29d96ce62",
+ "feu+lumiere": "554a180e-95ad-4195-bd44-f778eaaa3bf4",
+ "lumiere+terre": "22ce9333-396f-4134-9e60-ae5ba03b2024",
+ "lumiere+vent": "083a9c04-3fc7-4435-84a5-d64ee10f9867",
+ "eclair+lumiere": "20cb4d35-1d1c-46fb-8429-72450ef1140b",
+ "glace+lumiere": "77e71170-5043-4dd2-b1be-e1063b424fef",
+ "lumiere+ombre": "71cea5eb-deac-46ae-956d-f7f4d4bc21b5",
+ "lumiere+metal": "fac1d47d-096c-4bf7-b33e-2eb1356efe01",
+ "lumiere+nature": "560240b5-55a6-4160-ae1c-2506bee0c5b7",
+ "lumiere+lumiere": "cab02b4f-4a8a-4d4d-a413-f4ccd59f2c2b",
+ "eau+nature": "f3ca2ca3-4733-41df-9031-0429b19be2f9",
+ "feu+nature": "9739def8-c4a7-4ee3-afa8-37782f2c9031",
+ "nature+terre": "12534190-eca6-4f0f-bec1-b8575f6ba1f1",
+ "nature+vent": "65d7fc48-739d-45c9-96ad-7c376fa030c4",
+ "eclair+nature": "86f3f3db-ae80-47d1-a89f-1c84c064f53a",
+ "glace+nature": "10cee331-92fa-45e1-9387-d16ae103d19c",
+ "nature+ombre": "b0df07f3-d02c-48fd-9224-02ae863e19b6",
+ "metal+nature": "9d3c8175-30d8-4bac-b606-7cc2df70eae0",
+ "nature+nature": "50cea625-1e8b-44c1-ad14-427125705132"
+}

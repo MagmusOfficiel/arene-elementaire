@@ -1,0 +1,13 @@
+# Déploiement en un clic sur Render (offre gratuite)
+services:
+  - type: web
+    name: arene-elementaire
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    # Base gratuite Upstash Redis pour garder les classements (à remplir dans Render > Environment)
+    envVars:
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

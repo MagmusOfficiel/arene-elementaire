@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Arène Élémentaire</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="lobby" class="overlay">
+    <div class="panel">
+      <h1>ARÈNE <span>ÉLÉMENTAIRE</span></h1>
+      <p class="sub">Deux éléments. Une fusion. Un seul survivant.</p>
+      <div id="grimoireTitle"></div>
+      <div id="gallery"></div>
+      <div id="classement"></div>
+      <div id="rangBox"></div>
+      <div id="survieBox"></div>
+      <div id="fiche" class="hidden"><div class="fi-in"><button class="fi-x">✕</button><div class="fi-h"></div><div class="sb-list"></div></div></div>
+      <div id="defis"></div>
+      <div id="titreBox">
+        <div id="profil"></div>
+        <div id="compteBox"><span id="compteTxt">☁ Compte : connexion…</span><button id="compteCopier" type="button">Copier le code</button><details><summary>J'ai déjà un compte</summary><input id="compteCode" maxlength="9" placeholder="K7QF-2XMB" autocomplete="off" /><button id="compteRecup" type="button">Récupérer</button></details></div>
+        <div class="cosm"><label>🏅 Titre <select id="titreSel"></select></label><label>🎨 Couleur du nom <select id="coulSel"></select></label><label>🖼 Cadre <select id="cadreSel"></select></label></div>
+        <span id="gloire"></span>
+        <details><summary>Voir tous les titres</summary><div id="titresListe"></div></details>
+      </div>
+      <input id="name" maxlength="16" placeholder="Ton pseudo" autocomplete="off" />
+      <div class="modes">
+        <button id="play" data-mode="arena">🌍 Monde ouvert<small>zombies · réapparition</small></button>
+        <button id="playRoyale" data-mode="royale">👑 Battle royale<small>50 joueurs · 1 vie</small></button>
+        <button id="playTournoi" data-mode="tournoi">🏆 Tournoi<small>8 · duels à élimination</small></button>
+        <button id="playClasse" data-mode="classe">⚔ Classé<small>tournoi · ta cote en jeu</small></button>
+        <button id="playSurvie" data-mode="survie">☠ Survie<small>vagues infinies · 1 vie</small></button>
+        <button id="playDuo" data-mode="duo">🤝 Duo 2v2<small>en équipe · combos d'éléments</small></button>
+      </div>
+      <div id="volumes"><label>🎵 Musique <input type="range" id="volMusique" min="0" max="1" step="0.05"></label><label>🔊 Effets <input type="range" id="volEffets" min="0" max="1" step="0.05"></label><small>M en jeu : couper le son</small></div>
+      <label class="solo"><input type="checkbox" id="solo"> 🤖 Jouer hors-ligne (solo contre les mannequins)</label>
+      <div class="salon">
+        <label><input type="checkbox" id="prive"> 🔒 Créer un salon privé (choisis le mode ci-dessus)</label>
+        <div class="join"><input id="code" maxlength="4" placeholder="CODE" autocomplete="off" /><button id="joinCode">Rejoindre un ami</button></div>
+      </div>
+      <p id="status"></p>
+      <div class="ctrlTouch">🕹 Joystick à gauche pour bouger · <b>Touche</b> un sort = visée auto · <b>Glisse</b> depuis le sort = vise toi-même · reviens sur le bouton pour annuler</div>
+      <div class="controls touch-hide">
+        <div><b>ZQSD</b> / <b>WASD</b> se déplacer</div>
+        <div><b>Clic gauche</b> attaque de base (maintenir)</div>
+        <div><b>E</b> ou <b>clic droit</b> Sort 1 · <b>Shift</b> Sort 2 · <b>F</b> Sort 3 · <b>Espace</b> Esquive</div>
+        <div><b>1 / 2 / 3</b> choisir une amélioration quand tu montes de niveau</div>
+        <div><b>R</b> Ultime (quand la jauge est pleine) · <b>M</b> couper le son</div>
+        <div>🧟 Tuer des zombies charge ton ultime — une horde déferle toutes les 75 s</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="roll" class="overlay hidden">
+    <div class="roll-box">
+      <div class="roll-title">TIRAGE ÉLÉMENTAIRE</div>
+      <img id="rollPortrait" alt="" />
+      <div class="slots-roll">
+        <div class="slot-el" id="slotA">?</div>
+        <div class="plus">+</div>
+        <div class="slot-el" id="slotB">?</div>
+      </div>
+      <div id="fusionReveal"></div>
+      <div id="ultReveal"></div>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div id="topleft">
+      <div id="fusionName"></div>
+      <div id="elChips"></div>
+      <div id="fusionDesc"></div>
+      <div id="biome"></div>
+    </div>
+    <div id="scoreboard"></div>
+    <div id="killfeed"></div>
+    <div id="banner"></div>
+    <div id="cutin" class="hidden"><div class="cut-lines"></div><div class="cut-band"><img id="cutImg" alt=""><div class="cut-text"><div id="cutWho"></div><div id="cutName"></div></div></div></div>
+    <div id="hurt"></div>
+    <div id="lowhp"></div>
+    <div id="combo" class="hidden"><b>0</b><span>COMBO</span><i></i></div>
+    <div id="streak"></div>
+    <div id="horde"></div>
+    <div id="royale" class="hidden"></div>
+    <div id="victory" class="hidden"><div class="v-title"></div><img id="vImg" alt=""><div class="v-sub"></div></div>
+    <div id="bottom">
+      <div id="statuses"></div>
+      <div id="vitals">
+        <div id="avatar"><img id="hudPortrait" alt="" /><span id="lvl">1</span></div>
+        <div id="bars">
+          <div id="hpbar"><div id="hplag"></div><div id="hpfill"></div><div id="shieldfill"></div><span id="hptext"></span></div>
+          <div id="xpbar"><div id="xpfill"></div></div>
+        </div>
+      </div>
+      <div id="spellslots"></div>
+    </div>
+    <div id="salonChip" class="hidden"></div>
+    <div id="sptip" class="hidden"></div>
+    <div id="spellbook" class="hidden"><div class="sb-in"><div class="sb-h"></div><div class="sb-list"></div><div class="sb-f">Touche <b>I</b> ou clic sur ton portrait pour ouvrir / fermer</div></div></div>
+    <div id="evfx"></div>
+    <div id="evpill" class="hidden"></div>
+    <div id="toasts"></div>
+    <div id="bossbar" class="hidden"><div class="bn">👹 TITAN DE LA HORDE</div><div class="bb"><div class="bf"></div></div></div>
+    <div id="tuto" class="hidden"><div class="tt"></div><div class="td"></div><button id="tutoSkip">Passer le tutoriel</button></div>
+    <div id="touch" class="hidden">
+      <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+      <button id="tb-emote" type="button">💬</button>
+      <div id="tbtns">
+        <button class="tb big" id="tb-b">⚔<span class="cd"></span></button>
+        <button class="tb" id="tb-s1">E<span class="cd"></span></button>
+        <button class="tb" id="tb-s2">⇧<span class="cd"></span></button>
+        <button class="tb" id="tb-s3">F<span class="cd"></span></button>
+        <button class="tb" id="tb-dg">💨<span class="cd"></span></button>
+        <button class="tb ult" id="tb-ult">★<span class="cd"></span></button>
+      </div>
+    </div>
+    <div id="rotate">📱↻<br>Tourne ton téléphone en mode paysage</div>
+    <div id="upgrades" class="hidden"><div class="up-title"></div><div class="up-cards"></div></div>
+    <div id="dead" class="hidden">K.O. — nouveau tirage dans quelques secondes…</div>
+  </div>
+
+  <script src="/config.js"></script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
