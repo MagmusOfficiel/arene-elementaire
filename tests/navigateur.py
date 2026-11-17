@@ -214,11 +214,13 @@ async def main():
             verifier(True, 'file publique : deux joueurs se retrouvent dans le même salon')
             for c in ctxs: await c.close()
 
-            print('8. Zone Morte : monde, déplacement, porte, sauvegarde, zombies, mort')
+            print('8. Zone Morte : monde, porte, sauvegarde, fouille, barricade, zombies, mort')
             ctx = await b.new_context(viewport={'width': 1100, 'height': 650}); pg = await ctx.new_page(); pg.erreurs = []
             pg.on('pageerror', lambda e: pg.erreurs.append(str(e)))
             await pg.goto(URL); await pg.click('#hubZone'); await pg.wait_for_url('**/zone-morte/**', timeout=15000)
+            await pg.click('#metiers button[data-m="policier"]')
             await pg.fill('#graine', 'test'); await pg.click('#btNouvelle'); await pg.wait_for_timeout(1200)
+            verifier(await pg.evaluate("window.__zm.partie.survivant.inv.some((o) => o.id === 'pistolet') && window.__zm.partie.survivant.metier === 'policier'"), 'métier choisi : le policier part avec un pistolet')
             avant = await pg.evaluate('window.__zm.partie.joueur.x')
             await pg.keyboard.down('d'); await pg.wait_for_timeout(1200); await pg.keyboard.up('d')
             verifier(await pg.evaluate('window.__zm.partie.joueur.x') > avant + 1, 'le survivant marche')
@@ -232,6 +234,23 @@ async def main():
             verifier('23:' in (await pg.text_content('#btContinuer')), 'la partie est sauvegardée (menu « Continuer »)')
             await pg.reload(); await pg.click('#btContinuer'); await pg.wait_for_timeout(800)
             verifier(await pg.evaluate('Object.values(window.__zm.monde.modifs).includes(10)'), 'la porte ouverte est restée ouverte après rechargement')
+            await pg.evaluate('''() => { const z = window.__zm, m = z.monde, p = z.partie.joueur; z.horde.z.length = 0;
+              for (let y = Math.floor(p.y) - 30; y < p.y + 30; y++) for (let x = Math.floor(p.x) - 30; x < p.x + 30; x++) if (m.tuile(x, y) === 13)
+                for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!m.solide(x + dx, y + dy)) { p.x = x + dx + 0.5; p.y = y + dy + 0.5; const sc = z.jeu.scene.getScene('zone'); sc.souris = null; sc.dir = { x: -dx, y: -dy }; return; } }''')
+            await pg.wait_for_timeout(300); await pg.keyboard.press('e')
+            await pg.wait_for_selector('#panneau:not(.cache)', timeout=15000)
+            verifier(len(await pg.inner_text('#titreCont')) > 0, f"fouille d'un meuble : {await pg.inner_text('#titreCont')}")
+            await pg.click('#listeInv button:has-text("Manger") >> nth=0'); await pg.wait_for_timeout(300)
+            verifier(await pg.evaluate('window.__zm.partie.survivant.faim < 20'), 'manger fait baisser la faim')
+            await pg.keyboard.press('Escape'); await pg.wait_for_timeout(200)
+            await pg.evaluate('''() => { const z = window.__zm, m = z.monde, p = z.partie.joueur, s = z.partie.survivant; z.horde.z.length = 0;
+              s.inv.push({ id: 'marteau', n: 1, etat: 80 }, { id: 'planche', n: 2 }, { id: 'clous', n: 4 });
+              for (let y = Math.floor(p.y) - 25; y < p.y + 25; y++) for (let x = Math.floor(p.x) - 25; x < p.x + 25; x++)
+                if (m.tuile(x, y) === 9 && [6, 7].includes(m.tuile(x, y + 1)) && !m.solide(x, y + 2)) { p.x = x + 0.5; p.y = y + 1.6; const sc = z.jeu.scene.getScene('zone'); sc.dir = { x: 0, y: -1 }; return; } }''')
+            await pg.wait_for_timeout(300); await pg.keyboard.press('r')
+            try: await pg.wait_for_function('Object.keys(window.__zm.monde.barricades).length === 1', timeout=20000); ok = True
+            except Exception: ok = False
+            verifier(ok, f"une porte barricadée avec R (marteau, planche, clous) {'' if ok else await pg.inner_text('#message')}")
             await pg.evaluate('''() => { const z = window.__zm, p = z.partie.joueur; z.horde.z.length = 0; const q = z.horde.ajouter(p.x + 1.1, p.y); q.recharge = 99; }''')
             await pg.mouse.move(800, 325)
             for _ in range(5):
@@ -240,6 +259,7 @@ async def main():
             await pg.evaluate('''() => { const z = window.__zm, p = z.partie.joueur; for (let i = 0; i < 8; i++) { const q = z.horde.ajouter(p.x + Math.cos(i) * 0.8, p.y + Math.sin(i) * 0.8); q.etat = 'chasse'; } }''')
             await pg.wait_for_selector('#mort:not(.cache)', timeout=40000)
             verifier(await pg.evaluate("localStorage.getItem('zoneMorte') === null"), 'encerclé : mort, écran de fin, partie effacée')
+            verifier('XP de compte' in await pg.inner_text('#mortXp'), 'fin de partie : XP du compte et compétences affichées')
             await pg.click('#btRecommencer'); await pg.wait_for_timeout(800)
             verifier(await pg.evaluate('!window.__zm.partie.survivant.mort'), 'on peut recommencer')
             verifier(not pg.erreurs, f'Zone Morte sans erreur {pg.erreurs[:1]}')

@@ -23,11 +23,12 @@
     <div class="barre"><i id="barreSante"></i><span>Santé</span></div>
     <div class="barre endu"><i id="barreEndurance"></i><span>Endurance</span></div>
     <div id="etats"></div>
+    <div id="objectif"></div>
   </div>
   <canvas id="minicarte" width="150" height="150" title="Carte (M pour agrandir)"></canvas>
   <div id="invite"></div>
   <div id="message"></div>
-  <div id="aide">ZQSD : marcher · Maj : courir · C : s'accroupir · Espace / clic : frapper · F / clic droit : bousculer · B : se bander · E : ouvrir, casser, fouiller · M : carte · Échap : menu</div>
+  <div id="aide">ZQSD marcher · Maj courir · C accroupi · Espace/clic frapper · F bousculer · B bander · E fouiller · R barricader / recharger · X démonter · I sac · L lampe · M carte</div>
   <div id="joystick"><i></i></div>
   <button id="btAction">E</button>
   <button id="btCourir">🏃</button>
@@ -35,6 +36,19 @@
   <button id="btBousculer">✋</button>
   <button id="btAccroupi">🦶</button>
   <button id="btBander">🩹</button>
+  <button id="btSac">🎒</button>
+  <button id="btOutil">🔨</button>
+</div>
+
+<!-- Inventaire et meubles fouillés -->
+<div id="panneau" class="cache">
+  <button id="fermerPanneau" title="Fermer (Échap)">✕</button>
+  <div class="col"><h3>🎒 Sur toi <span id="poidsInv"></span></h3><ul id="listeInv"></ul></div>
+  <div class="col" id="colCont"><h3 id="titreCont"></h3><div id="actionsCont"></div><ul id="listeCont"></ul></div>
+</div>
+
+<!-- Sommeil -->
+<div id="sommeil"><div>💤 Tu dors…<br><b id="sommeilHeure"></b><small>Le temps passe 30 fois plus vite. Échap pour te lever.</small></div>
 </div>
 
 <!-- Écran de mort -->
@@ -43,6 +57,8 @@
     <h1>TU ES <b>MORT</b></h1>
     <p id="mortCause"></p>
     <p id="mortStats"></p>
+    <p id="mortXp"></p>
+    <p id="mortPlace"></p>
     <p class="note">Dans la Zone Morte, la mort est définitive : la partie est effacée.</p>
     <button id="btRecommencer" class="principal">Recommencer</button>
     <a href="/" class="lienRetour">← Retour à l'accueil</a>
@@ -53,12 +69,17 @@
 <section id="menu">
   <div class="carte">
     <h1>☣️ ZONE <b>MORTE</b></h1>
-    <p class="pitch">Le monde s'est arrêté il y a trois jours.<br>Tu es seul à Saint-Aubin avec une batte, et la route continue à l'infini.</p>
+    <p class="pitch">Le monde s'est arrêté il y a trois jours.<br>Tu es seul à Saint-Aubin, et la route continue à l'infini.</p>
     <button id="btContinuer" class="principal">Continuer</button>
+    <button id="btCompte" class="cache"></button>
+    <div class="choixMetier"><small>Ton métier avant l'apocalypse</small><div id="metiers"></div><small id="metierDesc"></small></div>
     <button id="btNouvelle">Nouvelle partie</button>
     <label class="graine">Graine du monde <input id="graine" maxlength="10" placeholder="au hasard"></label>
-    <p class="note">Prototype (phase 2) : les morts entendent tes pas, te voient et te suivent dans les maisons. Une morsure ne pardonne pas.<br>La faim, la fouille et les barricades arrivent dans les prochaines versions.</p>
+    <p class="note">Fouille les maisons, mange, bois, barricade-toi et dors à l'abri. Les morts entendent tes pas, te suivent dans les maisons et arrachent les planches. Une morsure ne pardonne pas.</p>
     <p id="record" class="note"></p>
+    <div id="classement"></div>
+    <details class="compte"><summary id="codeCompte">Compte</summary><small>Ta partie et ton record sont aussi gardés sur ton compte (le même que l'Arène). Sur un autre appareil, entre ton code :</small>
+      <div><input id="saisieCompte" maxlength="9" placeholder="K7QF-2XMB"><button id="btRecupCompte">Récupérer</button></div><small id="msgCompte"></small></details>
     <a href="/" class="lienRetour">← Retour à l'accueil</a>
   </div>
 </section>

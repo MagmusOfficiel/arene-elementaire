@@ -10,6 +10,7 @@
 // =====================================================================
 import { CH, T, hash, alea, zoneDe } from './monde.js';
 import { visible, RAYON_JOUEUR } from './physique.js';
+import { frapperBarricade } from './construction.js';
 
 export const ZOMBIE = {
   vitesse: 1.45, vitesseNuit: 1.75, vitesseErrance: 0.55,   // m/s (le joueur marche à 3,2 et court à 5,6)
@@ -109,7 +110,7 @@ export class Horde {
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, ny = y + dy; if (Math.abs(nx - sx) > R || Math.abs(ny - sy) > R) continue;
         const n = idx(nx, ny); if (prec[n] !== -1) continue;
-        const v = m.tuile(nx, ny); if (m.solide(nx, ny) && !CASSABLE.has(v)) continue;
+        if (m.solide(nx, ny) && !this.cassable(nx, ny)) continue;
         prec[n] = c; file.push(n);
       }
     }
@@ -121,7 +122,9 @@ export class Horde {
   // ---------- un pas de simulation ----------
   // joueur : { x, y, accroupi, mort } ; nuit : 0..1 ; frapper(z, joueur) appelé quand un coup porte
   maj(dt, joueur, nuit, frapper) {
-    const m = this.monde, vue = (ZOMBIE.vue + (ZOMBIE.vueNuit - ZOMBIE.vue) * nuit) * (joueur.accroupi ? ZOMBIE.vueAccroupi : 1);
+    const m = this.monde;
+    const nuitVue = joueur.lumiere ? nuit * 0.25 : nuit;   // une lampe allumée se voit de loin
+    const vue = (ZOMBIE.vue + (ZOMBIE.vueNuit - ZOMBIE.vue) * nuitVue) * (joueur.accroupi ? ZOMBIE.vueAccroupi : 1) * (joueur.dort ? 0.6 : 1);
     const vit = ZOMBIE.vitesse + (ZOMBIE.vitesseNuit - ZOMBIE.vitesse) * nuit;
     for (const z of this.z) {
       z.recharge = Math.max(0, z.recharge - dt);
@@ -175,8 +178,15 @@ export class Horde {
       // une porte ou une fenêtre fermée devant : on frappe dessus
       const ang = Math.atan2(pas.y - z.y, pas.x - z.x), fx = Math.floor(z.x + Math.cos(ang) * 0.75), fy = Math.floor(z.y + Math.sin(ang) * 0.75);
       const devant = m.tuile(fx, fy);
-      if (z.etat !== 'errance' && CASSABLE.has(devant) && (fx !== Math.floor(z.x) || fy !== Math.floor(z.y))) {
+      if (z.etat !== 'errance' && m.solide(fx, fy) && this.cassable(fx, fy) && (fx !== Math.floor(z.x) || fy !== Math.floor(z.y))) {
         z.angle = ang; z.frappe += dt;
+        if (m.barricade(fx, fy)) {   // des planches clouées : il faut les arracher une à une
+          if (z.frappe >= ZOMBIE.frappePorte) {
+            z.frappe = 0; const r = frapperBarricade(m, fx, fy);
+            this.evenements.push({ type: r === 'coup' ? 'coupBarricade' : 'planche', x: fx + 0.5, y: fy + 0.5, fin: r === 'fin' }); this.bruit(fx + 0.5, fy + 0.5, 8);
+          }
+          continue;
+        }
         if (devant === T.fenetre && z.frappe >= ZOMBIE.tempsVitre) { m.poser(fx, fy, T.fenetreCassee); z.frappe = 0; this.evenements.push({ type: 'vitre', x: fx + 0.5, y: fy + 0.5 }); this.bruit(fx + 0.5, fy + 0.5, 20); }
         if (devant === T.porte && z.frappe >= ZOMBIE.frappePorte) {
           z.frappe = 0; const k = `${fx},${fy}`; this.portes[k] = (this.portes[k] || 0) + 1;
@@ -194,6 +204,7 @@ export class Horde {
       if (d > 0.001 && d < 0.6) { const p = (0.6 - d) / 2; this.glisser(a, -dx / d * p, -dy / d * p); this.glisser(b, dx / d * p, dy / d * p); }
     }
   }
+  cassable(x, y) { return CASSABLE.has(this.monde.tuile(x, y)) || !!this.monde.barricade(x, y); }
   bloqueDevant(z, but) {   // la ligne droite traverse une tuile solide (une porte fermée ne bloque pas la vue... si : opaque)
     const d = Math.hypot(but.x - z.x, but.y - z.y), n = Math.ceil(d * 3);
     for (let i = 1; i <= n; i++) { const t = i / n; if (this.monde.solide(z.x + (but.x - z.x) * t, z.y + (but.y - z.y) * t)) return true; }
@@ -252,8 +263,15 @@ export class Horde {
   autour(x, y, r) { return this.z.filter((z) => Math.hypot(z.x - x, z.y - y) < r && z.aTerre <= 0).length; }
 }
 
+// usure : nombre de coups qui portent avant que l'arme casse
 export const ARMES = {
-  batte: { nom: 'Batte de baseball', degats: [0.42, 0.62], portee: 1.45, arc: 1.9, cibles: 2, recul: 0.55, chute: 0.3, recharge: 0.75, endurance: 9, bruit: 5 },
-  poings: { nom: 'Poings', degats: [0.12, 0.2], portee: 0.95, arc: 1.2, cibles: 1, recul: 0.3, chute: 0.1, recharge: 0.5, endurance: 5, bruit: 3 },
+  batte: { degats: [0.42, 0.62], portee: 1.45, arc: 1.9, cibles: 2, recul: 0.55, chute: 0.3, recharge: 0.75, endurance: 9, bruit: 5, usure: 50 },
+  couteau: { degats: [0.3, 0.45], portee: 0.9, arc: 1.0, cibles: 1, recul: 0.15, chute: 0.05, recharge: 0.45, endurance: 4, bruit: 2, usure: 40 },
+  poele: { degats: [0.35, 0.5], portee: 1.1, arc: 1.6, cibles: 1, recul: 0.5, chute: 0.4, recharge: 0.7, endurance: 7, bruit: 8, usure: 60 },
+  piedbiche: { degats: [0.5, 0.7], portee: 1.2, arc: 1.6, cibles: 1, recul: 0.4, chute: 0.3, recharge: 0.8, endurance: 8, bruit: 5, usure: 100 },
+  hache: { degats: [0.75, 1.05], portee: 1.3, arc: 1.8, cibles: 2, recul: 0.4, chute: 0.35, recharge: 1.0, endurance: 12, bruit: 6, usure: 70 },
+  marteau: { degats: [0.4, 0.55], portee: 1.0, arc: 1.4, cibles: 1, recul: 0.3, chute: 0.25, recharge: 0.6, endurance: 6, bruit: 5, usure: 80 },
+  matraque: { degats: [0.35, 0.5], portee: 1.2, arc: 1.6, cibles: 1, recul: 0.5, chute: 0.45, recharge: 0.6, endurance: 6, bruit: 4, usure: 80 },
+  poings: { degats: [0.12, 0.2], portee: 0.95, arc: 1.2, cibles: 1, recul: 0.3, chute: 0.1, recharge: 0.5, endurance: 5, bruit: 3, usure: Infinity },
 };
 export { RAYON_JOUEUR };

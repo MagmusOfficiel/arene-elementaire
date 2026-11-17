@@ -57,6 +57,7 @@ export function texteInteraction(type) {
 export function interagir(monde, p, cible) {
   if (!cible) return null;
   const { x, y, type } = cible;
+  if (monde.barricade(x, y)) return 'barricadee';
   if (type === T.porte) { monde.poser(x, y, T.porteOuverte); return 'porteOuverte'; }
   if (type === T.porteOuverte) {
     // on ne referme pas une porte sur soi

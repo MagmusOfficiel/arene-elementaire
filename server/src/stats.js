@@ -20,7 +20,7 @@ try { data = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { /* premier lan
 normaliser();
 let dirty = false, pret = persistance === 'fichier';
 
-function normaliser() { data.fusions ||= {}; data.joueurs ||= {}; data.cotes ||= {}; data.survie ||= []; }
+function normaliser() { data.fusions ||= {}; data.joueurs ||= {}; data.cotes ||= {}; data.survie ||= []; data.zonemorte ||= []; }
 
 async function redis(cmd) {
   const r = await fetch(DB_URL, { method: 'POST', headers: { Authorization: `Bearer ${DB_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(8000) });
@@ -51,6 +51,8 @@ function fusionner(recu) {
   for (const [k, c] of Object.entries(recu.cotes || {})) if (!data.cotes[k] || (c.maj || 0) > (data.cotes[k].maj || 0)) data.cotes[k] = c;
   if (recu.conclave && !data.conclave?.parties) data.conclave = recu.conclave;   // Conclave : la base fait foi au démarrage
   for (const s of recu.survie || []) data.survie.push(s);
+  for (const s of recu.zonemorte || []) data.zonemorte.push(s);
+  trierZoneMorte();
   data.survie.sort((a, b) => b.vague - a.vague || b.kills - a.kills); data.survie.length = Math.min(data.survie.length, 50);
 }
 
@@ -186,6 +188,16 @@ export function partieSurvie(noms, vague, kills, temps) {
   dirty = true;
 }
 export const classementSurvie = (n = 10) => data.survie.slice(0, n);
+
+// ---------------- Zone Morte : les plus longues survies ----------------
+function trierZoneMorte() { data.zonemorte.sort((a, b) => b.jours - a.jours || b.tues - a.tues); data.zonemorte.length = Math.min(data.zonemorte.length, 100); }
+export function partieZoneMorte(p) {
+  const jours = Math.max(0, Math.min(365, Number(p.jours) || 0)), tues = Math.max(0, Math.min(100000, Math.floor(Number(p.tues) || 0)));
+  const e = { nom: String(p.nom || 'Survivant').slice(0, 16), jours: Math.round(jours * 100) / 100, tues, metier: String(p.metier || '').slice(0, 16), cause: String(p.cause || '').slice(0, 40), date: Date.now() };
+  data.zonemorte.push(e); trierZoneMorte(); dirty = true;
+  return data.zonemorte.indexOf(e) + 1;   // place au classement (0 = hors du top 100)
+}
+export const classementZoneMorte = (n = 10) => data.zonemorte.slice(0, n);
 
 // ---------------- Comptes : sauvegarde de la progression (niveau, cosmétiques, cote, grimoire…) ----------------
 // Un compte = un code (« K7QF-2XMB ») qui permet de retrouver sa progression sur n'importe quel appareil.

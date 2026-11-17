@@ -205,10 +205,11 @@ export function genererMorceau(seed, cx, cy) {
 
 // ---------- Accès au monde (avec cache et modifications du joueur) ----------
 export class Monde {
-  constructor(seed, modifs = {}) {
+  constructor(seed, modifs = {}, barricades = {}) {
     this.seed = seed >>> 0;
     this.cache = new Map();
     this.modifs = modifs;          // "x,y" -> type de tuile (portes ouvertes, vitres cassées…)
+    this.barricades = barricades;  // "x,y" -> { n: planches (1 à 3), pv: solidité de la planche du dessus }
   }
   morceau(cx, cy) {
     const k = `${cx},${cy}`;
@@ -227,8 +228,14 @@ export class Monde {
     const m = this.morceau(fdiv(x, CH), fdiv(y, CH)); m.t[mod(y, CH) * CH + mod(x, CH)] = v;
     this.modifs[`${x},${y}`] = v; m.version = (m.version || 0) + 1; this.rev = (this.rev || 0) + 1;
   }
-  solide(x, y) { return SOLIDE.has(this.tuile(x, y)); }
-  opaque(x, y) { return OPAQUE.has(this.tuile(x, y)); }
+  barricade(x, y) { return this.barricades[`${Math.floor(x)},${Math.floor(y)}`] || null; }
+  solide(x, y) { return SOLIDE.has(this.tuile(x, y)) || !!this.barricades[`${Math.floor(x)},${Math.floor(y)}`]; }
+  opaque(x, y) { return OPAQUE.has(this.tuile(x, y)) || (this.barricades[`${Math.floor(x)},${Math.floor(y)}`]?.n >= 2); }
+  // sol sous un meuble qu'on démonte : celui des voisins
+  solSous(x, y) {
+    const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => this.tuile(x + dx, y + dy)).filter((v) => INTERIEUR.has(v));
+    return n[0] ?? T.parquet;
+  }
   // bâtiment qui contient la tuile (x, y), s'il y en a un
   batimentEn(x, y) {
     const cx = fdiv(Math.floor(x), CH), cy = fdiv(Math.floor(y), CH), m = this.morceau(cx, cy);

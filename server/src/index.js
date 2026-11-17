@@ -11,7 +11,7 @@ import { ArenaRoom } from './ArenaRoom.js';
 import { ConclaveRoom } from './ConclaveRoom.js';
 import { noterErreur, listeErreurs } from './journal.js';
 import { noterMesure, resumeMesures } from './mesures.js';
-import { statsConclave } from './stats.js';
+import { statsConclave, partieZoneMorte, classementZoneMorte } from './stats.js';
 import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance, rapportFusions, classement, classementCote, coteDe, placeDe, classementSurvie, palmares } from './stats.js';
 
 const PORT = Number(process.env.PORT || 2567);
@@ -27,6 +27,7 @@ app.use((req, res, next) => {
 app.use('/api/compte', express.json({ limit: '64kb' }));
 app.use('/api/erreurs', express.json({ limit: '8kb' }));
 app.use('/api/mesures', express.json({ limit: '4kb' }));
+app.use('/api/zonemorte', express.json({ limit: '2kb' }));
 
 // Journal des erreurs (serveur + navigateurs)
 process.on('uncaughtException', (e) => noterErreur('serveur', e));
@@ -60,7 +61,10 @@ app.get('/api/mesures', (req, res) => {
 });
 
 // Comptes : créer, lire, sauvegarder (le code du compte sert de clé)
-const contenuCompte = (b) => (b && typeof b === 'object' ? { progression: b.progression, classe: b.classe, grimoire: b.grimoire, survie: b.survie, pseudo: String(b.pseudo || '').slice(0, 16) } : {});
+// zm : la partie de Zone Morte en cours (compressée, 48 ko au plus) ; zmRecord : sa meilleure survie
+const zmRecordValide = (r) => (r && typeof r === 'object' ? { jours: Math.min(365, Number(r.jours) || 0), tues: Math.floor(Number(r.tues) || 0) } : undefined);
+const contenuCompte = (b) => (b && typeof b === 'object' ? { progression: b.progression, classe: b.classe, grimoire: b.grimoire, survie: b.survie, pseudo: String(b.pseudo || '').slice(0, 16),
+  zm: typeof b.zm === 'string' && b.zm.length <= 48000 ? b.zm : undefined, zmRecord: zmRecordValide(b.zmRecord) } : {});
 const anti = new Map();   // limite simple : 1 création toutes les 20 s par adresse
 app.post('/api/compte', async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress, t = anti.get(ip) || 0;
@@ -98,6 +102,15 @@ app.get('/api/classement', (_req, res) => res.json(classement(10)));   // meille
 app.get('/api/classe', (_req, res) => res.json(classementCote(20)));
 app.get('/api/palmares', (_req, res) => res.json(palmares()));   // top 10 des saisons terminées
 app.get('/api/survie', (_req, res) => res.json(classementSurvie(10)));
+// Zone Morte : fin de partie (une par minute et par adresse) et classement
+const antiZm = new Map();
+app.post('/api/zonemorte/score', (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress, t = antiZm.get(ip) || 0;
+  if (Date.now() - t < 60000) return res.status(429).json({ erreur: 'Trop de parties envoyées.' });
+  antiZm.set(ip, Date.now()); if (antiZm.size > 5000) antiZm.clear();
+  res.json({ place: partieZoneMorte(req.body || {}) });
+});
+app.get('/api/zonemorte/classement', (_req, res) => res.json(classementZoneMorte(10)));
 app.get('/api/classe/:jeton', (req, res) => {
   const j = String(req.params.jeton || '').slice(0, 40), c = coteDe(j);
   res.json(c ? { ...c, place: placeDe(j) } : null);

@@ -38,6 +38,15 @@ test('classements et palmarès répondent', async () => {
   }
 });
 
+test('Zone Morte : score, classement, anti-spam', async () => {
+  const post = (b) => json('/api/zonemorte/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+  const r = await post({ nom: 'Testeur Zone', jours: 4.5, tues: 87, metier: 'Policier', cause: 'Dévoré par les morts' });
+  assert.equal(r.status, 200); assert.ok(r.body.place >= 1);
+  assert.equal((await post({ nom: 'Spam', jours: 999, tues: 1 })).status, 429);
+  const c = await json('/api/zonemorte/classement');
+  assert.equal(c.status, 200); assert.ok(c.body.some((e) => e.nom === 'Testeur Zone' && e.jours === 4.5), JSON.stringify(c.body));
+});
+
 test('comptes : créer, sauvegarder, relire, refuser un mauvais code', async () => {
   const c = await json('/api/compte', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pseudo: 'Testeur', progression: { niv: 7 } }) });
   assert.equal(c.status, 200); assert.match(c.body.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
@@ -45,6 +54,10 @@ test('comptes : créer, sauvegarder, relire, refuser un mauvais code', async () 
   assert.equal(put.status, 200);
   const g = await json(`/api/compte/${c.body.code.toLowerCase()}`);
   assert.equal(g.body.progression.niv, 9); assert.equal(g.body.survie, 12);
+  // Zone Morte : la partie compressée et le record suivent le compte
+  await json(`/api/compte/${c.body.code}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pseudo: 'Testeur', progression: { niv: 9 }, survie: 12, zm: '{"maj":1,"d":"abc"}', zmRecord: { jours: 2, tues: 5 } }) });
+  const zm = await json(`/api/compte/${c.body.code}`);
+  assert.equal(zm.body.zm, '{"maj":1,"d":"abc"}'); assert.deepEqual(zm.body.zmRecord, { jours: 2, tues: 5 });
   assert.equal((await json('/api/compte/ZZZZ-ZZZZ')).status, 404);
   assert.equal((await json('/api/compte/n-importe-quoi')).status, 400);
   const trop = await json('/api/compte', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });

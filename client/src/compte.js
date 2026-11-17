@@ -4,14 +4,15 @@
 //  pour la retrouver sur un autre appareil ou après avoir vidé le navigateur.
 //  Le compte est créé tout seul dès que le serveur est joignable.
 // =====================================================================
-const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo' };
+const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo', zm: 'zoneMorteCompte', zmRecord: 'zoneMorteRecord' };
 const lireLocal = () => { try { return JSON.parse(localStorage.getItem('compte')) || {}; } catch { return {}; } };
 const etat = lireLocal();
 const garder = () => localStorage.setItem('compte', JSON.stringify(etat));
 
 function collecter() {
   const j = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-  return { progression: j(CLES.progression), classe: j(CLES.classe), grimoire: j(CLES.grimoire), survie: +(localStorage.getItem(CLES.survie) || 0), pseudo: localStorage.getItem(CLES.pseudo) || '' };
+  return { progression: j(CLES.progression), classe: j(CLES.classe), grimoire: j(CLES.grimoire), survie: +(localStorage.getItem(CLES.survie) || 0), pseudo: localStorage.getItem(CLES.pseudo) || '',
+    zm: localStorage.getItem(CLES.zm) || '', zmRecord: j(CLES.zmRecord) };
 }
 
 export function creerCompte(http) {
@@ -47,7 +48,7 @@ export function creerCompte(http) {
       code = `${code.slice(0, 4)}-${code.slice(4)}`;
       const c = await req('GET', `/api/compte/${code}`);
       for (const [k, cle] of Object.entries(CLES)) {
-        const v = c[k]; if (v == null || v === '') continue;
+        const v = c[k]; if (v == null || v === '') { if (k === 'zm') localStorage.removeItem(cle); continue; }
         localStorage.setItem(cle, typeof v === 'object' ? JSON.stringify(v) : String(v));
       }
       etat.code = code; etat.maj = c.maj || Date.now(); garder();

@@ -65,3 +65,55 @@ body.tactile #btAccroupi { right: 180px; bottom: 24px; width: 50px; height: 50px
 body.tactile #btAccroupi.on { border-color: var(--vert); background: rgba(80, 110, 40, .8); }
 body.tactile #btBander { right: 24px; bottom: 210px; width: 50px; height: 50px; }
 body.tactile #invite { bottom: 200px; }
+
+/* ---------- phase 3 : inventaire, humeurs, sommeil ---------- */
+#etats b { font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(0, 0, 0, .45); margin-right: 3px; display: inline-block; margin-top: 3px; }
+#etats .n1 { color: #e8dca0; } #etats .n2 { color: #ffb05a; } #etats .n3 { color: #ff6a50; }
+#panneau { position: fixed; z-index: 15; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 96vw); max-height: 78vh; display: flex; gap: 12px;
+  background: var(--panneau); border: 1px solid var(--bord); border-radius: 12px; padding: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
+#panneau .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#panneau h3 { margin: 0 0 8px; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+#poidsInv { color: var(--doux); font-weight: 400; } #poidsInv .trop { color: #ff8a5a; }
+#panneau ul { list-style: none; margin: 0; padding: 0; overflow: auto; }
+#panneau li { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+#panneau li.tenu { background: rgba(159, 194, 90, .12); }
+#panneau li.vide { color: var(--doux); font-style: italic; }
+#panneau .ic { font-size: 20px; width: 26px; text-align: center; }
+#panneau .nom { flex: 1; min-width: 0; } #panneau .nom small, #panneau .nom em { color: var(--doux); font-style: normal; font-size: 12px; }
+#panneau li button { padding: 4px 9px; font-size: 13px; }
+#actionsCont { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; } #actionsCont:empty { display: none; }
+#fermerPanneau { position: absolute; right: 8px; top: 8px; padding: 2px 9px; }
+#sommeil { position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 26px; color: #c8ccd8;
+  background: rgba(2, 3, 10, .82); opacity: 0; pointer-events: none; transition: opacity .8s; }
+#sommeil.on { opacity: 1; }
+#sommeil small { display: block; font-size: 13px; color: var(--doux); margin-top: 8px; }
+#btSac { display: none; }
+body.tactile #btSac { display: block; position: absolute; pointer-events: auto; right: 24px; top: 170px; width: 50px; height: 50px; border-radius: 50%; padding: 0; font-size: 22px; background: rgba(30, 34, 27, .8); }
+@media (max-width: 640px) { #panneau { flex-direction: column; } }
+
+/* ---------- phase 4 ---------- */
+#objectif { font-size: 12px; color: #e8e2c8; background: rgba(0, 0, 0, .5); border-left: 3px solid #d9a92e; padding: 4px 8px; border-radius: 4px; margin-top: 4px; width: max-content; max-width: 340px; }
+#objectif:empty { display: none; }
+#actionsCont button:disabled { opacity: .4; }
+#btOutil { display: none; }
+body.tactile #btOutil { display: block; position: absolute; pointer-events: auto; right: 84px; top: 170px; width: 50px; height: 50px; border-radius: 50%; padding: 0; font-size: 22px; background: rgba(30, 34, 27, .8); }
+
+/* ---------- phase 5 : métiers, compétences, classement ---------- */
+.choixMetier { display: flex; flex-direction: column; gap: 6px; color: var(--doux); }
+#metiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#metiers button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; font-size: 12px; }
+#metiers button span { font-size: 20px; }
+#metiers button.on { border-color: var(--vert); background: rgba(80, 110, 40, .45); }
+#metierDesc { min-height: 2.6em; font-size: 12px; }
+#classement { text-align: left; font-size: 13px; }
+#classement ol { margin: 4px 0 0; padding-left: 22px; }
+#classement li { display: flex; gap: 6px; } #classement li span { flex: 1; } #classement li small { color: var(--doux); }
+.compte { font-size: 12px; color: var(--doux); text-align: left; }
+.compte summary { cursor: pointer; } .compte div { display: flex; gap: 6px; margin: 6px 0; } .compte input { flex: 1; text-transform: uppercase; }
+#mortXp, #mortPlace { margin: 0; color: var(--doux); }
+#mortXp:empty, #mortPlace:empty { display: none; }
+.jauge { display: block; height: 4px; background: rgba(255, 255, 255, .1); border-radius: 2px; margin: 3px 0; }
+.jauge i { display: block; height: 100%; background: var(--vert); border-radius: 2px; }
+#panneau .nom b { color: var(--vert); }
+#actionsCont .info { font-size: 13px; color: #ffb05a; }
+#menu .carte { max-height: 96vh; overflow: auto; }

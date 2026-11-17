@@ -262,3 +262,23 @@ Troisième jeu du site, page `/zone-morte/` (bouton dans l'accueil commun). Surv
 - `shared/survie/survivant.js` : santé, endurance, blessures (agrippé, égratignure, lacération, morsure : plus probable encerclé ou pris de dos), saignement, bandages de fortune, infection (une morsure tue en ~1 h réelle), mort définitive.
 - Combat : batte (Espace ou clic, on vise à la souris), bousculer (F ou clic droit), achever un zombie à terre, accroupi (C), se bander (B). Écran de mort et record.
 - Tests : 8 nouveaux dans `tests/zonemorte.test.mjs`, section 8 de `tests/navigateur.py` étendue.
+
+## Zone Morte, phase 3 « Survie » (v27)
+- `shared/survie/objets.js` : 25 objets (nourriture, boissons, soins, 7 armes, lampe, piles, sac, planches, clous), butin par meuble (frigo, placard, évier, armoire, commode, bibliothèque, lit) et par rayon de magasin (supermarché, pharmacie, quincaillerie, station-service, commissariat, boutique), toujours le même pour une graine ; inventaire au poids.
+- `shared/survie/survivant.js` : faim, soif, fatigue (humeurs comme dans Project Zomboid), mort de soif ou de faim, armes qui s'usent et cassent, lampe torche (faisceau qui ne traverse pas les murs, mais les zombies te voient de plus loin), sac à dos, sommeil (le temps passe 30 fois plus vite, un zombie tout près te réveille).
+- Client : fouille (E, 1,2 s, un peu de bruit), panneau inventaire (I ou Tab) avec le meuble à côté, poser des objets par terre (cachettes), boire au robinet et remplir les bouteilles à l'évier, dormir dans un lit, L pour la lampe.
+- Tests : 7 nouveaux dans `tests/zonemorte.test.mjs`, fouille et repas dans `tests/navigateur.py`.
+
+## Zone Morte, phase 4 « Base » (v28)
+- `shared/survie/construction.js` : barricades (R : marteau + planche + 2 clous, jusqu'à 3 planches par porte ou fenêtre, bruyant), démontage (X : un meuble vide donne 2 ou 3 planches avec marteau, pied-de-biche ou hache ; une barricade rend sa planche), cuisine (plat de pâtes, soupe, steak grillé sur la cuisinière ou un feu), feu de camp (dehors, 2 planches + allumettes, 4 h, éclaire la nuit).
+- Les zombies arrachent les planches une à une (8 coups chacune) ; une porte barricadée ne s'ouvre plus ; 2 planches cachent la vue.
+- Viande crue : intoxication possible (8 h, la santé baisse). Nouveaux objets : pâtes, légumes, steak, clous en vrac, allumettes, plats cuisinés.
+- Les meubles servent de rangement (« Poser ici »). Objectifs de départ affichés (manger, outils, barricade, dormir, 3 jours).
+- Tests : 6 nouveaux dans `tests/zonemorte.test.mjs`, barricade dans `tests/navigateur.py`.
+
+## Zone Morte, phase 5 « Profondeur » (v29)
+- `shared/survie/competences.js` : 7 compétences qui montent en faisant (Combat, Tir, Charpenterie, Discrétion, Course, Fouille, Premiers soins ; niveaux 1 à 5) et 6 métiers de départ (Sans emploi, Policier, Charpentier, Infirmier, Coureur, Cuisinier).
+- `shared/survie/tir.js` : pistolet et fusil à pompe (cône, 3 plombs), munitions, rechargement (R), précision selon la distance et la compétence, la balle s'arrête aux murs, détonation entendue à 35-45 m.
+- `shared/survie/evenements.js` : calendrier tiré de la graine. Électricité coupée entre le jour 4 et le jour 6 (cuisinières hors service, frigos qui pourrissent un jour après), eau coupée un ou deux jours plus tard ; hélicoptère le jour 2 ou 3 qui attire les morts ; nuits de horde (de plus en plus fréquentes).
+- Compte et classement : la partie est sauvegardée compressée sur le compte (reprise sur un autre appareil), fin de partie = XP de compte + score envoyé à `/api/zonemorte/score`, classement mondial `/api/zonemorte/classement` affiché dans le menu.
+- Tests : 5 nouveaux dans `tests/zonemorte.test.mjs`, 1 dans `tests/serveur.test.mjs`, métier et fin de partie dans `tests/navigateur.py`.
