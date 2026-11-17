@@ -75,11 +75,23 @@ export function analyseRig(scene, key) {
   return rig;
 }
 
+// Contour sombre autour de la silhouette (≈ 2 px à l'écran) : les persos se détachent du décor et
+// les uns des autres dans la mêlée. Calculé une seule fois par image de champion.
+function contour(img) {
+  const W = img.width, H = img.height, E = 5;
+  const sil = document.createElement('canvas'); sil.width = W; sil.height = H;
+  const s = sil.getContext('2d');
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; s.drawImage(img, Math.cos(a) * E, Math.sin(a) * E); }
+  s.globalCompositeOperation = 'source-in'; s.fillStyle = 'rgba(10,12,20,0.88)'; s.fillRect(0, 0, W, H);
+  s.globalCompositeOperation = 'source-over'; s.drawImage(img, 0, 0);
+  return sil;
+}
+
 // Textures découpées : buste (+ tête), jambe gauche, jambe droite (même largeur, même centre)
 function rigTextures(scene, key, R) {
   const k = `rig_${key}`;
   if (scene.textures.exists(`${k}_T`)) return k;
-  const src = scene.textures.get(key).getSourceImage();
+  const src = contour(scene.textures.get(key).getSourceImage());
   const cut = (name, y0, y1, mask) => {
     const c = document.createElement('canvas'); c.width = R.W; c.height = Math.max(2, y1 - y0);
     const g = c.getContext('2d'); g.drawImage(src, 0, y0, R.W, y1 - y0, 0, 0, R.W, y1 - y0);

@@ -487,3 +487,46 @@ body.touch #onglets button { font-size: 11px; padding: 8px 3px; }
 @keyframes tourne { to { transform: rotate(360deg); } }
 #status button { margin-left: 8px; padding: 3px 10px; border-radius: 6px; border: 1px solid #3a4258; background: #1e2433; color: #c8d0e0; cursor: pointer; font-size: 12px; }
 #vignette { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .35s ease-out; box-shadow: inset 0 0 140px 30px rgba(255,30,30,.75); }
+
+/* Tutoriel interactif */
+#tuto .tt small { display: block; font-size: 11px; letter-spacing: 1px; color: #7fe0c2; font-weight: 700; margin-bottom: 4px; text-transform: uppercase; }
+.tutoFocus { position: relative; z-index: 6; animation: tutoFocus 1s ease-in-out infinite; }
+@keyframes tutoFocus { 50% { box-shadow: 0 0 0 4px #ffcf3a, 0 0 22px #ffcf3a; transform: scale(1.06); } }
+#astuce { position: absolute; left: 50%; bottom: 150px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; z-index: 8;
+  display: flex; gap: 12px; align-items: center; max-width: min(480px, 92vw); padding: 10px 16px; border-radius: 12px; background: rgba(16,20,30,.92); border: 1px solid #3a4258; box-shadow: 0 6px 24px rgba(0,0,0,.4); cursor: pointer; }
+#astuce.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#astuce b { font-size: 26px; } #astuce strong { display: block; color: #ffcf3a; font-size: 13px; } #astuce span { font-size: 12.5px; color: #d8deea; line-height: 1.35; }
+body.touch #astuce { bottom: auto; top: 64px; }
+.rgBtn { align-self: flex-start; padding: 7px 14px; border-radius: 8px; border: 1px solid #3a4258; background: #1e2433; color: #e8ecf4; cursor: pointer; font-size: 13px; }
+/* Téléphone : le tutoriel en haut, compact, sans cacher le perso ni les boutons de sorts */
+body.touch #tuto { top: 6px; min-width: 0; max-width: 46vw; padding: 6px 10px; }
+body.touch #tuto .tt { font-size: 12px; } body.touch #tuto .tt small { font-size: 9px; margin-bottom: 2px; }
+body.touch #tuto .td { margin: 3px 0 2px; letter-spacing: 3px; font-size: 10px; }
+body.touch #astuce { top: auto; bottom: 96px; max-width: 52vw; padding: 7px 10px; } body.touch #astuce span { font-size: 11px; }
+body.touch #tuto { left: 38%; }
+#tbtns .tb.tutoFocus, #tb-ult.tutoFocus { animation: tutoGlow 0.9s ease-in-out infinite; }
+@keyframes tutoGlow { 50% { box-shadow: 0 0 0 4px #ffcf3a, 0 0 24px #ffcf3a; border-color: #ffcf3a; } }
+
+/* ---------- Choix du champion ---------- */
+#choix { position: fixed; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: radial-gradient(circle at 50% 40%, rgba(20,24,40,.92), rgba(6,8,14,.96)); padding: 12px; }
+#choix.on { display: flex; }
+#choix .ch-h { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 1px; } #choix .reste { color: #ffcf3a; margin-left: 8px; }
+#choix .barre { width: min(560px, 80vw); height: 4px; background: #222838; border-radius: 2px; overflow: hidden; } #choix .barre i { display: block; height: 100%; background: #ffcf3a; transition: width .1s linear; }
+#choix .cartes { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+#choix .carte { position: relative; width: 220px; padding: 12px 12px 14px; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--c) 55%, #2a3040); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, #141824), #0f121b);
+  color: #e8ecf4; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; transition: transform .15s, box-shadow .15s; font: inherit; }
+#choix .carte:hover, #choix .carte:focus-visible { transform: translateY(-4px); box-shadow: 0 10px 30px color-mix(in srgb, var(--c) 45%, transparent); }
+#choix .carte.pris { transform: scale(1.04); box-shadow: 0 0 0 3px var(--c), 0 0 40px var(--c); }
+#choix .carte img { width: 150px; height: 150px; object-fit: cover; object-position: top; border-radius: 10px; }
+#choix .carte b { font-size: 18px; color: var(--c); } #choix .carte small { color: #9aa3b5; font-size: 11.5px; }
+#choix .els { display: flex; gap: 4px; } #choix .els i { font-style: normal; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 8px; color: #10131c; } #choix .els i.pure { background: #fff; }
+#choix .sorts { display: flex; gap: 6px; font-size: 16px; } #choix .sorts span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; background: #1c2130; }
+#choix em { font-style: normal; font-size: 12px; color: #ffcf3a; } #choix p { margin: 0; font-size: 11.5px; color: #b8c0d0; line-height: 1.35; }
+#choix .touche { position: absolute; top: 8px; left: 10px; font-size: 11px; font-weight: 800; color: #8a93a6; }
+#choix .ch-b { font-size: 11.5px; color: #8a93a6; text-align: center; }
+body.touch #choix .ch-b { display: none; } body.touch #choix .touche { display: none; }
+@media (max-height: 520px) {
+  #choix { gap: 6px; } #choix .ch-h { font-size: 16px; }
+  #choix .cartes { flex-wrap: nowrap; gap: 8px; } #choix .carte { width: 31vw; max-width: 230px; padding: 8px; gap: 3px; }
+  #choix .carte img { width: 76px; height: 76px; } #choix .carte b { font-size: 14px; } #choix p { display: none; }
+}

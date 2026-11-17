@@ -2,11 +2,19 @@
   "name": "arene-elements",
   "private": true,
   "type": "module",
-  "workspaces": ["server", "client"],
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "dev": "concurrently -n serveur,client -c magenta,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
-    "start": "npm run start -w server"
+    "start": "npm run start -w server",
+    "test": "node --test tests/logique.test.mjs tests/serveur.test.mjs",
+    "test:navigateur": "python3 tests/navigateur.py",
+    "test:serveur": "node --test tests/serveur.test.mjs"
   },
-  "devDependencies": { "concurrently": "^9.0.0" }
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
 }

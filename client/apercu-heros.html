@@ -1,0 +1,24 @@
+<!doctype html><html><body style="margin:0;background:#3b5a34">
+<script type="module">
+import Phaser from 'phaser';
+import { Hero } from './src/hero.js';
+class S extends Phaser.Scene {
+  preload() { this.load.image('fx_glow', '/art/fx/glow.png');
+    for (const pc of ['tete','buste','cape','bras','avbras','arme','cuisse','tibia']) this.load.image(`kit_feu+lumiere_${pc}`, `/heros/feu+lumiere/${pc}.webp`); }
+  create() {
+    this.cameras.main.setBackgroundColor('#6a8a4a');
+    const g = this.add.graphics(); g.fillStyle(0x000000, 0.25);
+    this.h = ['idle', 'run', 'atk', 'cast', 'hit'].map((m, i) => { g.fillEllipse(130 + i * 250, 370, 110, 26); this.add.text(130 + i * 250, 395, m, { fontSize: '22px', color: '#fff', fontStyle: '800' }).setOrigin(0.5); return { m, hero: new Hero(this, 'feu+lumiere'), x: 130 + i * 250 }; });
+    this.walk = 0;
+  }
+  update(time, delta) {
+    this.walk += delta * 0.0105;
+    for (const it of this.h) {
+      const cyc = (time % 900) / 900;
+      it.hero.update({ x: it.x, y: 370, face: 1, scale: 1.05, alpha: 1, time, depth: 1, move: it.m === 'run' ? 1 : 0, walk: this.walk,
+        atk: it.m === 'atk' ? cyc / 0.55 : -1, cast: it.m === 'cast' ? cyc : -1, hit: it.m === 'hit' ? (time % 700) / 260 : -1, rot: 0, flash: false });
+    }
+  }
+}
+new Phaser.Game({ type: Phaser.WEBGL, width: 1280, height: 440, scene: S, parent: document.body });
+</script></body></html>

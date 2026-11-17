@@ -1,4 +1,5 @@
 import { Hud } from './hud.js';
+import { debutPartie, finPartie } from './mesures.js';
 import { COULEURS, CADRES, couleurDe, cadreDe, styleCadre, xpPourNiveau, NIV_MAX } from '../../shared/cosmetiques.js';
 import { VERSION_JEU } from '../../shared/version.js';
 import { initAudio, setMusic, setAmbiance, volumes, setVolume } from './sfx.js';
@@ -41,6 +42,7 @@ const auRepos = window.requestIdleCallback || ((f) => setTimeout(f, 600));
 auRepos(() => { chargerMoteur(); setTimeout(prechargerAssets, 800); });
 
 import { creerCompte } from './compte.js';
+import { astuce, oublierAstuces } from './astuces.js';
 import { reglages, changerReglage } from './reglages.js';
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé')), ms))]);
 
@@ -185,6 +187,19 @@ async function verifierServeur() {
 }
 fetch(`${HTTP_URL}/api/version`, { cache: 'no-store' }).catch(() => {});   // réveille le serveur dès l'ouverture du menu
 
+// Erreurs du navigateur envoyées au journal du serveur (5 au plus par visite, chacune une seule fois)
+const errEnvoyees = new Set();
+function signaler(ou, err) {
+  const msg = String(err?.message || err || '').slice(0, 300);
+  if (!msg || errEnvoyees.has(msg) || errEnvoyees.size >= 5 || /ResizeObserver|Script error/.test(msg)) return;
+  errEnvoyees.add(msg);
+  const appareil = `${/Mobi|Android/i.test(navigator.userAgent) ? 'téléphone' : 'ordinateur'} · ${(navigator.userAgent.match(/(Firefox|Edg|Chrome|Safari)\/[\d.]+/) || [''])[0]}`;
+  fetch(`${HTTP_URL}/api/erreurs`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ou, msg, pile: String(err?.stack || '').slice(0, 900), version: VERSION_JEU, appareil }) }).catch(() => {});
+}
+addEventListener('error', (e) => signaler(e.filename?.split('/').pop() || 'page', e.error || e.message));
+addEventListener('unhandledrejection', (e) => signaler('promesse', e.reason));
+
 async function play(mode = 'arena', forceSolo = false, salon = null) {
   const name = nameInput.value.trim() || `Joueur${Math.floor(Math.random() * 1000)}`;
   localStorage.setItem('pseudo', name);
@@ -251,19 +266,22 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
     // Messages du serveur : branchés sur la salle (et rebranchés après une reconnexion)
     const brancher = (r) => {
       // Les messages arrivent dès la connexion : on les branche tout de suite
-      r.onMessage('lvl', (m) => { hud.levelUp(m); progress.on('lvl', m.n); });
+      r.onMessage('lvl', (m) => { hud.levelUp(m); progress.on('lvl', m.n); astuce(m.relique ? 'relique' : 'niveau'); });
       r.onMessage('salon', (m) => hud.salon(m.code));
       r.onMessage('survieFin', (m) => {   // Survie : fin de partie + record
         const rec = Math.max(m.vague, +(localStorage.getItem('survie_record') || 0)), nouveau = m.vague > +(localStorage.getItem('survie_record') || 0);
         localStorage.setItem('survie_record', rec); hud.survieFin(m, rec, nouveau); progress.on('vague', m.vague);
       });
       r.onMessage('cote', (m) => {
+        if (m.init) astuce('classe');
         if (m.init) { classe.set(m.cote); if (mode === 'classe') setTimeout(() => hud.banner(`⚔ Tournoi classé — ${rangDe(m.cote).label} (${m.cote})`, rangDe(m.cote).css), 3700); return; }
         const ra = rangDe(m.avant), rb = rangDe(m.cote);
         classe.set(m.cote, m.place);
         setTimeout(() => hud.coteResult(m, ra, rb, badge(m.cote)), m.place === 1 ? 2500 : 1200);
       });
-      r.onMessage('roll', (m) => { localStorage.setItem('derniereFusion', m.fusion); hud.clearUpgrades(); hud.showRoll(m); grimoire.add(m.fusion); localStorage.setItem('grimoire', JSON.stringify([...grimoire])); renderGrimoire(); });
+      r.onMessage('choix', (m) => hud.choixChampion(m, (i) => room.send('choisir', { i })));
+      r.onMessage('choixFin', () => hud.finChoix());
+      r.onMessage('roll', (m) => { localStorage.setItem('derniereFusion', m.fusion); hud.clearUpgrades(); hud.showRoll(m); setTimeout(() => bus.scene?.lancerTuto?.(), m.choisi ? 1200 : 3800); grimoire.add(m.fusion); localStorage.setItem('grimoire', JSON.stringify([...grimoire])); renderGrimoire(); });
       r.onMessage('win', (m) => { hud.victory(m, m.id === room.sessionId); if (m.id === room.sessionId) progress.on(m.tournoi ? 'winTournoi' : 'winRoyale'); if (m.duo && room.state.players.get(room.sessionId)?.eq === m.eq) progress.on('winDuo'); });
       r.onMessage('kill', (m) => {
         hud.addKill(m, room.sessionId);
@@ -276,10 +294,11 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
       r.onMessage('pend', (m) => bus.scene?.projEnd(m));
       r.onMessage('anim', (m) => bus.scene?.castAnim(m.o, m.x, m.y, m.el, m.k, m.d, m.f, true));
       r.onMessage('cd', (m) => hud.setCooldown(m));
-      r.onMessage('orbe', (m) => { if (!m.k) progress.on('orb'); });
+      r.onMessage('orbe', (m) => { if (!m.k) { progress.on('orb'); astuce('orbe'); } });
       r.onLeave((code) => perdu(r, code));
     };
     const retourMenu = (txt) => {
+      finPartie();
       hud.reconnexion?.(false);
       $('status').style.color = '#ff8a8a';
       $('status').textContent = txt;
@@ -314,11 +333,12 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
       retourMenu('Connexion perdue avec le serveur. Relance une partie.');
     };
     brancher(room);
+    debutPartie(mode, !solo, HTTP_URL, VERSION_JEU);
     $('lobby').classList.add('hidden');
     hud.show();
     document.body.classList.add('ingame');
     initTouch();
-    setTimeout(() => hud.startTuto(), 3800);
+
     if (solo) setTimeout(() => hud.banner('🤖 Mode solo — contre les mannequins', '#b8e07a'), 3600);
 
     game = new Phaser.Game({
@@ -374,3 +394,5 @@ $('rgVibration').checked = reglages.vibration; $('rgVibration').onchange = (e) =
 const majJoy = () => { $('rgJoystickV').textContent = reglages.joystick <= 0.25 ? 'très sensible' : reglages.joystick <= 0.4 ? 'normale' : 'peu sensible'; };
 $('rgJoystick').value = reglages.joystick; majJoy();
 $('rgJoystick').oninput = (e) => { changerReglage('joystick', parseFloat(e.target.value)); majJoy(); };
+
+$('rgTuto').onclick = () => { oublierAstuces(); $('rgTuto').textContent = '✓ Le tutoriel et les astuces reviendront à la prochaine partie'; };

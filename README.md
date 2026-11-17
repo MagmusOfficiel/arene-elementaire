@@ -204,3 +204,27 @@ Formes de sort : `projectile`, `eventail`, `impact`, `dash`, `soin`, `bouclier`.
   - **I** ou clic sur le portrait = fiche complète de ton champion.
   - Clic sur un champion du grimoire = sa fiche, même s'il n'est pas encore obtenu.
 - Illustrations : images provisoires (recoloriées) en attendant les vraies illustrations IA des 19 champions.
+
+## Organisation du code (v15)
+
+- `shared/game/ArenaLogic.js` — cœur d'une salle : arrivées/départs, boucle, apparition, bots ajoutés.
+  - `combat.js` (sorts, projectiles, zones, dégâts, mort), `modes.js` (Battle royale, Tournoi/Classé, Duo, événements),
+    `monstres.js` (zombies, boss, Survie), `bots.js` (IA), `commun.js` (constantes partagées).
+- `client/src/ArenaScene.js` — scène Phaser : chargement, boucle, entrées.
+  - `scene/decor.js` (cartes, mini-carte), `scene/persos.js` (joueurs, prédiction, monstres), `scene/effets.js` (sorts et impacts).
+- `server/src/journal.js` — journal des erreurs, consultable sur `/api/erreurs` (variable `JOURNAL_CLE` pour le protéger).
+
+## Tests
+
+- `npm test` — logique de jeu (une partie accélérée de chaque mode, invariants, saisons, cosmétiques)
+  et vrai serveur (API, comptes, salons privés, reconnexion, messages invalides). ~1 min.
+- `npm run test:navigateur` — dans Chrome (Playwright) : menus PC et téléphone, chaque mode en solo,
+  jeu en ligne avec ~200 ms de latence simulée, reconnexion après coupure. Nécessite `npm run build` avant.
+- `node tools/equilibrage.mjs 4 0.5,0.85 5` — duels de bots entre les 55 champions et recalcul des coefficients.
+
+## Mesures et fiabilité (v18)
+
+- **Compression et cache** : le serveur compresse JS/CSS/HTML/JSON (brotli ou gzip) et les garde en mémoire ; les fichiers de `assets/` sont mis en cache 1 an par le navigateur.
+- **Anti-veille Render** : sur Render, le serveur visite `/health` toutes les 10 min pour ne pas s'endormir. Variable `GARDER_EVEILLE=0` pour le couper.
+- **Mesures de confort** : `/api/mesures` résume les FPS, le ping et le temps d'attente des dernières parties (ajoute `?cle=…` si `JOURNAL_CLE` est défini).
+- **Tests automatiques** : `.github/workflows/tests.yml` lance build + tests à chaque push (onglet Actions sur GitHub).

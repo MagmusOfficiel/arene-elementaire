@@ -1,5 +1,6 @@
 import colyseus from 'colyseus';
 import { ArenaLogic } from '../../shared/game/ArenaLogic.js';
+import { noterErreur } from './journal.js';
 import { statFusion, statJoueur, coteDe, majCote, partieSurvie } from './stats.js';
 
 const { Room } = colyseus;
@@ -13,6 +14,7 @@ for (const k of Object.getOwnPropertyNames(ArenaLogic.prototype)) {
 }
 const baseCreate = ArenaLogic.prototype.onCreate;
 ArenaRoom.prototype.onCreate = function (options) {
+  this.signalerErreur = (e, ou) => noterErreur(`salle ${options?.mode || 'melee'} · ${ou}`, e);
   this.stats = { fusion: statFusion, joueur: statJoueur, cote: majCote, survie: partieSurvie };
   this.maxClients = options?.mode === 'royale' ? 50 : options?.mode === 'tournoi' ? 8 : options?.mode === 'survie' || options?.mode === 'duo' ? 4 : 16;
   if (options?.prive) {

@@ -747,9 +747,9 @@ export function generateKit(a, b) {
   const sig = SIGNATURES[key];
   if (sig) {
     basique.nom = sig.b;
-    sort1 = { ...sig.s1, element: a, tags: sort1.tags };
+    sort1 = { ...sig.s1, element: a, tags: sig.s1.tags || sort1.tags };   // une signature peut imposer ses effets
     sort2.nom = sig.u;
-    Object.assign(sort3, { ...sig.s3, element: b, tags: sort3.tags });
+    Object.assign(sort3, { ...sig.s3, element: b, tags: sig.s3.tags || sort3.tags });
     for (const k of Object.keys(sort3)) if (!(k in sig.s3) && !['element', 'tags'].includes(k)) delete sort3[k];
   }
 

@@ -58,6 +58,7 @@ const U = {
   rayon:      (nom, o = {}) => ({ nom, forme: 'rayon_ult', length: 1100, width: 95, duree: 1.4, tick: 0.2, dmg: 8, ...o }),
   domaine:    (nom, o = {}) => ({ nom, forme: 'domaine', radius: 430, duree: 3.5, tick: 0.5, dmg: 5, final: 46, ...o }),
   dragon:     (nom, o = {}) => ({ nom, forme: 'dragon', radius: 115, speed: 560, duree: 2.2, tick: 0.1, dmg: 11, amp: 95, ...o }),
+  tornade:    (nom, o = {}) => ({ nom, forme: 'tornade', radius: 140, speed: 220, duree: 4.5, tick: 0.3, dmg: 8, ...o }),
   invocation: (nom, o = {}) => ({ nom, forme: 'invocation', range: 520, radius: 360, dmg: 72, delay: 1.1, ...o }),
 };
 
@@ -68,8 +69,8 @@ export const CHAMPIONS = {
   'eau+feu':       { classe: 'invocateur', arme: 'Masque de vapeur' },
   'feu+terre':     { classe: 'brute',      arme: 'Poings de lave',      ultime: U.meteore('Cataclysme', { tags: ['brulure', 'lourd'] }) },
   'eau+terre':     { classe: 'brute',      arme: 'Bâton de racines',    ultime: U.domaine('Marécage originel', { tags: ['mouille', 'lourd'] }) },
-  'eau+vent':      { classe: 'mage',       arme: 'Rubans d’eau' },
-  'terre+vent':    { classe: 'assassin',   arme: 'Lames de sable',      ultime: U.domaine('Tempête de sable', { tags: ['lourd', 'poussee'], dmg: 6 }) },
+  'eau+vent':      { classe: 'mage',       arme: 'Rubans d’eau',        ultime: U.tornade('Typhon', { tags: ['mouille', 'lourd'] }) },   // tornades qui retiennent au lieu de repousser
+  'terre+vent':    { classe: 'assassin',   arme: 'Lames de sable',      ultime: U.domaine('Tempête de sable', { tags: ['lourd', 'aveugle'], dmg: 7 }) },
   'feu+feu':       { classe: 'brute',      arme: 'Couronne de flammes', ultime: U.meteore('Soleil déchu', { radius: 300, dmg: 95, tags: ['brulure'] }) },
   'eau+eau':       { classe: 'mage',       arme: 'Trident de corail',   ultime: U.dragon('Léviathan', { radius: 120, tags: ['mouille'] }) },
   'terre+terre':   { classe: 'tank',       arme: 'Marteau de pierre',   ultime: U.invocation('Golem titanesque', { radius: 400, dmg: 85, tags: ['lourd'] }) },

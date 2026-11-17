@@ -6,6 +6,7 @@ const nomCss = (p) => { const c = p.coul && couleurDe(p.coul).css; return !c ? '
 import { iconesBoutons } from './touch.js';
 import { TOUCH } from './touch.js';
 import { spellHtml, kitHtml } from '../../shared/describe.js';
+import { generateKit } from '../../shared/data.js';
 import { ELEMENTS, FUSIONS, BIOMES, TAGS, CITY, ESQUIVE, UPGRADES, RELIQUES, ZOMBIES, TOURNOI, NOMS_TOURS, portraitUrl, tokenUrl, hasStatus as S } from '../../shared/data.js';
 
 // Icône de chaque type de sort
@@ -26,8 +27,55 @@ export class Hud {
   setCooldown({ slot, t }) { this.cdEnd[slot] = performance.now() + t * 1000; }
 
   // ---------------- Animation de tirage ----------------
-  showRoll({ a, b, fusion }) {
+  // ---------------- Choix du champion parmi 3 fusions ----------------
+  // Le joueur n'est pas encore sur la carte : personne ne peut le toucher pendant qu'il choisit.
+  choixChampion({ props, t }, envoyer) {
+    const el = $('choix'), fin = performance.now() + t * 1000;
+    const ICO = { projectile: '➶', salve: '⋯', eventail: '⋰', impact: '◎', pluie: '☄', fissure: '⚡', tornade: '🌀', zone: '◌', nova: '✺', rayon: '━', charge: '➤', saut: '⤴', tourbillon: '↻', frappe: '✦', piege: '⊛', bouclier: '🛡', melee: '⚔', dash: '»', blink: '✧', armure: '⛨', soin: '✚', hate: '⚡' };
+    el.querySelector('.cartes').innerHTML = props.map(({ a, b, fusion }, i) => {
+      const F = FUSIONS[fusion], kit = generateKit(a, b), E1 = ELEMENTS[a], E2 = ELEMENTS[b];
+      const sorts = ['basique', 'sort1', 'sort2', 'sort3'].map((s) => `<span title="${esc(kit[s].nom)}">${ICO[kit[s].forme] || '✦'}</span>`).join('');
+      return `<button type="button" class="carte" data-i="${i}" style="--c:${F.css}">
+        <span class="touche">${i + 1}</span>
+        <img src="${portraitUrl(fusion)}" alt="" onerror="this.style.visibility='hidden'">
+        <b>${esc(F.nom)}</b>
+        <span class="els"><i style="background:${E1.css}">${E1.nom}</i>${a !== b ? `<i style="background:${E2.css}">${E2.nom}</i>` : '<i class="pure">Pure</i>'}</span>
+        <small>${esc(kit.classeNom)} · ${esc(kit.arme || '')}</small>
+        <span class="sorts">${sorts}</span>
+        <em>★ ${esc(kit.ultime.nom)}</em>
+        <p>${esc(F.desc || '')}</p>
+      </button>`;
+    }).join('');
+    const choisir = (i) => {
+      if (!el.classList.contains('on')) return;
+      el.querySelectorAll('.carte').forEach((c) => c.classList.toggle('pris', c.dataset.i === String(i)));
+      sfx.tick?.(); envoyer(i);
+    };
+    el.querySelectorAll('.carte').forEach((c) => { c.onclick = () => choisir(Number(c.dataset.i)); });
+    this._choixTouche = (e) => { const k = '123'.indexOf(e.key); if (k >= 0) choisir(k); };
+    addEventListener('keydown', this._choixTouche);
+    el.classList.add('on');
+    clearInterval(this._choixT);
+    this._choixT = setInterval(() => {
+      const r = Math.max(0, (fin - performance.now()) / 1000);
+      el.querySelector('.reste').textContent = `${Math.ceil(r)} s`;
+      el.querySelector('.barre i').style.width = `${(r / t) * 100}%`;
+    }, 100);
+  }
+  finChoix() {
+    clearInterval(this._choixT); removeEventListener('keydown', this._choixTouche);
+    $('choix').classList.remove('on');
+  }
+
+  showRoll({ a, b, fusion, choisi }) {
     this.cdEnd = { sort1: 0, sort2: 0, sort3: 0 };
+    this.finChoix();
+    if (choisi) {   // champion choisi : simple annonce, on entre tout de suite en jeu
+      const F = FUSIONS[fusion];
+      this.banner(`${F.pure ? '✦ ' : ''}${F.nom} — Ultime : ${F.ultime.nom}`, F.css);
+      sfx.reveal?.(F.pure);
+      return;
+    }
     const roll = $('roll'), sA = $('slotA'), sB = $('slotB'), fr = $('fusionReveal'), ur = $('ultReveal');
     const F = FUSIONS[fusion];
     roll.classList.remove('hidden');
@@ -546,35 +594,10 @@ export class Hud {
     };
   }
 
-  // ---------------- Tutoriel (première partie seulement) ----------------
-  startTuto() {
-    if (localStorage.getItem('tutoFait')) return;
-    const K = TOUCH
-      ? ['Déplace-toi avec le joystick (pouce gauche)', 'Attaque avec le gros bouton ⚔ — la visée est automatique', 'Lance tes sorts : boutons E, ⇧ et F', 'Esquive avec 💨 : tu es invincible pendant la roulade', 'Inflige des dégâts pour remplir ★, puis lance ton ULTIME', 'Monte de niveau pour choisir des bonus. Bonne chance !']
-      : ['Déplace-toi avec ZQSD (ou WASD / flèches)', 'Attaque avec le clic gauche (maintenu) — vise avec la souris', 'Lance tes sorts : E, Shift et F', 'Esquive avec Espace : tu es invincible pendant la roulade', 'Inflige des dégâts pour remplir ta jauge, puis R pour l’ULTIME', 'Monte de niveau pour choisir des bonus (1, 2, 3). Bonne chance !'];
-    this.tuto = { step: 0, txt: K, need: ['move', 'basique', 'sort', 'esquive', 'ultime', null] };
-    $('tutoSkip').onclick = () => this.endTuto();
-    $('tuto').classList.remove('hidden');
-    this.showTuto();
-  }
-  showTuto() {
-    const t = this.tuto; if (!t) return;
-    const el = $('tuto');
-    el.querySelector('.tt').textContent = t.txt[t.step];
-    el.querySelector('.td').textContent = t.txt.map((_, i) => (i < t.step ? '●' : i === t.step ? '◉' : '○')).join(' ');
-    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
-    clearTimeout(this._tutoT);
-    // étape de l'ultime : on n'attend pas forcément que la jauge soit pleine
-    if (t.need[t.step] === 'ultime') this._tutoT = setTimeout(() => this.nextTuto(), 9000);
-    if (t.need[t.step] === null) this._tutoT = setTimeout(() => this.endTuto(), 5000);
-  }
-  tutoEvent(ev) {
-    const t = this.tuto; if (!t) return;
-    const need = t.need[t.step];
-    if (ev === need || (need === 'sort' && /^sort[123]$/.test(ev))) this.nextTuto();
-  }
-  nextTuto() { if (!this.tuto) return; this.tuto.step++; sfx.tick?.(); this.showTuto(); }
-  endTuto() { this.tuto = null; clearTimeout(this._tutoT); $('tuto').classList.add('hidden'); localStorage.setItem('tutoFait', '1'); }
+  // ---------------- Tutoriel : voir tutoriel.js (lancé par la scène) ----------------
+  startTuto() { if (!localStorage.getItem('tutoFait')) this.scene?.lancerTuto?.(); }
+  tutoEvent(ev) { this.scene?.tuto?.evenement(ev); }
+  sfxOk() { sfx.tick?.(); }
 }
 
 function esc(s) {
