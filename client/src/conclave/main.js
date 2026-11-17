@@ -5,7 +5,8 @@
 // =====================================================================
 import './style.css';
 import { Client } from 'colyseus.js';
-import { CONCLAVE, ROLES, CAMPS, SANCTUAIRES, ORDRE_SANCTUAIRES, CARTES, CHAMPIONS_CONCLAVE, PHASES } from '../../../shared/conclave/regles.js';
+import { CONCLAVE, ROLES, CAMPS, SANCTUAIRES, ORDRE_SANCTUAIRES, CARTES, CHAMPIONS_CONCLAVE, PHASES, DEBLOCAGE, championDebloque, DOS_CARTES, REACTIONS, PHRASES_RAPIDES } from '../../../shared/conclave/regles.js';
+import { COULEURS } from '../../../shared/cosmetiques.js';
 import { progress } from '../progress.js';
 import { creerCompte } from '../compte.js';
 import { son, debloquerSon } from './sons.js';
@@ -50,8 +51,39 @@ async function connecter(fn) {
     throw e;
   }
 }
-const optionsJoin = () => ({ nom: pseudo(), compte: compte.code || undefined, champion: localStorage.getItem('conclave_champion') || undefined });
+// ---------- progression partagée avec l'Arène : niveau du compte, grimoire, couleur de nom ----------
+const grimoire = () => { try { return JSON.parse(localStorage.getItem('grimoire') || '[]'); } catch { return []; } };
+const niveau = () => progress.d.niv || 1;
+const debloque = (f) => championDebloque(f, niveau(), grimoire());
+const couleurCss = (id) => COULEURS.find((c) => c.id === id)?.css || null;
+const championPrefere = () => { const c = localStorage.getItem('conclave_champion'); return c && debloque(c) ? c : undefined; };
+const optionsJoin = () => ({ nom: pseudo(), compte: compte.code || undefined, champion: championPrefere(), couleur: progress.coul || '' });
+$('btPublic').onclick = () => connecter(() => client.joinOrCreate('conclave', { ...optionsJoin(), public: true })).catch(() => {});
+
+// dos de cartes (cosmétique débloqué au niveau du compte)
+const dosOk = (d) => niveau() >= d.niv;
+$('dosCartes').innerHTML = DOS_CARTES.map((d) => `<option value="${d.id}" ${dosOk(d) ? '' : 'disabled'}>${d.nom}${dosOk(d) ? '' : ` (niveau ${d.niv})`}</option>`).join('');
+$('dosCartes').value = DOS_CARTES.find((d) => d.id === localStorage.getItem('conclave_dos') && dosOk(d))?.id || 'classique';
+document.body.dataset.dos = $('dosCartes').value;
+$('dosCartes').onchange = (e) => { localStorage.setItem('conclave_dos', e.target.value); document.body.dataset.dos = e.target.value; };
+
+// profil : statistiques du Conclave enregistrées sur le serveur
+async function profil() {
+  const nom = (localStorage.getItem('pseudo') || '').trim();
+  const pct = (v, n) => (n ? `${Math.round((100 * v) / n)} %` : '—');
+  try {
+    const s = await fetch(`${HTTP_URL}/api/conclave/stats${nom ? `?nom=${encodeURIComponent(nom)}` : ''}`).then((r) => r.json());
+    const j = s.joueur;
+    $('profil').innerHTML = `<b>Niveau ${niveau()}</b> (partagé avec l'Arène) · ${Object.keys(DEBLOCAGE).filter(debloque).length}/8 champions${j ? ` · ${j.parties} parties<br>
+      Victoires : <span class="g">Gardien ${pct(j.victoires.gardiens, j.joues.gardiens)}</span> · <span class="c">Corrompu ${pct(j.victoires.corrompus, j.joues.corrompus)}</span>${j.joues.mercenaire ? ` · Mercenaire ${pct(j.victoires.mercenaire, j.joues.mercenaire)}` : ''}<br>
+      Exils justes : ${j.exilsJustes} · Sabotages jamais découverts : ${j.sabotagesCaches}` : ''}`;
+  } catch { $('profil').innerHTML = `<b>Niveau ${niveau()}</b> (partagé avec l'Arène)`; }
+}
+profil();
 $('btCreer').onclick = () => connecter(() => client.create('conclave', optionsJoin())).catch(() => {});
+$('btTuto').onclick = () => connecter(() => client.create('conclave', { ...optionsJoin(), tuto: true })).then((r) => setTimeout(() => r.send('demarrer'), 300)).catch(() => {});
+if (!localStorage.getItem('conclave_tuto')) $('btTuto').classList.add('nouveau');
+if (new URLSearchParams(location.search).has('rapide')) setTimeout(() => $('btRapide').click(), 300);
 $('btRapide').onclick = () => connecter(() => client.create('conclave', optionsJoin())).then((r) => setTimeout(() => r.send('demarrer'), 400)).catch(() => {});
 $('btRejoindre').onclick = async () => {
   const code = $('codeSalon').value.trim().toUpperCase();
@@ -104,25 +136,61 @@ function dessiner() {
   if (vue.phase === 'salon') { ecran('ecranSalon'); dessinerSalon(); return; }
   ecran('ecranJeu');
   if (ancienne?.phase !== vue.phase) { selection = null; son('phase'); }
+  if (ancienne?.phase === 'salon' || !ancienne) { const f = moiJ()?.champion; const g = grimoire(); if (f && !g.includes(f)) { g.push(f); localStorage.setItem('grimoire', JSON.stringify(g)); } }
   dessinerBarre(); dessinerPlateau(); dessinerRole(); dessinerActions(); dessinerSavoir(); dessinerMain(); dessinerChat(); dessinerJournal(); dessinerVoile();
+  coach();
   if (vue.phase === 'fin') finDePartie();
 }
+
+// ---------------------------------------------------------------- tutoriel guidé : une bulle par étape, l'élément utile surligné
+const ETAPES_TUTO = {
+  deplacement: { cible: ['#s_forge', '#carteRole'], titre: '1. Ton rôle et le déplacement',
+    texte: 'À droite, ta carte de rôle : tu es <b>Gardien</b>. Les Gardiens veulent <b>sceller 3 sanctuaires</b> et démasquer le <b>Corrompu</b> caché parmi les joueurs (il sabote en secret).<br><br>Chaque manche commence par le <b>Déplacement</b> : chacun choisit un sanctuaire. Clique sur la <b>Forge 🔥</b> (en haut du plateau).' },
+  rituel: { cible: ['#main'], titre: '2. Le rituel',
+    texte: 'Les joueurs d’un même sanctuaire posent chacun <b>une carte face cachée</b>. Pour sceller la Forge, il faut <b>au moins 2 cartes Feu</b> (ou Éclat ✨) et <b>aucune Corruption ☠️</b>.<br><br>Pose une carte <b>Feu 🔥</b> (en bas). Tu as aussi une Corruption : les Gardiens en reçoivent aussi, c’est ce qui rend les soupçons difficiles. Ne la pose pas ici !' },
+  revelation: { cible: ['#plateau'], titre: '3. La révélation',
+    texte: 'Les cartes sont <b>mélangées</b> avant d’être montrées : on voit qu’il y a eu sabotage, mais pas qui l’a fait.<br><br>À la Forge, une Corruption : rituel <b>raté</b>. Un des 4 joueurs présents ment. La Source, elle, est scellée ⚜.' },
+  debat: { cible: ['#chat', '#btPret'], titre: '4. Le débat',
+    texte: 'Discutez dans le <b>chat</b> pour trouver le saboteur. Lis bien ce que disent les autres, surtout <b>Soren</b>… Tu peux aussi écrire.<br><br>Quand tu as tout lu, clique sur <b>Prêt à voter</b>.' },
+  vote: { cible: ['#plateau'], titre: '5. Le vote',
+    texte: 'Clique sur le <b>pion</b> du joueur que tu soupçonnes. Celui qui a le plus de voix est <b>exilé</b> et son rôle est révélé. En cas d’égalité, personne ne part.' },
+  resultat: { cible: [], titre: '5. Le vote', texte: 'Résultat du vote…' },
+  fin: { cible: [], titre: 'Bravo, tu sais jouer !',
+    texte: 'Le seul Corrompu est exilé : <b>les Gardiens gagnent</b>.<br><br>Dans une vraie partie :<br>• les rôles sont tirés au hasard (tu peux être <b>Corrompu</b> : tu connais alors tes complices et tu sabotes discrètement) ;<br>• les Gardiens gagnent avec <b>3 sanctuaires scellés</b> ou tous les Corrompus exilés, les Corrompus avec <b>3 sanctuaires corrompus</b> (2 Corruptions dans un rituel) ou s’ils sont aussi nombreux que les Gardiens, ou au bout de 5 manches ;<br>• chaque sanctuaire a un effet (survole-le) ;<br>• ton champion a un <b>pouvoir ✦</b> utilisable une fois ; l’<b>Oracle</b> voit une carte et son auteur, la <b>Sentinelle</b> protège quelqu’un, le <b>Mercenaire</b> veut se faire exiler.' },
+};
+let coachReduit = false, coachPhase = null;
+function coach() {
+  for (const e of document.querySelectorAll('.surligne')) e.classList.remove('surligne');
+  const c = $('coach');
+  if (!vue?.tuto || vue.phase === 'salon' || vue.phase === 'fin') { c.classList.add('cache'); if (vue?.phase === 'fin' && vue.tuto) localStorage.setItem('conclave_tuto', '1'); return; }
+  const et = ETAPES_TUTO[vue.phase]; if (!et) return;
+  if (coachPhase !== vue.phase) { coachPhase = vue.phase; coachReduit = false; }
+  c.classList.remove('cache'); c.classList.toggle('reduit', coachReduit);
+  $('coachTexte').innerHTML = coachReduit ? `<b>${et.titre}</b>` : `<b>${et.titre}</b><p>${et.texte}</p>`;
+  $('coachOk').textContent = coachReduit ? 'Afficher' : 'Réduire';
+  if (!coachReduit) for (const sel of et.cible) document.querySelector(sel)?.classList.add('surligne');
+  if (vue.phase === 'fin') localStorage.setItem('conclave_tuto', '1');
+}
+$('coachOk').onclick = () => { coachReduit = !coachReduit; coach(); };
+$('btAide').onclick = () => voile(`<h2>Rappel des règles</h2><div class="aideRegles">${document.querySelector('.regles').innerHTML.replace('<summary>Comment jouer ?</summary>', '')}</div><p><small>Clique n’importe où pour fermer.</small></p>`, 600000);
 
 // ---------------------------------------------------------------- salon
 function dessinerSalon() {
   const hote = vue.hote === vue.moi?.id;
   $('salonCode').textContent = vue.code;
   $('nbJoueurs').textContent = `(${vue.joueurs.length}/${CONCLAVE.maxJoueurs})`;
-  $('salonInfo').textContent = `Rituel : ${vue.bonnes} bonnes cartes pour sceller`;
+  $('salonInfo').textContent = `Rituel : ${vue.bonnes} bonnes cartes pour sceller · débat ${vue.debat} s${vue.public ? ` · partie publique${vue.salonT != null ? ` : départ dans ${vue.salonT} s` : ' : départ automatique dès 3 joueurs'}` : ''}`;
+  $('optDebat').value = vue.debat;
   $('listeSalon').innerHTML = vue.joueurs.map((j) => `<li><img src="${portrait(j.champion)}" alt=""><b>${esc(j.nom)}</b>${j.bot ? ' <small>bot</small>' : ''}${j.id === vue.hote ? ' <small class="hote">hôte</small>' : ''}<span>${j.champion ? esc(CHAMPIONS_CONCLAVE[j.champion]?.nom) : j.bot ? 'au lancement' : 'choisit…'}</span></li>`).join('');
   $('hoteCtrl').classList.toggle('cache', !hote);
   $('attenteHote').classList.toggle('cache', hote);
   $('optBonnes').value = vue.bonnes;
   const mien = moiJ()?.champion;
   $('choixChampions').innerHTML = Object.entries(CHAMPIONS_CONCLAVE).map(([k, c]) => {
-    const pris = vue.joueurs.find((j) => j.champion === k && j.id !== vue.moi?.id);
-    return `<button class="champion ${k === mien ? 'choisi' : ''} ${pris ? 'pris' : ''}" data-k="${k}" ${pris ? 'disabled' : ''}>
-      <img src="${portrait(k)}" alt=""><b>${esc(c.nom)}</b><small>${esc(c.pouvoir)} : ${esc(c.desc)}</small>${pris ? `<em>${esc(pris.nom)}</em>` : ''}</button>`;
+    const pris = vue.joueurs.find((j) => j.champion === k && j.id !== vue.moi?.id), libre = debloque(k);
+    return `<button class="champion ${k === mien ? 'choisi' : ''} ${pris ? 'pris' : ''} ${libre ? '' : 'verrou'}" data-k="${k}" ${pris || !libre ? 'disabled' : ''}>
+      <img src="${portrait(k)}" alt=""><b>${esc(c.nom)}</b><small>${esc(c.pouvoir)} : ${esc(c.desc)}</small>${pris ? `<em>${esc(pris.nom)}</em>` : ''}
+      ${libre ? '' : `<em class="cadenas">🔒 Niveau ${DEBLOCAGE[k]} ou joue ${esc(c.nom)} dans l’Arène</em>`}</button>`;
   }).join('');
   for (const b of document.querySelectorAll('#choixChampions .champion')) b.onclick = () => { envoyer('champion', { fusion: b.dataset.k }); localStorage.setItem('conclave_champion', b.dataset.k); son('clic'); };
 }
@@ -145,7 +213,8 @@ function dessinerBarre() {
   const tot = DUREES[vue.phase] || 1;
   $('minuteurBarre').style.width = `${Math.max(0, Math.min(100, (100 * vue.timer) / tot))}%`;
   $('minuteurBarre').classList.toggle('urgent', vue.timer <= 5 && vue.phase !== 'fin');
-  $('minuteurTxt').textContent = vue.phase === 'fin' ? '' : `${vue.timer} s`;
+  $('minuteurTxt').textContent = vue.phase === 'fin' ? '' : vue.tuto && vue.timer > 100 ? 'à ton rythme' : `${vue.timer} s`;
+  $('minuteur').classList.toggle('tuto', !!vue.tuto && vue.timer > 100);
   const ef = [];
   if (vue.effets.voteSecret) ef.push('🤫 prochain vote secret');
   if (vue.effets.souffle) ef.push('🌬️ prochain vote annulé');
@@ -206,6 +275,7 @@ function dessinerPlateau() {
     }
     el.querySelector('img').src = portrait(j.champion);
     el.querySelector('.nom').textContent = j.nom;
+    el.querySelector('.nom').style.color = couleurCss(j.couleur) || '';
     const [x, y] = placeDans(lieu, i, js.length);
     el.style.left = `${x}%`; el.style.top = `${y}%`;
     el.classList.toggle('moi', j.id === vue.moi?.id);
@@ -340,6 +410,9 @@ for (const b of document.querySelectorAll('#onglets button')) b.onclick = () => 
   for (const x of document.querySelectorAll('#onglets button')) x.classList.toggle('actif', x === b);
   $('chat').classList.toggle('cache', b.dataset.o !== 'chat'); $('journal').classList.toggle('cache', b.dataset.o !== 'journal');
 };
+$('reactions').innerHTML = REACTIONS.map((r) => `<button class="petit reac">${r}</button>`).join('') + `<select id="phrases"><option value="">Phrase rapide…</option>${PHRASES_RAPIDES.map((p) => `<option>${p}</option>`).join('')}</select>`;
+for (const b of document.querySelectorAll('#reactions .reac')) b.onclick = () => action('chat', { texte: b.textContent });
+$('phrases').onchange = (e) => { if (e.target.value) action('chat', { texte: e.target.value }); e.target.value = ''; };
 $('chatForm').onsubmit = (e) => { e.preventDefault(); const t = $('chatInput').value.trim(); if (t) { action('chat', { texte: t }); $('chatInput').value = ''; } };
 function dessinerChat() {
   const L = $('chatListe'), bas = L.scrollHeight - L.scrollTop - L.clientHeight < 40;
@@ -421,10 +494,11 @@ function finDePartie() {
   const f = vue.fin, moi = vue.joueurs.find((j) => j.id === vue.moi.id);
   const monCamp = ROLES[vue.moi.role].camp, gagne = monCamp === f.camp || f.mercenaire.includes(vue.moi.id);
   const lignes = vue.joueurs.map((j) => `<li class="${ROLES[f.roles[j.id]]?.camp}"><img src="${portrait(j.champion)}"><b>${esc(j.nom)}</b> <span>${ROLES[f.roles[j.id]]?.nom}</span>${j.exile ? ' <small>exilé</small>' : ''}${f.mercenaire.includes(j.id) ? ' <small>a gagné</small>' : ''}</li>`).join('');
-  voile(`<h2 style="color:${CAMPS[f.camp].couleur}">Victoire des ${CAMPS[f.camp].nom}</h2><p>${esc(f.raison)}</p><h3>${gagne ? '🏆 Tu as gagné !' : 'Tu as perdu…'}</h3><ul class="roles">${lignes}</ul>
-    <div class="boutons"><button id="btRejouer" class="principal">Nouvelle partie</button><button id="btAccueil">Retour au Conclave</button></div>`, 3600 * 1000);
+  const tuto = vue.tuto ? `<div class="finTuto"><b>${ETAPES_TUTO.fin.titre}</b><p>${ETAPES_TUTO.fin.texte}</p></div>` : '';
+  voile(`<h2 style="color:${CAMPS[f.camp].couleur}">Victoire des ${CAMPS[f.camp].nom}</h2><p>${esc(f.raison)}</p><h3>${gagne ? '🏆 Tu as gagné !' : 'Tu as perdu…'}</h3><ul class="roles">${lignes}</ul>${tuto}
+    <div class="boutons"><button id="btRejouer" class="principal">${vue.tuto ? 'Jouer une vraie partie avec des bots' : 'Nouvelle partie'}</button><button id="btAccueil">Retour au Conclave</button></div>`, 3600 * 1000);
   son(gagne ? 'victoire' : 'defaite');
-  $('btRejouer').onclick = () => { room?.leave(); location.reload(); };
+  $('btRejouer').onclick = () => { room?.leave(); location.href = vue.tuto ? '/conclave/?rapide=1' : '/conclave/'; };
   $('btAccueil').onclick = () => { room?.leave(); location.href = '/conclave/'; };
   localStorage.removeItem('conclave_reco');
   // XP du compte, partagée avec l'Arène

@@ -249,3 +249,16 @@ Jeu de déduction sociale à 5-10 joueurs, sur le même site et le même serveur
 - Page : `client/conclave/index.html` + `client/src/conclave/` (DOM, pas de Phaser).
 - Statistiques : `/api/conclave/stats` (victoires par camp, par réglage).
 - Tests : `tests/conclave.test.mjs` (dont 100 parties complètes jouées par des bots) et section 6 de `tests/navigateur.py`.
+
+## Zone Morte, phase 1 « Socle » (v25)
+Troisième jeu du site, page `/zone-morte/` (bouton dans l'accueil commun). Survie à la Project Zomboid, en solo pour l'instant.
+- `shared/survie/monde.js` : monde **infini** généré par morceaux de 32 × 32 m à partir d'une graine. Régions de 8 × 8 morceaux, une ville sur deux environ (centre commerçant avec supermarché, pharmacie, quincaillerie, commissariat… + quartiers de maisons), campagne entre les villes (champs, forêts, routes). Plus on s'éloigne, plus les villes sont grandes. Seules les modifications (portes, vitres) sont sauvegardées.
+- `shared/survie/physique.js` : déplacement avec collisions, portes (ouvrir / fermer), fenêtres à casser puis enjamber, champ de vision par lancer de rayons, heure (1 journée = 40 min) et obscurité.
+- `client/src/zone-morte/` : rendu Phaser (une texture par morceau, toits qui disparaissent quand on entre, ombre hors du champ de vision, nuit avec halo), carte des zones explorées (M), commandes tactiles, sauvegarde locale.
+- Tests : `tests/zonemorte.test.mjs` + section 8 de `tests/navigateur.py`.
+
+## Zone Morte, phase 2 « Zombies » (v26)
+- `shared/survie/zombies.js` : population par morceau (beaucoup en centre-ville, peu à la campagne), seuls les 5 × 5 morceaux autour du joueur sont simulés, les autres rangés (on garde le nombre). Les zombies **entendent** (pas : 3 m en marchant, 9 m en courant, presque rien accroupi ; vitre : 22 m), **voient** (13 m le jour, 6,5 m la nuit, moitié moins si on est accroupi), **errent**, **poursuivent** en contournant les murs (chemin sur la grille), cassent les fenêtres et **enfoncent les portes** (12 coups).
+- `shared/survie/survivant.js` : santé, endurance, blessures (agrippé, égratignure, lacération, morsure : plus probable encerclé ou pris de dos), saignement, bandages de fortune, infection (une morsure tue en ~1 h réelle), mort définitive.
+- Combat : batte (Espace ou clic, on vise à la souris), bousculer (F ou clic droit), achever un zombie à terre, accroupi (C), se bander (B). Écran de mort et record.
+- Tests : 8 nouveaux dans `tests/zonemorte.test.mjs`, section 8 de `tests/navigateur.py` étendue.

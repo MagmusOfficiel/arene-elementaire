@@ -104,3 +104,32 @@ test('le Mercenaire gagne seul s’il est exilé, la partie continue', () => {
   assert.ok(m.exile && m.mercenaireGagne);
   assert.notEqual(p.phase, 'fin');
 });
+
+test('tutoriel : partie scénarisée à 6, le joueur gagne en exilant Kenzo', () => {
+  const p = new Partie({ options: { tuto: true } });
+  p.ajouter('h', 'Moi'); assert.equal(p.demarrer('h'), null);
+  assert.equal(p.joueurs.size, 6); assert.equal(p.joueurs.get('h').role, 'gardien');
+  const t = (s) => { for (let i = 0; i < s * 4; i++) p.tick(0.25); };
+  t(5); assert.equal(p.phase, 'deplacement', 'la phase attend le joueur');
+  assert.match(p.action('h', 'aller', { lieu: 'pic' }), /Forge/);
+  p.action('h', 'aller', { lieu: 'forge' }); t(1); assert.equal(p.phase, 'rituel');
+  t(5); p.action('h', 'poser', { index: 0 }); t(1);
+  const rev = p.journal.find((e) => e.t === 'revelation');
+  assert.deepEqual(rev.rituels.map((r) => [r.s, r.res]).sort(), [['forge', 'rate'], ['source', 'scelle']]);
+  t(10); assert.equal(p.phase, 'debat'); t(40);
+  assert.ok(p.chat.some((c) => /Kenzo/.test(c.texte)), 'l’Oracle accuse Kenzo');
+  p.action('h', 'pret'); t(2); assert.equal(p.phase, 'vote');
+  p.action('h', 'voter', { cible: p.tuto.corrompu }); t(6);
+  assert.equal(p.phase, 'fin'); assert.equal(p.fin.camp, 'gardiens');
+});
+
+test('file publique : départ automatique dès 3 joueurs (bots en renfort)', () => {
+  const p = new Partie({ options: { public: true } });
+  p.ajouter('a', 'A'); p.ajouter('b', 'B'); p.tick(5);
+  assert.equal(p.phase, 'salon', 'à 2, on attend');
+  p.ajouter('c', 'C'); p.tick(1);
+  assert.ok(p.vue('a').salonT <= 45);
+  for (let i = 0; i < 50; i++) p.tick(1);
+  assert.notEqual(p.phase, 'salon', 'lancée');
+  assert.equal(p.joueurs.size, 5, 'complétée par des bots');
+});

@@ -82,7 +82,7 @@ export class Partie {
   demarrer(id, { completerBots = true } = {}) {
     if (this.phase !== 'salon') return 'Déjà commencée.';
     if (id !== this.hote) return 'Seul l’hôte lance la partie.';
-    if (completerBots) while (this.joueurs.size < CONCLAVE.minJoueurs) this.ajouterBot();
+    if (completerBots) while (this.joueurs.size < (this.options.tuto ? 6 : CONCLAVE.minJoueurs)) this.ajouterBot();
     if (this.joueurs.size < CONCLAVE.minJoueurs) return `Il faut au moins ${CONCLAVE.minJoueurs} joueurs.`;
     // champions : les bots et ceux qui n'ont rien choisi prennent un champion libre au lancement
     // (les bots ne « volent » donc pas le champion d'un humain ; au-delà de 8 joueurs, doublons possibles)
@@ -95,6 +95,7 @@ export class Partie {
     // cartes
     this.paquet = nouveauPaquet(this.rng);
     for (const j of this.joueurs.values()) j.main = this.piocher(CONCLAVE.mainDepart);
+    if (this.options.tuto) this.preparerTuto();
     this.noter({ t: 'debut', n: this.joueurs.size, roles: r });
     this.nouvelleManche();
     return null;
@@ -121,7 +122,7 @@ export class Partie {
     if (j.exile || !this.sanctuairesActifs().includes(j.position)) return 0;
     return Math.min(j.main.length, this.manchePouvoirs.surcharge === j.id ? 2 : 1);
   }
-  entrer(phase, duree) { this.phase = phase; this.timer = duree; for (const j of this.joueurs.values()) j.pret = false; this.botsAgir = true; this.changer(); }
+  entrer(phase, duree) { if (this.options.tuto && !['revelation', 'resultat'].includes(phase)) duree = 900; this.phase = phase; this.timer = duree; for (const j of this.joueurs.values()) j.pret = false; this.botsAgir = true; this.changer(); }
 
   // ------------------------------------------------------------------ manches
   nouvelleManche() {
@@ -180,7 +181,9 @@ export class Partie {
     const oracle = this.vivants().find((j) => j.role === 'oracle');
     if (oracle && toutes.length) {
       const n = Math.min(toutes.length, 1 + this.effets.oracleBonus); this.effets.oracleBonus = 0;
-      melanger(toutes, this.rng).slice(0, n).forEach((v) => oracle.connaissances.oracle.push({ ...v, manche: this.manche }));
+      melanger(toutes, this.rng);
+      if (this.tuto) toutes.sort((a, b) => (b.auteur === this.tuto.corrompu) - (a.auteur === this.tuto.corrompu));   // tutoriel : l'Oracle voit la Corruption de Kenzo
+      toutes.slice(0, n).forEach((v) => oracle.connaissances.oracle.push({ ...v, manche: this.manche }));
     }
     if (this.verifierVictoire()) return;
     const debat = Math.max(20, this.options.debat - (this.effets.debatCourt ? CONCLAVE.debatRaccourci : 0)); this.effets.debatCourt = false;
@@ -280,13 +283,26 @@ export class Partie {
 
   // ------------------------------------------------------------------ temps
   tick(dt) {
-    if (this.phase === 'salon' || this.phase === 'fin') return;
+    if (this.phase === 'salon') return this.tickSalon(dt);
+    if (this.phase === 'fin') return;
     this.timer -= dt;
     this.botsTick(dt);
     // Miroir en attente : la cible choisit sa carte, sinon une au hasard
     if (this.miroir) { this.miroir.t -= dt; if (this.miroir.t <= 0) this.montrerCarte(this.miroir.cible, null); }
     if (this.timer <= 0 || this.toutLeMondeAFini()) this.phaseSuivante();
   }
+  // File publique : la partie se lance toute seule (45 s dès 3 joueurs, 10 s à 5 joueurs ; des bots complètent)
+  tickSalon(dt) {
+    if (!this.options.public) return;
+    const humains = [...this.joueurs.values()].filter((j) => !j.bot).length;
+    const voulu = humains >= CONCLAVE.minJoueurs ? 10 : humains >= 3 ? 45 : null;
+    if (voulu === null) { if (this.salonT != null) { this.salonT = null; this.changer(); } return; }
+    if (this.salonT == null || this.salonT > voulu) this.salonT = voulu;
+    const avant = Math.ceil(this.salonT); this.salonT -= dt;
+    if (Math.ceil(this.salonT) !== avant) this.changer();
+    if (this.salonT <= 0) { this.salonT = null; this.demarrer(this.hote); }
+  }
+
   phaseSuivante() {
     switch (this.phase) {
       case 'deplacement': return this.finDeplacement();
@@ -301,7 +317,7 @@ export class Partie {
     const v = this.vivants();
     if (this.phase === 'deplacement') return v.every((j) => j.position || j.bloque) && !this.manchePouvoirsEnAttente();
     if (this.phase === 'rituel') return v.every((j) => j.cartesPosees.length >= this.aPoser(j) && (j.position !== 'parvis' || j.aDefausse || j.pret));
-    if (this.phase === 'debat') return v.filter((j) => !j.bot && j.connecte).every((j) => j.pret) && v.some((j) => !j.bot && j.connecte);
+    if (this.phase === 'debat') return (this.options.tuto ? v : v.filter((j) => !j.bot && j.connecte)).every((j) => j.pret) && v.some((j) => !j.bot && j.connecte);
     if (this.phase === 'vote') return v.every((j) => j.vote !== undefined);
     return false;
   }
@@ -318,6 +334,7 @@ export class Partie {
         if (this.phase !== 'deplacement') return 'Ce n’est pas le moment de bouger.';
         if (j.bloque) return 'Tu ne peux pas bouger cette manche.';
         const lieu = d.lieu;
+        if (this.options.tuto && this.manche === 1 && !j.bot && lieu !== 'forge') return 'Pour ce tutoriel, va à la Forge (le sanctuaire du Feu, en haut).';
         if (lieu !== 'parvis') {
           if (!SANCTUAIRES[lieu]) return 'Lieu inconnu.';
           if (this.sanctuaires[lieu] !== 'libre') return 'Ce sanctuaire n’est plus jouable.';
@@ -412,6 +429,7 @@ export class Partie {
     this.botsAgir = false;
   }
   botJouer(j) {
+    if (this.options.tuto && this.botTuto(j)) return;
     const corrompu = this.camp(j) === 'corrompus', rng = this.rng;
     if (this.miroir?.cible === j.id) this.montrerCarte(j.id, j.main.findIndex((c) => c !== 'corruption'));
     if (this.phase === 'deplacement' && !j.position && !j.bloque) {
@@ -462,13 +480,54 @@ export class Partie {
     return pick(phrases, rng);
   }
 
+
+  // ------------------------------------------------------------------ tutoriel : une partie scénarisée à 5
+  // Toi : Gardien. Kenzo : le Corrompu. Ilyas et Maëlle viennent avec toi à la Forge, Soren (l'Oracle) et Yumi
+  // scellent la Source. Kenzo sabote la Forge ; l'Oracle le démasque pendant le débat ; on l'exile : victoire.
+  preparerTuto() {
+    const js = [...this.joueurs.values()], moi = js.find((j) => !j.bot);
+    const bots = js.filter((j) => j.bot);
+    const [ilyas, maelle, soren, yumi, kenzo] = bots;
+    const noms = ['Ilyas', 'Maëlle', 'Soren', 'Yumi', 'Kenzo'];
+    bots.forEach((b, i) => { b.nom = noms[i] || b.nom; });
+    moi.role = 'gardien'; ilyas.role = 'gardien'; maelle.role = 'gardien'; soren.role = 'oracle'; yumi.role = 'gardien'; kenzo.role = 'corrompu';
+    moi.main = ['feu', 'feu', 'eau', 'corruption'];
+    ilyas.main = ['feu', 'terre', 'vent', 'eau']; maelle.main = ['feu', 'foudre', 'eau', 'terre'];
+    soren.main = ['eau', 'vent', 'foudre', 'terre']; yumi.main = ['eau', 'feu', 'terre', 'vent']; kenzo.main = ['corruption', 'feu', 'vent', 'eau'];
+    this.tuto = { forge: [ilyas.id, maelle.id, kenzo.id], source: [soren.id, yumi.id], corrompu: kenzo.id, oracle: soren.id, ilyas: ilyas.id, maelle: maelle.id, yumi: yumi.id };
+  }
+  botTuto(j) {
+    const T = this.tuto; if (!T || this.manche > 1) return false;
+    if (this.phase === 'deplacement') { this.action(j.id, 'aller', { lieu: T.forge.includes(j.id) ? 'forge' : 'source' }); return true; }
+    if (this.phase === 'rituel') {
+      const el = j.position === 'forge' ? 'feu' : 'eau';
+      this.action(j.id, 'poser', { index: j.id === T.corrompu ? j.main.indexOf('corruption') : j.main.indexOf(el) });
+      return true;
+    }
+    if (this.phase === 'debat') {
+      const lignes = {
+        [T.ilyas]: ['J’ai posé un Feu à la Forge.', 'Il y avait une Corruption à la Forge… un de nous quatre ment !'],
+        [T.maelle]: ['Moi aussi, Feu à la Forge.'],
+        [T.corrompu]: ['J’ai posé un Feu, promis ! C’est sûrement le nouveau qui a saboté…'],
+        [T.oracle]: ['Je suis l’Oracle : j’ai vu une carte de la Forge avec son auteur…', 'C’est Kenzo qui a posé la Corruption ! Votez Kenzo.'],
+        [T.yumi]: ['La Source est scellée, merci Soren. Je fais confiance à l’Oracle.'],
+      };
+      if (!j.tutoChat) { j.tutoChat = 0; }
+      const l = lignes[j.id] || [];
+      if (j.tutoChat < l.length) { this.chat.push({ id: ++this.seqC, de: j.id, texte: l[j.tutoChat++], manche: this.manche }); this.changer(); j.botT = 2.5 + this.rng() * 2; return true; }
+      j.pret = true; return true;
+    }
+    if (this.phase === 'vote') { this.action(j.id, 'voter', { cible: j.id === T.corrompu ? this.vivants().find((x) => !x.bot)?.id || null : T.corrompu }); return true; }
+    return false;
+  }
+
   // ------------------------------------------------------------------ vue privée d'un joueur
   vue(id) {
     const moi = this.joueurs.get(id);
     const finie = this.phase === 'fin';
     const corrompusConnus = moi && this.camp(moi) === 'corrompus' ? [...this.joueurs.values()].filter((j) => this.camp(j) === 'corrompus').map((j) => j.id) : [];
     return {
-      code: this.code, phase: this.phase, manche: this.manche, manchesMax: CONCLAVE.manchesMax, timer: Math.max(0, Math.ceil(this.timer)), hote: this.hote,
+      code: this.code, tuto: !!this.options.tuto, public: !!this.options.public, salonT: this.salonT != null ? Math.ceil(this.salonT) : null, debat: this.options.debat, phase: this.phase, manche: this.manche, manchesMax: CONCLAVE.manchesMax, timer: Math.max(0, Math.ceil(this.timer)), hote: this.hote,
       bonnes: this.options.bonnes, sanctuaires: { ...this.sanctuaires },
       effets: { voteSecret: this.effets.voteSecret, souffle: this.effets.souffle, immobile: this.effets.immobile, debatCourt: this.effets.debatCourt },
       actifs: ['rituel'].includes(this.phase) ? this.sanctuairesActifs() : null,
@@ -476,7 +535,7 @@ export class Partie {
       joueurs: this.ordre.filter((x) => this.joueurs.has(x)).map((x) => {
         const j = this.joueurs.get(x);
         return {
-          id: j.id, nom: j.nom, champion: j.champion, bot: j.bot, connecte: j.connecte, exile: j.exile,
+          id: j.id, nom: j.nom, champion: j.champion, couleur: j.couleur || '', bot: j.bot, connecte: j.connecte, exile: j.exile,
           position: j.position, bloque: !!j.bloque, pouvoirUtilise: j.pouvoirUtilise, pret: j.pret,
           aPose: this.phase === 'rituel' ? j.cartesPosees.length >= this.aPoser(j) && this.aPoser(j) > 0 : undefined,
           aVote: this.phase === 'vote' ? j.vote !== undefined : undefined,

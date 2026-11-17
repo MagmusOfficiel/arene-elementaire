@@ -188,6 +188,62 @@ async def main():
                 verifier(True, 'une manche complète : déplacement, rituel, révélation, débat, vote')
             verifier(not pg.erreurs and not pg2.erreurs, f'Conclave sans erreur {pg.erreurs[:1]} {pg2.erreurs[:1]}')
             await ctx.close(); await ctx2.close()
+
+            print('7. Conclave : tutoriel guidé et file publique')
+            ctx = await b.new_context(viewport={'width': 1300, 'height': 820}); pg = await ctx.new_page(); pg.erreurs = []
+            pg.on('pageerror', lambda e: pg.erreurs.append(str(e)))
+            await pg.goto(URL.rstrip('/') + '/conclave/'); await pg.fill('#pseudo', 'Élève'); await pg.click('#btTuto')
+            await pg.wait_for_selector('#coach:not(.cache)', timeout=20000)
+            verifier('Forge' in (await pg.text_content('#coach')), 'tutoriel : la bulle explique le déplacement')
+            await pg.click('#s_forge'); await pg.wait_for_function("() => document.body.dataset.phase === 'rituel'", timeout=30000)
+            await pg.wait_for_selector('#main.active .carte', timeout=10000); await pg.click('#main .carte >> nth=0')
+            await pg.wait_for_function("() => document.body.dataset.phase === 'debat'", timeout=40000)
+            await pg.wait_for_function("() => document.getElementById('chatListe').textContent.includes('Votez Kenzo')", timeout=60000)
+            await pg.click('#btPret'); await pg.wait_for_function("() => document.body.dataset.phase === 'vote'", timeout=30000)
+            await pg.locator('.pion', has_text='Kenzo').click()
+            await pg.wait_for_function("() => document.body.dataset.phase === 'fin'", timeout=40000)
+            verifier(await pg.evaluate("() => localStorage.getItem('conclave_tuto') === '1' && document.getElementById('voileContenu').textContent.includes('Gardiens')"), 'tutoriel terminé : victoire des Gardiens, tuto mémorisé')
+            verifier(not pg.erreurs, f'tutoriel sans erreur {pg.erreurs[:1]}')
+            await ctx.close()
+            ctxs = [await b.new_context(viewport={'width': 900, 'height': 700}) for _ in range(2)]
+            pgs = [await c.new_page() for c in ctxs]
+            for i, x in enumerate(pgs):
+                await x.goto(URL.rstrip('/') + '/conclave/'); await x.fill('#pseudo', f'Public{i}'); await x.click('#btPublic')
+                await x.wait_for_selector('#ecranSalon:not(.cache)', timeout=20000)
+            await pgs[0].wait_for_function("() => document.querySelectorAll('#listeSalon li').length === 2", timeout=10000)
+            verifier(True, 'file publique : deux joueurs se retrouvent dans le même salon')
+            for c in ctxs: await c.close()
+
+            print('8. Zone Morte : monde, déplacement, porte, sauvegarde, zombies, mort')
+            ctx = await b.new_context(viewport={'width': 1100, 'height': 650}); pg = await ctx.new_page(); pg.erreurs = []
+            pg.on('pageerror', lambda e: pg.erreurs.append(str(e)))
+            await pg.goto(URL); await pg.click('#hubZone'); await pg.wait_for_url('**/zone-morte/**', timeout=15000)
+            await pg.fill('#graine', 'test'); await pg.click('#btNouvelle'); await pg.wait_for_timeout(1200)
+            avant = await pg.evaluate('window.__zm.partie.joueur.x')
+            await pg.keyboard.down('d'); await pg.wait_for_timeout(1200); await pg.keyboard.up('d')
+            verifier(await pg.evaluate('window.__zm.partie.joueur.x') > avant + 1, 'le survivant marche')
+            ok = await pg.evaluate('''() => { const z = window.__zm, m = z.monde, p = z.partie.joueur;
+              for (let y = Math.floor(p.y) - 25; y < p.y + 25; y++) for (let x = Math.floor(p.x) - 25; x < p.x + 25; x++)
+                if (m.tuile(x, y) === 9 && m.tuile(x, y - 1) === 3) { p.x = x + 0.5; p.y = y - 0.7; return true; } return false; }''')
+            await pg.wait_for_timeout(300); await pg.keyboard.press('e'); await pg.wait_for_timeout(300)
+            verifier(ok and await pg.evaluate('Object.values(window.__zm.monde.modifs).includes(10)'), 'une porte s’ouvre avec E')
+            await pg.evaluate('window.__zm.partie.temps = 23 * 60'); await pg.wait_for_timeout(500)
+            await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
+            verifier('23:' in (await pg.text_content('#btContinuer')), 'la partie est sauvegardée (menu « Continuer »)')
+            await pg.reload(); await pg.click('#btContinuer'); await pg.wait_for_timeout(800)
+            verifier(await pg.evaluate('Object.values(window.__zm.monde.modifs).includes(10)'), 'la porte ouverte est restée ouverte après rechargement')
+            await pg.evaluate('''() => { const z = window.__zm, p = z.partie.joueur; z.horde.z.length = 0; const q = z.horde.ajouter(p.x + 1.1, p.y); q.recharge = 99; }''')
+            await pg.mouse.move(800, 325)
+            for _ in range(5):
+                await pg.keyboard.press(' '); await pg.wait_for_timeout(900)
+            verifier(await pg.evaluate('window.__zm.partie.survivant.tues') >= 1, 'un zombie tué à la batte (en visant à la souris)')
+            await pg.evaluate('''() => { const z = window.__zm, p = z.partie.joueur; for (let i = 0; i < 8; i++) { const q = z.horde.ajouter(p.x + Math.cos(i) * 0.8, p.y + Math.sin(i) * 0.8); q.etat = 'chasse'; } }''')
+            await pg.wait_for_selector('#mort:not(.cache)', timeout=40000)
+            verifier(await pg.evaluate("localStorage.getItem('zoneMorte') === null"), 'encerclé : mort, écran de fin, partie effacée')
+            await pg.click('#btRecommencer'); await pg.wait_for_timeout(800)
+            verifier(await pg.evaluate('!window.__zm.partie.survivant.mort'), 'on peut recommencer')
+            verifier(not pg.erreurs, f'Zone Morte sans erreur {pg.erreurs[:1]}')
+            await ctx.close()
             await b.close()
     finally:
         for proc in (serveur, px):

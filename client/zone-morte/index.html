@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Zone Morte</title>
+<meta name="description" content="Survie en monde ouvert infini après l'apocalypse : fouille, barricade-toi, tiens le plus longtemps possible.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☣️</text></svg>">
+<script src="/config.js"></script>
+</head>
+<body>
+<div id="jeu"></div>
+
+<!-- Interface par-dessus le jeu -->
+<div id="voileRouge"></div>
+<div id="hud" class="cache">
+  <div id="hudHaut">
+    <a href="/" class="retour" title="Retour à l'accueil">←</a>
+    <div id="hudHeure">Jour 1 · 08:00</div>
+    <div id="hudLieu">Saint-Aubin</div>
+  </div>
+  <div id="survivant">
+    <div class="barre"><i id="barreSante"></i><span>Santé</span></div>
+    <div class="barre endu"><i id="barreEndurance"></i><span>Endurance</span></div>
+    <div id="etats"></div>
+  </div>
+  <canvas id="minicarte" width="150" height="150" title="Carte (M pour agrandir)"></canvas>
+  <div id="invite"></div>
+  <div id="message"></div>
+  <div id="aide">ZQSD : marcher · Maj : courir · C : s'accroupir · Espace / clic : frapper · F / clic droit : bousculer · B : se bander · E : ouvrir, casser, fouiller · M : carte · Échap : menu</div>
+  <div id="joystick"><i></i></div>
+  <button id="btAction">E</button>
+  <button id="btCourir">🏃</button>
+  <button id="btFrapper">🏏</button>
+  <button id="btBousculer">✋</button>
+  <button id="btAccroupi">🦶</button>
+  <button id="btBander">🩹</button>
+</div>
+
+<!-- Écran de mort -->
+<section id="mort" class="cache">
+  <div class="carte">
+    <h1>TU ES <b>MORT</b></h1>
+    <p id="mortCause"></p>
+    <p id="mortStats"></p>
+    <p class="note">Dans la Zone Morte, la mort est définitive : la partie est effacée.</p>
+    <button id="btRecommencer" class="principal">Recommencer</button>
+    <a href="/" class="lienRetour">← Retour à l'accueil</a>
+  </div>
+</section>
+
+<!-- Menu -->
+<section id="menu">
+  <div class="carte">
+    <h1>☣️ ZONE <b>MORTE</b></h1>
+    <p class="pitch">Le monde s'est arrêté il y a trois jours.<br>Tu es seul à Saint-Aubin avec une batte, et la route continue à l'infini.</p>
+    <button id="btContinuer" class="principal">Continuer</button>
+    <button id="btNouvelle">Nouvelle partie</button>
+    <label class="graine">Graine du monde <input id="graine" maxlength="10" placeholder="au hasard"></label>
+    <p class="note">Prototype (phase 2) : les morts entendent tes pas, te voient et te suivent dans les maisons. Une morsure ne pardonne pas.<br>La faim, la fouille et les barricades arrivent dans les prochaines versions.</p>
+    <p id="record" class="note"></p>
+    <a href="/" class="lienRetour">← Retour à l'accueil</a>
+  </div>
+</section>
+
+<script type="module" src="/src/zone-morte/main.js"></script>
+</body>
+</html>

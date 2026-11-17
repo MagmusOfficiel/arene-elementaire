@@ -21,12 +21,16 @@
     <div class="carteAccueil">
       <p class="pitch">Des champions se réunissent au Temple pour sceller les sanctuaires élémentaires…<br>mais un ou deux d'entre eux sont <b>corrompus</b> et sabotent en secret.</p>
       <label class="champ">Ton pseudo <input id="pseudo" maxlength="16" placeholder="Ton pseudo"></label>
+      <button id="btTuto" class="tuto">🎓 Tutoriel guidé <small>(3 minutes, avec des bots)</small></button>
       <div class="boutons">
         <button id="btCreer" class="principal">Créer une partie</button>
+        <button id="btPublic">Partie publique</button>
         <button id="btRapide">Partie rapide avec des bots</button>
       </div>
       <div class="rejoindre"><input id="codeSalon" maxlength="4" placeholder="CODE"><button id="btRejoindre">Rejoindre</button></div>
       <p id="msgAccueil" class="msg"></p>
+      <div id="profil" class="profil"></div>
+      <label class="champ ligneDos">Dos de cartes <select id="dosCartes"></select></label>
       <details class="regles">
         <summary>Comment jouer ?</summary>
         <ol>
@@ -76,6 +80,7 @@
       <span id="phaseTxt"></span>
       <div id="minuteur"><div id="minuteurBarre"></div><span id="minuteurTxt"></span></div>
       <span id="effetsTxt"></span>
+      <button id="btAide" class="petit" title="Rappel des règles">❓ Règles</button>
     </div>
     <div id="jeuCorps">
       <div id="plateauZone">
@@ -89,13 +94,14 @@
         <div id="actions"></div>
         <div id="savoir"></div>
         <div id="onglets"><button data-o="chat" class="actif">Débat</button><button data-o="journal">Journal</button></div>
-        <div id="chat" class="vueOnglet"><div id="chatListe"></div><form id="chatForm"><input id="chatInput" maxlength="160" placeholder="Écris au Conclave…" autocomplete="off"><button>➤</button></form></div>
+        <div id="chat" class="vueOnglet"><div id="chatListe"></div><div id="reactions"></div><form id="chatForm"><input id="chatInput" maxlength="160" placeholder="Écris au Conclave…" autocomplete="off"><button>➤</button></form></div>
         <div id="journal" class="vueOnglet cache"></div>
       </aside>
     </div>
     <div id="main"></div>
   </section>
 
+  <div id="coach" class="cache"><div id="coachTexte"></div><button id="coachOk" class="petit">Réduire</button></div>
   <div id="voile" class="cache"><div id="voileContenu"></div></div>
   <div id="toast"></div>
 </div>

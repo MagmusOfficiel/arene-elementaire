@@ -102,3 +102,19 @@ export const CHAMPIONS_CONCLAVE = {
 export const PHASES = {
   salon: 'Salon', deplacement: 'Déplacement', rituel: 'Rituel', revelation: 'Révélation', debat: 'Débat', vote: 'Vote', resultat: 'Résultat du vote', fin: 'Fin de partie',
 };
+
+// ---------- Progression (purement cosmétique ou de collection, partagée avec l'Arène) ----------
+// Champions : 4 offerts ; les autres se débloquent au niveau du compte OU en jouant cette fusion dans l'Arène.
+export const DEBLOCAGE = { 'eau+feu': 0, 'feu+terre': 0, 'eclair+vent': 0, 'eau+terre': 0, 'eau+vent': 3, 'eclair+terre': 5, 'feu+vent': 8, 'eclair+feu': 12 };
+export const championDebloque = (fusion, niveau = 1, grimoire = []) => !DEBLOCAGE[fusion] || niveau >= DEBLOCAGE[fusion] || grimoire.includes(fusion);
+// Dos de cartes (visible pendant les révélations)
+export const DOS_CARTES = [
+  { id: 'classique', nom: 'Temple', niv: 1 },
+  { id: 'or', nom: 'Or sacré', niv: 5 },
+  { id: 'abysses', nom: 'Abysses', niv: 10 },
+  { id: 'braise', nom: 'Braise', niv: 15 },
+  { id: 'prisme', nom: 'Prisme', niv: 20 },
+];
+// Réactions rapides du débat (pratique sur téléphone)
+export const REACTIONS = ['🤔', '😡', '😂', '👍', '👎', '🙏', '🫣', '🔥'];
+export const PHRASES_RAPIDES = ['J’ai posé le bon élément.', 'J’étais au parvis.', 'Je n’ai rien vu de louche.', 'Quelqu’un ment sur sa carte !', 'On attend avant de voter ?'];

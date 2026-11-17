@@ -6,6 +6,7 @@ import { Partie } from '../../shared/conclave/partie.js';
 import { CONCLAVE } from '../../shared/conclave/regles.js';
 import { noterErreur } from './journal.js';
 import { partieConclave } from './stats.js';
+import { valideCouleur } from '../../shared/cosmetiques.js';
 
 const { Room } = colyseus;
 const LETTRES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -15,8 +16,9 @@ export class ConclaveRoom extends Room {
 
   onCreate(options = {}) {
     this.code = Array.from({ length: 4 }, () => LETTRES[Math.floor(Math.random() * LETTRES.length)]).join('');
-    this.partie = new Partie({ code: this.code, options: { bonnes: options.bonnes === 3 ? 3 : 2 } });
-    this.setPrivate(!options.public);
+    const pub = !!options.public && !options.tuto;
+    this.partie = new Partie({ code: this.code, options: { bonnes: options.bonnes === 3 ? 3 : 2, tuto: !!options.tuto, public: pub } });
+    this.setPrivate(!pub);
     this.setMetadata({ code: this.code, mode: 'conclave' });
     this.envoyee = -1;
     const P = this.partie;
@@ -40,6 +42,7 @@ export class ConclaveRoom extends Room {
     // horloge : 4 fois par seconde (largement assez pour du tour par tour)
     this.clock.setInterval(() => {
       try { P.tick(0.25); } catch (e) { noterErreur('conclave · tick', e); }
+      if (P.phase !== 'salon' && !this.locked) this.lock();   // partie lancée (aussi par la file publique) : plus personne n'entre
       if (P.phase === 'fin' && !this.enregistree) {
         this.enregistree = true;
         try { partieConclave(P.fin, P.bilan(), P.options); } catch (e) { noterErreur('conclave · stats', e); }
@@ -63,6 +66,7 @@ export class ConclaveRoom extends Room {
     const j = this.partie.joueurs.get(client.sessionId);
     if (j && typeof options.compte === 'string' && /^[A-Z0-9-]{9}$/.test(options.compte)) j.compte = options.compte;
     if (options.champion) this.partie.choisirChampion(client.sessionId, options.champion);
+    if (j && typeof options.couleur === 'string') j.couleur = valideCouleur(options.couleur);   // couleur de nom gagnée dans l'Arène
     this.diffuser();
   }
 

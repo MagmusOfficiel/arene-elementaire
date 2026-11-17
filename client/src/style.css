@@ -550,4 +550,6 @@ body.touch #choix .ch-b { display: none; } body.touch #choix .touche { display: 
 .hub-carte b { font-size: 22px; } .hub-carte small { color: #c8c2d0; font-size: 14px; line-height: 1.4; } .hub-ic { font-size: 48px; }
 .hub-carte.arene { background: linear-gradient(160deg, #5a2a10, #1c120c); border: 2px solid #ff8a2a; box-shadow: 0 0 30px rgba(255, 138, 42, .25); }
 .hub-carte.conclave { background: linear-gradient(160deg, #3a2160, #140e1e); border: 2px solid #c9a0ff; box-shadow: 0 0 30px rgba(162, 89, 255, .25); }
+.hub-carte.zonemorte { background: linear-gradient(160deg, #2c3324, #0e100c); border: 2px solid #9fc25a; box-shadow: 0 0 30px rgba(159, 194, 90, .2); }
+.hub-carte.zonemorte i { color: #9fc25a; font-style: normal; }
 .hub-pied { color: #9a94a6; }

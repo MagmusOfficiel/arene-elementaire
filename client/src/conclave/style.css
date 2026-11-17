@@ -159,3 +159,31 @@ input, select { font: inherit; color: inherit; background: #120f18; border: 1px 
 
 #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #241d30; border: 1px solid var(--or); padding: 10px 16px; border-radius: 10px; transition: transform .3s; z-index: 200; max-width: 90vw; }
 #toast.on { transform: translateX(-50%) translateY(0); }
+
+/* ---------- tutoriel guidé ---------- */
+button.tuto { width: 100%; margin-bottom: 10px; padding: 12px; background: linear-gradient(180deg, #3a2a5c, #241a3a); border-color: #a259ff; font-weight: 700; }
+button.tuto small { font-weight: 400; color: var(--doux); }
+button.tuto.nouveau { animation: appel 1.2s infinite alternate; }
+@keyframes appel { to { box-shadow: 0 0 0 3px #a259ff, 0 0 22px #a259ff; } }
+#coach { position: fixed; left: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px)); z-index: 150; background: linear-gradient(180deg, #2b2140, #1a1426); border: 2px solid #a259ff; border-radius: 14px; padding: 12px 14px 10px; box-shadow: 0 10px 40px #000c; animation: apparait .3s; }
+#coach b { color: #d6b3ff; font-size: 16px; } #coach p { margin: 6px 0 8px; font-size: 14px; } #coach p b { font-size: inherit; color: var(--or); }
+#coach.reduit { width: auto; padding: 6px 10px; } #coach.reduit #coachOk { margin-left: 10px; }
+#coachOk { float: right; }
+.surligne { outline: 3px solid #a259ff !important; outline-offset: 4px; animation: surligne 1s infinite alternate; border-radius: 12px; }
+@keyframes surligne { to { outline-color: #f2c94c; } }
+.aideRegles { text-align: left; max-width: 640px; margin: 0 auto; } .aideRegles li { margin: 6px 0; }
+#minuteur.tuto #minuteurBarre { background: #3a2a5c; }
+.finTuto { text-align: left; max-width: 700px; margin: 14px auto; background: #2b2140; border: 2px solid #a259ff; border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.finTuto b { color: #d6b3ff; } .finTuto p b { color: var(--or); }
+
+/* ---------- progression, réactions, dos de cartes ---------- */
+.profil { margin-top: 12px; font-size: 13px; color: var(--doux); background: #15121b; border-radius: 10px; padding: 8px 12px; }
+.profil b { color: var(--texte); } .profil .g { color: var(--or); } .profil .c { color: var(--violet); }
+.ligneDos { flex-direction: row; align-items: center; gap: 10px; margin-top: 10px; }
+.champion.verrou img { filter: grayscale(1) brightness(.6); }
+.champion .cadenas { position: static; display: block; margin-top: 4px; background: #000a; color: var(--or); font-style: normal; }
+#reactions { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px 6px 0; } #reactions .reac { padding: 2px 6px; font-size: 15px; } #reactions select { flex: 1; min-width: 120px; padding: 3px; font-size: 12px; }
+body[data-dos="or"] .carteRev .dos { background: repeating-linear-gradient(45deg, #6b5418 0 6px, #4a3a10 6px 12px); border-color: var(--or); }
+body[data-dos="abysses"] .carteRev .dos { background: radial-gradient(circle, #1a4a7a, #071628); border-color: #3aa0ff; }
+body[data-dos="braise"] .carteRev .dos { background: radial-gradient(circle at 50% 80%, #ff6a2a, #3a0d05 70%); border-color: #ff6a2a; }
+body[data-dos="prisme"] .carteRev .dos { background: conic-gradient(#ff5a5a, #ffd23a, #4ade80, #3aa0ff, #a259ff, #ff5a5a); border-color: #fff; }
