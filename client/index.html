@@ -70,8 +70,13 @@
   <div id="volumes"><label>🎵 Musique <input type="range" id="volMusique" min="0" max="1" step="0.05"></label><label>🔊 Effets <input type="range" id="volEffets" min="0" max="1" step="0.05"></label><small>M en jeu : couper le son</small></div>
           <h3>🖥 Graphismes</h3>
           <label class="rg">Qualité <select id="rgQualite"><option value="auto">Automatique (s'adapte à l'appareil)</option><option value="haut">Haute — tous les effets</option><option value="moyen">Moyenne — moins de particules</option><option value="bas">Basse — pour téléphone ou PC lent</option></select></label>
+          <label class="rg">Secousses de l'écran <select id="rgSecousses"><option value="normales">Normales</option><option value="fortes">Fortes</option><option value="reduites">Réduites</option><option value="aucune">Aucune (ni secousse ni ralenti)</option></select></label>
           <label class="rg"><input type="checkbox" id="rgPing"> Afficher la latence (ping)</label>
           <label class="rg"><input type="checkbox" id="rgFps"> Afficher les images par seconde</label>
+          <h3>🧪 Test des visuels</h3>
+          <label class="rg">Style des champions <select id="rgStyle"><option value="auto">Normal (actuel)</option><option value="illustration">Illustration seule</option><option value="maison">Fait maison (dessiné en jeu)</option><option value="pixel">Pixel art</option><option value="3d">3D rendue en 2D</option></select></label>
+          <label class="rg">Champion imposé en solo <select id="rgTestChamp"><option value="">Aucun (choix normal)</option><option value="feu+terre">Magma (feu + terre)</option><option value="feu+lumiere">Aube (feu + lumière)</option></select></label>
+          <small>Disponibles pour l'instant : Magma en « Fait maison », « Pixel art » et « 3D rendue en 2D ». Coche « Solo » puis lance une partie.</small>
           <h3>🎮 Contrôles</h3>
           <label class="rg">Taille de l'interface <select id="rgInterface"><option value="0.85">Petite</option><option value="1">Normale</option><option value="1.15">Grande</option></select></label>
           <label class="rg">Sensibilité du joystick (téléphone) <input type="range" id="rgJoystick" min="0.15" max="0.55" step="0.05"><small id="rgJoystickV"></small></label>

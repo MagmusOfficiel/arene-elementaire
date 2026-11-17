@@ -21,6 +21,19 @@ export const HEROS = {
     arme: 'epee', lame: '#ffd84a', lameClair: '#fff6c0', lameLueur: 0xffb030, garde: '#c98a12',
     emblème: 'soleil',
   },
+  // Magma — en test (Réglages > Style des champions > Fait maison) : torse de basalte fissuré de lave,
+  // poings de lave, pas de cape ni d'épée
+  'feu+terre': {
+    nom: 'Magma', test: true,
+    peau: '#4a4244', peauOmbre: '#2e2829',
+    cheveux: '#e8261a', cheveuxOmbre: '#9c130d', cheveuxClair: '#ff7a45', coiffure: 'petard',
+    yeux: '#ffcc33',
+    armure: '#433b3d', armureOmbre: '#2a2425', or: '#ff7a1a', orOmbre: '#c2410c',
+    tissu: '#2a2224', tissuOmbre: '#171213', bottes: '#1f1a1b', bottesOmbre: '#120e0f',
+    ceinture: '#3a2a22', cape: null, capeDedans: null,
+    arme: 'poings', poing: '#ff8a2a', poingOmbre: '#c2410c', lame: '#ff8a2a', lameClair: '#ffd27a', lameLueur: 0xff6a1a, garde: '#c2410c',
+    emblème: 'lave',
+  },
 };
 
 const OUT = '#1a0f0a';          // contour
@@ -63,7 +76,8 @@ function buildParts(scene, k, D) {
     rrect(c, 4, 2, 22, 30, 8, D.armure); rrect(c, 15, 5, 8, 24, 4, D.armureOmbre, null);
     c.strokeStyle = OUT; c.lineWidth = 4; c.beginPath(); c.roundRect(4, 2, 22, 30, 8); c.stroke();
     rrect(c, 3, 24, 24, 6, 2, D.or, OUT, 3);
-    c.beginPath(); c.arc(15, 38, 10, 0, Math.PI * 2); c.fillStyle = '#2a1e1a'; c.fill(); c.lineWidth = 4; c.strokeStyle = OUT; c.stroke();
+    c.beginPath(); c.arc(15, 38, D.poing ? 12 : 10, 0, Math.PI * 2); c.fillStyle = D.poing || '#2a1e1a'; c.fill(); c.lineWidth = 4; c.strokeStyle = OUT; c.stroke();
+    if (D.poing) { c.beginPath(); c.arc(18, 41, 6, 0, Math.PI * 2); c.fillStyle = D.poingOmbre; c.fill(); c.beginPath(); c.arc(12, 34, 3.5, 0, Math.PI * 2); c.fillStyle = '#ffe2a0'; c.fill(); }
   });
   // Épaulière
   piece(scene, TX(k, 'epauliere'), 46, 36, (c) => {
@@ -80,11 +94,19 @@ function buildParts(scene, k, D) {
     shape(c, [[44, 10], [60, 8], [74, 22], [70, 60], [46, 60]], D.armureOmbre, null);
     c.strokeStyle = OUT; c.lineWidth = 4; c.beginPath(); c.moveTo(14, 60); c.lineTo(10, 22); c.lineTo(24, 8); c.lineTo(60, 8); c.lineTo(74, 22); c.lineTo(70, 60); c.closePath(); c.stroke();
     rrect(c, 30, 0, 24, 12, 4, D.tissu);                                                                // col
+    if (D.emblème === 'lave') {   // fissures de lave sur le torse
+      c.strokeStyle = D.or; c.lineWidth = 3.5;
+      for (const f of [[[20, 18], [30, 30], [26, 42], [36, 52]], [[64, 14], [54, 26], [58, 38], [48, 50]], [[42, 20], [44, 34], [40, 44]]]) {
+        c.beginPath(); c.moveTo(f[0][0], f[0][1]); f.slice(1).forEach(([x, y]) => c.lineTo(x, y)); c.stroke();
+      }
+      c.strokeStyle = '#ffe2a0'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(30, 30); c.lineTo(26, 42); c.moveTo(54, 26); c.lineTo(58, 38); c.stroke();
+    } else {
     // soleil
     c.save(); c.translate(42, 34);
     c.fillStyle = D.or; c.strokeStyle = OUT; c.lineWidth = 2.5;
     c.beginPath(); for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2, r = i % 2 ? 9 : 16; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.fill(); c.stroke();
     c.beginPath(); c.arc(0, 0, 6, 0, Math.PI * 2); c.fillStyle = D.orOmbre; c.fill(); c.stroke(); c.restore();
+    }
     rrect(c, 8, 56, 68, 12, 5, D.ceinture);                                                             // ceinture
     rrect(c, 34, 55, 16, 14, 3, D.or, OUT, 3);
   });
@@ -94,7 +116,7 @@ function buildParts(scene, k, D) {
     c.fillStyle = D.ceinture; c.fill(); c.lineWidth = 3; c.strokeStyle = OUT; c.stroke();
   });
   // Cape (derrière) : pivot en haut
-  piece(scene, TX(k, 'cape'), 70, 120, (c) => {
+  if (D.cape) piece(scene, TX(k, 'cape'), 70, 120, (c) => {
     shape(c, [[16, 2], [54, 2], [66, 110], [46, 104], [34, 116], [20, 104], [4, 112]], D.cape);
     shape(c, [[40, 4], [54, 2], [66, 110], [46, 104]], D.capeDedans, null);
     c.strokeStyle = OUT; c.lineWidth = 4; c.beginPath(); c.moveTo(16, 2); c.lineTo(54, 2); c.lineTo(66, 110); c.lineTo(46, 104); c.lineTo(34, 116); c.lineTo(20, 104); c.lineTo(4, 112); c.closePath(); c.stroke();
@@ -140,7 +162,7 @@ function buildParts(scene, k, D) {
     curve([[64, 40], [96, 36], [112, 46], [92, 44]], D.cheveuxClair, null);
   });
   // Épée solaire : pivot à la poignée, lame vers le haut
-  piece(scene, TX(k, 'epee'), 40, 170, (c) => {
+  if (D.arme === 'epee') piece(scene, TX(k, 'epee'), 40, 170, (c) => {
     shape(c, [[20, 2], [30, 18], [28, 124], [12, 124], [10, 18]], D.lame);
     shape(c, [[20, 2], [30, 18], [28, 124], [20, 124]], D.lameClair, null);
     c.strokeStyle = OUT; c.lineWidth = 3.5; c.beginPath(); c.moveTo(20, 2); c.lineTo(30, 18); c.lineTo(28, 124); c.lineTo(12, 124); c.lineTo(10, 18); c.closePath(); c.stroke();
@@ -186,6 +208,7 @@ export class Hero {
     this.dims = kit ? kit.dims : { L1: 41, L2: 48, LA: 36, LF: 34, T: 58, lame: 120, u: 1 };
     const KMAP = { epauliere: null, epee: 'arme', ruban: null };
     const im = (p, ox, oy) => {
+      if (!kit && !scene.textures.exists(TX(key, p))) return scene.add.image(0, 0, '__WHITE').setVisible(false).setAlpha(0);   // pièce que ce perso n'a pas (cape, épée)
       if (!kit) return scene.add.image(0, 0, TX(key, p)).setOrigin(ox, oy);
       const kp = p in KMAP ? KMAP[p] : p;
       if (!kp || !kit.o[kp]) return scene.add.image(0, 0, '__WHITE').setVisible(false).setAlpha(0);   // pièce absente du kit
@@ -297,7 +320,10 @@ export class Hero {
     // épée dans la main avant
     p.epee.setPosition(hand.x, hand.y).setRotation(sword);
     const tipX = hand.x + S(sword) * Dm.lame, tipY = hand.y - C(sword) * Dm.lame;
-    this.lueur.setPosition((hand.x + tipX) / 2, (hand.y + tipY) / 2).setScale(0.8 + trail * 0.4).setAlpha(0.3 + trail * 0.3 + S(t * 5) * 0.05);
+    if (this.D.arme === 'poings') {   // poings de lave : la lueur entoure la main avant, plus forte pendant le coup
+      this.lueur.setPosition(hand.x, hand.y).setScale(0.35 + trail * 0.35).setAlpha(0.45 + trail * 0.4 + S(t * 6) * 0.08);
+      this.paume.setAlpha(Math.max(this.paume.alpha, 0.35 + S(t * 5) * 0.08)).setScale(Math.max(this.paume.scaleX, 0.3));
+    } else this.lueur.setPosition((hand.x + tipX) / 2, (hand.y + tipY) / 2).setScale(0.8 + trail * 0.4).setAlpha(0.3 + trail * 0.3 + S(t * 5) * 0.05);
     // arc de la taille : secteur lumineux entre le début du coup et la position actuelle de la lame
     const g = this.trace.clear();
     if (a.atk >= 0.26 && a.atk < 0.7) {

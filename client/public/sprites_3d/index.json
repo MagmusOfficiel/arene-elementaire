@@ -1,0 +1,14 @@
+{
+ "feu+terre": {
+  "w": 256,
+  "h": 256,
+  "pied": 252,
+  "centre": 131,
+  "perso": 241,
+  "atk": 6,
+  "cast": 6,
+  "hurt": 3,
+  "idle": 4,
+  "run": 8
+ }
+}

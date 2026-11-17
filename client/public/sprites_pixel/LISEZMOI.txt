@@ -1,0 +1,5 @@
+Personnages en pixel art composés à partir des calques du Universal LPC Spritesheet Character Generator
+https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator
+Licences : CC BY-SA 3.0 et GPL 3.0 (voir les auteurs de chaque calque dans CREDITS.csv).
+Les yeux (eyes/human/adult) viennent du même générateur ; leurs auteurs sont listés dans le générateur.
+Recoloration et assemblage : tools/lpc_champion.py.

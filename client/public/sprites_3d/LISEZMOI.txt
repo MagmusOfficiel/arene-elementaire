@@ -1,0 +1,4 @@
+Personnages 3D rendus en images 2D (style « 3D rendue en 2D », en test).
+Modèle et animations : KayKit Adventurers Character Pack 1.0 par Kay Lousberg (www.kaylousberg.com), licence CC0.
+https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0
+Recoloration, cheveux et rendu : tools/rendu3d/ (Blender en ligne de commande, moteur Workbench).

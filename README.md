@@ -228,3 +228,9 @@ Formes de sort : `projectile`, `eventail`, `impact`, `dash`, `soin`, `bouclier`.
 - **Anti-veille Render** : sur Render, le serveur visite `/health` toutes les 10 min pour ne pas s'endormir. Variable `GARDER_EVEILLE=0` pour le couper.
 - **Mesures de confort** : `/api/mesures` résume les FPS, le ping et le temps d'attente des dernières parties (ajoute `?cle=…` si `JOURNAL_CLE` est défini).
 - **Tests automatiques** : `.github/workflows/tests.yml` lance build + tests à chaque push (onglet Actions sur GitHub).
+
+## Test des visuels des champions (v19-v20)
+
+Réglages > Test des visuels : style des champions (normal, illustration, fait maison, pixel art, 3D rendue en 2D) et champion imposé en solo.
+- Pixel art : `python3 tools/lpc_champion.py <spritesheets LPC> client/public <fusion>` (calques CC BY-SA / GPL, crédits dans `sprites_pixel/`).
+- 3D rendue en 2D : `tools/rendu3d/` — `recolor.py` (texture), `rendu.py` (Blender `pip install bpy`, moteur Workbench), `assembler.py` (planches). Modèles KayKit CC0.

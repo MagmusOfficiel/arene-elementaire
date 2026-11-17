@@ -80,6 +80,17 @@ export class ArenaScene extends Phaser.Scene {
       for (const [k, A] of Object.entries(idx || {})) for (const n of ['run', 'atk', 'idle', 'cast']) for (let i = 0; i < (A[n] || 0); i++)
         this.load.image(`anim_${k}_${n}_${i}`, `/sprites_anim/${encodeURIComponent(k)}/${n}_${i}.webp`);
     });
+    // Styles en test (Réglages > Test des visuels) : pixel art (calques LPC) ou 3D rendue en 2D (KayKit)
+    const STY = { pixel: ['sprites_pixel', 'px'], '3d': ['sprites_3d', 'p3'] }[reglages.styleChamps];
+    if (STY) {
+      const [dos, pre] = STY;
+      this.load.json('styleIdx', `/${dos}/index.json`);
+      this.load.on('filecomplete-json-styleIdx', (key, type, idx) => {
+        for (const [k, A] of Object.entries(idx || {})) for (const n of ['run', 'atk', 'idle', 'cast', 'hurt']) for (let i = 0; i < (A[n] || 0); i++)
+          this.load.image(`${pre}_${k}_${n}_${i}`, `/${dos}/${encodeURIComponent(k)}/${n}_${i}.webp`);
+      });
+      if (pre === 'px') this.load.on('filecomplete-image', (key) => { if (key.startsWith('px_')) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST); });
+    }
     this.load.on('filecomplete-json-atkList', (key, type, list) => {
       (list || []).forEach((k) => this.load.image(`atk_${k}`, `/sprites_atk/${encodeURIComponent(k)}.webp`));
     });
@@ -107,6 +118,9 @@ export class ArenaScene extends Phaser.Scene {
     this.time.addEvent({ delay: 1000, loop: true, callback: () => { this.room.send('ping', { t: performance.now() }); this.hud.fps?.(Math.round(this.game.loop.actualFps)); if (this.pingN) noterPing(Math.round(this.rtt * 1000)); } });
     scenePrete();
     const cam = this.cameras.main;
+    // Secousses de l'écran réglables (Réglages > Graphismes) : toutes les secousses passent par ici
+    const secouer = cam.shake.bind(cam);
+    cam.shake = (d, i, ...r) => { const k = { aucune: 0, reduites: 0.5, fortes: 1.5 }[reglages.secousses] ?? 1; return k ? secouer(d, (i ?? 0.005) * k, ...r) : cam; };
     cam.setBounds(-300, -300, ARENA.width + 600, ARENA.height + 600);
     cam.setBackgroundColor('#0b0d10');
     this.buildWorld();

@@ -2,7 +2,7 @@ import { Hud } from './hud.js';
 import { debutPartie, finPartie } from './mesures.js';
 import { COULEURS, CADRES, couleurDe, cadreDe, styleCadre, xpPourNiveau, NIV_MAX } from '../../shared/cosmetiques.js';
 import { VERSION_JEU } from '../../shared/version.js';
-import { initAudio, setMusic, setAmbiance, volumes, setVolume } from './sfx.js';
+import { initAudio, setMusic, setAmbiance, volumes, setVolume, sfx } from './sfx.js';
 import { FUSIONS, ELEMENTS, tokenUrl, portraitUrl, generateKit } from '../../shared/data.js';
 import { kitHtml } from '../../shared/describe.js';
 import { TOUCH, initTouch } from './touch.js';
@@ -239,6 +239,9 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
     }
     const force = new URLSearchParams(location.search).get('force')?.split(',');
     if (solo && force?.length === 2) globalThis.FORCE_FUSION = force;
+    // Test des visuels : en solo, on peut imposer un champion (Réglages > Test des visuels)
+    if (solo && reglages.testChamp && !(force?.length === 2)) { globalThis.FORCE_FUSION = reglages.testChamp.split('+'); globalThis.forceParReglage = true; }
+    else if (globalThis.forceParReglage) { delete globalThis.FORCE_FUSION; globalThis.forceParReglage = false; }
     if (solo) room = new LocalRoom(mode, name, progress.titre, { cote: classe.cote, jeton: classe.jeton, coul: progress.coul, cadre: progress.cadre });
     // En ligne : attendre le premier état complet du serveur (mode de jeu, carte, joueurs) avant de construire
     // la scène. Sinon la carte du monde ouvert serait chargée par erreur dans le Colisée ou la Brèche
@@ -287,7 +290,8 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
         hud.addKill(m, room.sessionId);
         if (m.kid === room.sessionId) progress.on('kill', 1, myCtx());
         // élimination par moi : petit coup de zoom + flash
-        if (m.kid === room.sessionId && bus.scene) { const cam = bus.scene.cameras.main; bus.scene.tweens.add({ targets: cam, zoom: bus.scene.baseZoom * 1.08, duration: 90, yoyo: true, hold: 180 }); cam.flash(120, 255, 255, 255, false); }
+        if (m.kid === room.sessionId && bus.scene) { const cam = bus.scene.cameras.main; bus.scene.tweens.add({ targets: cam, zoom: bus.scene.baseZoom * 1.08, duration: 90, yoyo: true, hold: 180 }); cam.flash(120, 255, 255, 255, false);
+          sfx.kill(); bus.scene.koVictime?.(m.vid); bus.scene.ralenti?.(220, 0.35); }
       });
       r.onMessage('fx', (m) => bus.scene?.fx(m));
       r.onMessage('proj', (m) => bus.scene?.projSpawn(m));
@@ -385,6 +389,12 @@ function badgeDefis() { const n = progress.d.defis?.filter((d) => !d.done).lengt
 badgeDefis(); setInterval(badgeDefis, 5000);
 
 // ---------------- Réglages ----------------
+$('rgSecousses').value = reglages.secousses || 'normales';
+$('rgSecousses').onchange = (e) => changerReglage('secousses', e.target.value);
+$('rgStyle').value = reglages.styleChamps || 'auto';
+$('rgStyle').onchange = (e) => changerReglage('styleChamps', e.target.value);
+$('rgTestChamp').value = reglages.testChamp || '';
+$('rgTestChamp').onchange = (e) => changerReglage('testChamp', e.target.value);
 $('rgQualite').value = reglages.qualite;
 $('rgQualite').onchange = (e) => changerReglage('qualite', e.target.value);
 $('rgPing').checked = reglages.ping; $('rgPing').onchange = (e) => changerReglage('ping', e.target.checked);

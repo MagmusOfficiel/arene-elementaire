@@ -145,11 +145,25 @@ export const effets = {
   },
 
   // Micro-pause : le jeu « accroche » 60 ms sur un gros coup (ralentit seulement les effets à l'écran)
-  pauseImpact() {
-    if (this.lowFx || this._pause) return;
-    this._pause = true; this.tweens.timeScale = 0.15;
-    for (const em of Object.values(this.burst || {})) em.timeScale = 0.15;
-    setTimeout(() => { this.tweens.timeScale = 1; for (const em of Object.values(this.burst || {})) em.timeScale = 1; this._pause = false; }, 60);
+  // Micro-pause d'impact (affichage seulement, le serveur continue) : effets et particules quasi figés un instant
+  pauseImpact(ms = 60, k = 0.15) {
+    if (this.lowFx || this._pause || reglages.secousses === 'aucune') return;
+    this._pause = true; this.tweens.timeScale = k;
+    for (const em of Object.values(this.burst || {})) em.timeScale = k;
+    setTimeout(() => { this.tweens.timeScale = 1; for (const em of Object.values(this.burst || {})) em.timeScale = 1; this._pause = false; }, ms);
+  },
+  // Ralenti bref (élimination, ultime lancé) : effets, particules et animations des persos ralentis
+  ralenti(ms = 200, k = 0.35) {
+    if (reglages.secousses === 'aucune') return;
+    this._ralentiFin = performance.now() + ms; this._ralentiK = k;
+    this.pauseImpact(ms, k);
+  },
+  // « K.O. » au-dessus de la victime que je viens d'éliminer
+  koVictime(vid) {
+    const d = vid && this.disp.get(vid); if (!d) return;
+    this.floatText(d.x, d.y - 150, 'K.O. !', '#ffffff', 34, true);
+    const r = this.add.image(d.x, d.y - 40, 'fx_glow').setTint(0xffffff).setBlendMode('ADD').setDepth(D_FX + 4).setScale(0.4);
+    this.tweens.add({ targets: r, scale: 2.4, alpha: 0, duration: 380, ease: 'Quad.easeOut', onComplete: () => r.destroy() });
   },
 
   // Annonce d'un ultime : contour + remplissage qui se « charge » jusqu'au moment de l'impact
@@ -392,6 +406,7 @@ export const effets = {
         } else if (m.o === myId) {
           sfx.hitmark();
           if (m.v >= 30) { this.cameras.main.shake(90, 0.0035); this.pauseImpact(); }   // gros coup donné : petite secousse + micro-pause
+          else this.pauseImpact(30, 0.4);                                                // coup normal : micro-pause plus légère
         }
         if (this.colisee && m.v >= 25 && v > 0.3) foule(0.45, 1); }
       this.burst[m.el]?.explode(6, m.x, m.y - 40);
@@ -562,7 +577,8 @@ export const effets = {
         this.lastCut = this.time.now;
         this.hud.cutin(m);
         const cam = this.cameras.main;
-        this.tweens.add({ targets: cam, zoom: this.baseZoom * 1.06, duration: 160, yoyo: true, hold: 300, ease: 'Quad.easeOut' });
+        this.tweens.add({ targets: cam, zoom: this.baseZoom * (mine ? 1.1 : 1.06), duration: 160, yoyo: true, hold: 300, ease: 'Quad.easeOut' });
+        if (mine) this.ralenti(240, 0.3);   // mon ultime : un quart de seconde au ralenti
       }
       this.shakeNear(m.x, m.y, 0.008);
       const pillar = this.add.image(m.x, m.y - 80, 'fx_glow').setTint(elColor(m.el)).setBlendMode('ADD').setDepth(D_FX).setScale(1, 4);

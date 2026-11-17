@@ -15,6 +15,9 @@ import { progress } from '../progress.js';
 import { EVENTS, TERRAINS, terrainAt, terrainSpeed, ARENA, BIOMES, CONFIG, ELEMENTS, FUSIONS, BUILDINGS, CITY, ZOMBIES, TAGS, generateKit, insideBuilding, resolveCollisions, TOURNOI, tournoiPit, COLISEE, SURVIE, DUO, carteDu, areneProche, hasStatus as S } from '../../../shared/data.js';
 import { elColor, lerp, R, CHAR_H, ZOMBIE_H, ZLOOK, ELITE_NOMS, FONT, D_GROUND, D_FX, D_UI, FX, PROPS, PROP_NAMES } from './commun.js';
 
+// statut -> icône affichée au-dessus du perso (l'invisibilité n'en a pas, évidemment)
+const ICONES_STATUT = [['burn', '🔥'], ['frost', '❄️'], ['wet', '💧'], ['root', '🌿'], ['vine', '🌿'], ['slow', '🐌'], ['blind', '🌫️'], ['mark', '🎯'], ['armor', '🛡️'], ['haste', '⚡']];
+
 export const persos = {
   // Horloge serveur : estime le décalage avec la nôtre et la gigue du réseau (pour l'interpolation)
   horlogeServeur() {
@@ -192,20 +195,30 @@ export const persos = {
       const attacking = time - (c.castT || -1e9) < 350 && this.textures.exists(atkKey);
       let wantKey = attacking ? atkKey : baseKey;
       // Vraie animation image par image si le champion a une planche (course / attaque)
-      const AN = (this.animIdx ||= this.cache.json.get('animIdx') || {})[p.fusion];
+      // Style des champions (Réglages, en test) : auto | illustration | maison | pixel
+      const style = reglages.styleChamps || 'auto';
+      const fiche = HEROS[p.fusion];
+      c.useHero = !!fiche && (style === 'maison' || (style === 'auto' && !fiche.test));
+      let AN = null, pref = 'anim';
+      if ((style === 'pixel' || style === '3d') && (this.styleIdx ||= this.cache.json.get('styleIdx') || {})[p.fusion]) { AN = this.styleIdx[p.fusion]; pref = style === 'pixel' ? 'px' : 'p3'; c.useHero = false; }
+      else if (style !== 'illustration' && !c.useHero) AN = (this.animIdx ||= this.cache.json.get('animIdx') || {})[p.fusion];
+      const fk = (n, i) => `${pref}_${p.fusion}_${n}_${i}`;
       c.animOn = false;
       if (AN) {
-        const at = time - (c.castT || -1e9);
+        const at = time - (c.castT || -1e9), hT = time - (c.hitT || -1e9);
+        const castN = !c.castMelee && AN.cast ? 'cast' : 'atk';
         c.runDist = (c.runDist || 0) + speedPx * dt;
         let k = null;
-        if (AN.atk && at >= 0 && at < AN.atk * 85) k = `anim_${p.fusion}_atk_${Math.min(AN.atk - 1, Math.floor(at / 85))}`;
-        else if (AN.run && moving && jump <= 0) k = `anim_${p.fusion}_run_${Math.floor(c.runDist / 38) % AN.run}`;
+        if (AN[castN] && at >= 0 && at < AN[castN] * 70) k = fk(castN, Math.min(AN[castN] - 1, Math.floor(at / 70)));
+        else if (AN.hurt && hT >= 0 && hT < 240) k = fk('hurt', Math.min(2, Math.floor(hT / 80)));
+        else if (AN.run && moving && jump <= 0) k = fk('run', Math.floor(c.runDist / (AN.pixel ? 22 : 38)) % AN.run);
+        else if (AN.idle) k = fk('idle', Math.floor(time / 450) % AN.idle);
         if (k && this.textures.exists(k)) { wantKey = k; c.animOn = true; }
-        else if (AN.atk && this.textures.exists(`anim_${p.fusion}_atk_${AN.atk - 1}`)) wantKey = `anim_${p.fusion}_atk_${AN.atk - 1}`;   // au repos : la garde (+ respiration)
+        else if (AN.atk && this.textures.exists(fk('atk', AN.atk - 1))) wantKey = fk('atk', AN.atk - 1);   // au repos : la garde (+ respiration)
       }
       if (this.textures.exists(wantKey) && c.spr.texture.key !== wantKey) {
         c.spr.setTexture(wantKey);
-        if (wantKey.startsWith('anim_')) { c.scale = CHAR_H / 300; c.spr.setOrigin(AN.centre / AN.w, AN.pied / AN.h); }
+        if (AN && wantKey.startsWith(`${pref}_`)) { c.scale = CHAR_H / (AN.perso || 300); c.spr.setOrigin(AN.centre / AN.w, AN.pied / AN.h); }
         else { c.scale = CHAR_H / (c.spr.texture.getSourceImage().height || CHAR_H); c.spr.setOrigin(0.5, 1); }
       }
       if (c.animOn) { sx = 1; lean *= 0.4; }   // l'image porte déjà le mouvement : on calme les déformations
@@ -213,7 +226,7 @@ export const persos = {
       c.spr.setPosition(d.x + ox, footY - (c.rig ? 0 : bob) + drop - hover - jump).setDepth(d.y).setAlpha(alpha).setRotation(lean)
         .setScale(c.scale * sx * flipK * (c.faceS < 0 ? -1 : 1), c.scale * sy);
       // images fantômes pendant les dashs / téléportations / Surcharge
-      if ((speedPx > 600 || S(p, 'haste')) && !hidden && !HEROS[p.fusion] && time - (c.ghostT || 0) > 40) {
+      if ((speedPx > 600 || S(p, 'haste')) && !hidden && !c.useHero && time - (c.ghostT || 0) > 40) {
         c.ghostT = time;
         const g = this.add.image(c.spr.x, c.spr.y, c.spr.texture.key).setOrigin(0.5, 1).setScale(c.spr.scaleX, c.spr.scaleY)
           .setRotation(c.spr.rotation).setTint(elColor(p.a)).setAlpha(0.45).setBlendMode('ADD').setDepth(d.y - 1);
@@ -225,7 +238,7 @@ export const persos = {
       c.ultReady = ready;
       const ultGlow = ut >= 0 && ut < 1 ? Math.sin(ut * Math.PI) * 0.9 : 0;
       const rimA = Math.max(strike * 0.85, ultGlow, ready && !hidden ? 0.22 + Math.sin(time / 140) * 0.12 : 0);
-      if (rimA > 0.01 && !hidden && !HEROS[p.fusion]) {
+      if (rimA > 0.01 && !hidden && !c.useHero) {
         if (!c.rim) c.rim = this.add.image(0, 0, c.spr.texture.key).setOrigin(0.5, 1).setBlendMode('ADD');
         if (c.rim.texture.key !== c.spr.texture.key) c.rim.setTexture(c.spr.texture.key);
         c.rim.setVisible(true).setPosition(c.spr.x, c.spr.y + 2).setRotation(c.spr.rotation).setDepth(d.y - 0.5)
@@ -240,7 +253,7 @@ export const persos = {
       else if (this.textures.exists(`spr_${p.fusion}`)) c.spr.clearTint();
       // Animation « squelette » : jambes, buste, tête et cheveux bougent séparément
       // Personnage de jeu « fait maison » (squelette + pièces dessinées)
-      if (HEROS[p.fusion]) {
+      if (c.useHero) {
         if (c.hero && c.hero.key !== p.fusion) { c.hero.destroy(); c.hero = null; }
         c.hero ||= new Hero(this, p.fusion);
         c.walk = (c.walk || 0) + speedPx * dt * 0.042 * (jump > 0 ? 0.3 : 1);
@@ -251,7 +264,7 @@ export const persos = {
           rot: Math.abs(c.spr.rotation) > 0.7 ? c.spr.rotation : 0, flash: (this.flash.get(id) || 0) > time });
         c.hero.setVisible(c.spr.visible); c.rig?.setVisible(false); c.spr.setVisible(false);
       } else c.hero?.setVisible(false);
-      if (c.animOn || HEROS[p.fusion]) c.rig?.setVisible(false);
+      if (c.animOn || c.useHero) c.rig?.setVisible(false);
       else if (this.textures.exists(c.spr.texture.key) && c.spr.texture.key !== '__WHITE' && c.spr.texture.key !== '__DEFAULT') {
         c.rig ||= new RigSprite(this, c.spr.texture.key);
         const mvAmt = Phaser.Math.Clamp(speedPx / 230, 0, 1) * (jump > 0 ? 0.3 : 1);
@@ -279,7 +292,7 @@ export const persos = {
           d.x + Math.cos(ang + 0.2) * 44, footY + Math.sin(ang + 0.2) * 17,
           d.x + Math.cos(ang - 0.2) * 44, footY + Math.sin(ang - 0.2) * 17);
       }
-      if (hidden) { c.label.setVisible(false); c.title?.setVisible(false); return; }
+      if (hidden) { c.label.setVisible(false); c.title?.setVisible(false); c.stIc?.setVisible(false); return; }
 
       // Statuts autour du perso
       const g = this.uiG, top = footY - CHAR_H + drop, midY = footY - CHAR_H * 0.5 + drop;
@@ -290,6 +303,13 @@ export const persos = {
       if (S(p, 'haste') && Math.random() < 0.5) this.burst.eclair.explode(1, d.x - d.face * 20, midY);
       if (S(p, 'slow') || S(p, 'root')) g.lineStyle(4, 0x8a6a3a, 0.8).strokeEllipse(d.x, footY, 70, 22);
       if (S(p, 'mark')) g.fillStyle(0x8a5cff, 1).fillTriangle(d.x, top - 30, d.x - 7, top - 42, d.x + 7, top - 42);
+      // Icônes des statuts au-dessus de la tête (brûlure, gel, racines…) : lisibles d'un coup d'œil
+      const icones = ICONES_STATUT.filter(([n]) => S(p, n)).map(([, ic]) => ic).join('');
+      if (icones) {
+        if (!c.stIc) c.stIc = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '15px', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(D_UI + 1);
+        if (c._ic !== icones) { c.stIc.setText(icones); c._ic = icones; }
+        c.stIc.setVisible(true).setPosition(d.x, top - 12 - 22 - (p.titre ? 16 : 0));
+      } else if (c.stIc) c.stIc.setVisible(false);
 
       // Barre de vie + nom
       const w = 60, hpw = (p.hp / p.maxHp) * w, by = top - 12;
@@ -311,7 +331,7 @@ export const persos = {
       } else if (c.title) c.title.setVisible(false);
     });
     for (const [id, c] of this.chars) if (!seen.has(id)) {
-      c.spr.destroy(); c.rig?.destroy(); c.hero?.destroy(); c.aura.destroy(); c.rim?.destroy(); c.title?.destroy(); c.bulle?.destroy(); c.label.destroy(); this.chars.delete(id); this.disp.delete(id);
+      c.spr.destroy(); c.rig?.destroy(); c.hero?.destroy(); c.stIc?.destroy(); c.aura.destroy(); c.rim?.destroy(); c.title?.destroy(); c.bulle?.destroy(); c.label.destroy(); this.chars.delete(id); this.disp.delete(id);
     }
   },
 

@@ -160,6 +160,8 @@ export const sfx = {
   reveal(pure) { if (!ctx) return; const o = out(0.6); (pure ? [523, 659, 784, 1047, 1319] : [392, 523, 659, 784]).forEach((f, i) => osc('triangle', f, f, 0.5, 0.35, o, ctx.currentTime + i * 0.07)); noise(0.6, 0.2, o, 'highpass', 6000, 9000, 1, ctx.currentTime, 0.05); },
   heal() { if (!ctx) return; const o = out(0.4); [660, 880, 1100].forEach((f, i) => osc('sine', f, f * 1.05, 0.3, 0.3, o, ctx.currentTime + i * 0.05)); },
   // --- touche / prise de coups ---
+  // élimination confirmée : coup sourd + carillon montant
+  kill() { if (!ctx || !throttle('kill', 200)) return; const o = out(0.55); osc('sine', 160, 50, 0.22, 0.9, o); noise(0.1, 0.4, o, 'lowpass', 1800, 300); [784, 1175, 1568].forEach((f, i) => osc('triangle', f, f, 0.22, 0.28, o, ctx.currentTime + 0.05 + i * 0.05)); },
   hitmark() { if (!ctx || !throttle('hitmark', 55)) return; const o = out(0.32); osc('square', 1900, 1500, 0.035, 0.35, o); osc('sine', 950, 700, 0.05, 0.4, o); },
   hurt() { if (!ctx || !throttle('hurt', 140)) return; const o = out(0.5); osc('sine', 120, 55, 0.18, 0.9, o); noise(0.12, 0.35, o, 'lowpass', 900, 200); },
   heartbeat() { if (!ctx || !throttle('coeur', 850)) return; const o = out(0.55); osc('sine', 62, 40, 0.12, 1, o); osc('sine', 58, 38, 0.12, 0.8, o, ctx.currentTime + 0.2); },

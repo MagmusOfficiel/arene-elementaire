@@ -3,7 +3,7 @@
 //  qualite : auto | haut | moyen | bas   — interface : échelle de l'interface en jeu
 //  joystick : zone morte du joystick tactile (plus petit = plus sensible)
 // =====================================================================
-const DEFAUT = { qualite: 'auto', ping: true, fps: false, interface: 1, joystick: 0.38, vibration: true };
+const DEFAUT = { qualite: 'auto', ping: true, fps: false, interface: 1, joystick: 0.38, vibration: true, styleChamps: 'auto', testChamp: '', secousses: 'normales' };
 let r = { ...DEFAUT };
 try { Object.assign(r, JSON.parse(localStorage.getItem('reglages')) || {}); } catch { /* réglages par défaut */ }
 const ecouteurs = [];
