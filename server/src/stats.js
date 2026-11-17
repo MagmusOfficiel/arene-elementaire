@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { saisonDe, resetDoux, rangDe } from '../../shared/classe.js';
+import { FUSIONS } from '../../shared/data.js';
 
 const FILE = path.resolve(process.env.STATS_FILE || 'data/stats.json');
 const DB_URL = process.env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, '');
@@ -93,9 +94,14 @@ export function statJoueur(nom, champ, n = 1) {
 }
 
 export function rapportFusions() {
+  const pct = (a, b) => (b ? Math.round((100 * (a || 0)) / b) : null);
   return Object.entries(data.fusions).map(([fusion, f]) => ({
-    fusion, ...f, ratio: +(f.kills / Math.max(1, f.morts)).toFixed(2),
+    fusion, nom: FUSIONS[fusion]?.nom || fusion, couleur: FUSIONS[fusion]?.css || '#fff', ...f, ratio: +(f.kills / Math.max(1, f.morts)).toFixed(2),
     degatsParPartie: Math.round(f.degats / Math.max(1, f.parties)),
+    // Équilibrage sur les vrais joueurs : taux de choix (pris / proposé), victoires, kills par mort
+    tauxChoix: pct(f.choisie, f.proposee),
+    tauxVictoireJ: pct(f.victoiresJ, f.partiesJ),
+    ratioJ: f.partiesJ ? +((f.killsJ || 0) / Math.max(1, f.mortsJ || 0)).toFixed(2) : null,
   })).sort((a, b) => b.ratio - a.ratio);
 }
 

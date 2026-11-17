@@ -149,3 +149,66 @@ test('choix du champion : nouveau choix à chaque vie en monde ouvert, choix aut
   r.handlers.choisir(c, { i: 'n’importe quoi' });
   assert.ok(r.state.players.get('h').alive, 'une réponse invalide prend la première proposition');
 });
+
+// ---------- Nouveaux sorts : étourdissement, murs, soin, invocations ----------
+function salleDuel(f1, f2) {
+  const r = creerSalle('melee'); r.updateZombies = () => {}; r.updateEvents = () => {};
+  r.state.players.clear(); r.ent.clear(); r.state.zombies.clear();
+  const ids = [];
+  [f1, f2].forEach((k, i) => {
+    r.addBot(); const id = `bot_${r.botSeq - 1}`; ids.push(id);
+    const p = r.state.players.get(id), e = r.ent.get(id), [a, b] = k.split('+');
+    e.kit = generateKit(a, b); e.bot = false;   // pas d'IA : on pilote à la main
+    Object.assign(p, { a, b, fusion: e.kit.fusion, maxHp: e.kit.pv, hp: e.kit.pv, locked: 0, alive: true, x: 2800 + i * 200, y: 2100 });
+  });
+  return { r, ids };
+}
+
+test('étourdissement : ni déplacement ni sort, puis immunité', () => {
+  const { r, ids: [a, b] } = salleDuel('metal+terre', 'feu+vent');
+  const pb = r.state.players.get(b), eb = r.ent.get(b);
+  r.hit(a, pb, b, 5, ['etourdi'], 0, 0, 'metal');
+  assert.ok(pb.stun > 0, 'étourdi');
+  const x0 = pb.x; eb.input = { r: true };
+  r.cast(b, 'sort1', pb.x + 200, pb.y);
+  assert.equal(eb.cds.sort1, 0, 'aucun sort lancé pendant l’étourdissement');
+  for (let i = 0; i < 6; i++) r.update(0.05);
+  assert.ok(Math.abs(pb.x - x0) < 2, 'ne bouge pas');
+  for (let i = 0; i < 20; i++) r.update(0.05);
+  assert.equal(pb.stun, 0, 'l’étourdissement s’arrête');
+  r.hit(a, pb, b, 5, ['etourdi'], 0, 0, 'metal');
+  assert.equal(pb.stun, 0, 'immunité juste après');
+});
+
+test('mur : bloque les déplacements et les projectiles ennemis, disparaît ensuite', () => {
+  const { r, ids: [a, b] } = salleDuel('terre+terre', 'feu+vent');
+  const pa = r.state.players.get(a), pb = r.state.players.get(b);
+  pb.x = pa.x + 400; pb.y = pa.y;
+  r.cast(a, 'sort3', pa.x + 200, pa.y);
+  assert.ok(r.murs.size >= 5, 'piliers posés');
+  // b avance vers a : il doit s'arrêter devant le mur
+  r.ent.get(b).input = { l: true };
+  for (let i = 0; i < 40; i++) r.update(0.05);
+  assert.ok(pb.x > pa.x + 200, `b est bloqué par le mur (x=${Math.round(pb.x - pa.x)})`);
+  // un projectile de b vers a s'arrête sur le mur
+  const hpA = pa.hp; r.spawnProjectile(b, pb.x, pb.y, Math.PI, { dmg: 30, speed: 900, radius: 10, range: 700, element: 'feu', tags: [] });
+  for (let i = 0; i < 20; i++) r.update(0.05);
+  assert.equal(pa.hp, hpA, 'le projectile ennemi est arrêté');
+  for (let i = 0; i < 80; i++) r.update(0.05);
+  assert.equal(r.murs.size, 0, 'le mur disparaît');
+});
+
+test('cercle de soin : soigne le lanceur ; invocation : le totem tire sur l’ennemi', () => {
+  const { r, ids: [a, b] } = salleDuel('lumiere+nature', 'feu+vent');
+  const pa = r.state.players.get(a), pb = r.state.players.get(b);
+  pa.hp = 40; pa.ult = 100; pb.x = pa.x + 1500;
+  r.cast(a, 'ultime', pa.x, pa.y);
+  assert.ok(pa.shield > 0, 'bouclier du sanctuaire');
+  for (let i = 0; i < 40; i++) r.update(0.05);
+  assert.ok(pa.hp > 70, `soigné (${Math.round(pa.hp)} PV)`);
+  const { r: r2, ids: [c, d] } = salleDuel('eau+feu', 'feu+vent');
+  const pc = r2.state.players.get(c), pd = r2.state.players.get(d), hpD = pd.hp;
+  r2.cast(c, 'sort3', pd.x - 100, pd.y);
+  for (let i = 0; i < 60; i++) r2.update(0.05);
+  assert.ok(pd.hp < hpD, 'le totem a touché l’ennemi');
+});

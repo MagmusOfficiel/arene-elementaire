@@ -193,6 +193,7 @@ export class ArenaLogic {
     });
     if (this.mode === 'survie') p.lives = 1;
     this.stats.fusion(e.kit.fusion, 'parties');
+    if (!e.bot) this.stats.fusion(e.kit.fusion, 'partiesJ');   // parties jouées par de vrais joueurs (équilibrage)
     if (!e.bot) {
       const client = this.clients.find((c) => c.sessionId === id);
       client?.send('roll', { a, b, fusion: e.kit.fusion, choisi });
@@ -211,13 +212,15 @@ export class ArenaLogic {
       vus.add(f); props.push(ab);
     }
     e.choix = { props, t: CHOIX_DELAI };
+    for (const [a, b] of props) this.stats.fusion(generateKit(a, b).fusion, 'proposee');
     p.alive = false;
     this.clientDe(id)?.send('choix', { props: props.map(([a, b]) => ({ a, b, fusion: generateKit(a, b).fusion })), t: CHOIX_DELAI });
   }
-  choisir(id, i) {
+  choisir(id, i, auto = false) {
     const e = this.ent.get(id);
     if (!e?.choix) return;
     e.choisi = e.choix.props[Number.isInteger(i) && i >= 0 && i < 3 ? i : 0];
+    if (!auto) this.stats.fusion(generateKit(e.choisi[0], e.choisi[1]).fusion, 'choisie');   // vrai choix du joueur (pas le hasard du minuteur)
     e.choix = null;
     this.spawn(id);
   }
@@ -231,7 +234,7 @@ export class ArenaLogic {
     this.now = (this.now || 0) + dt;
     // Choix de champion en cours : compte à rebours, et la partie attend que tout le monde ait choisi
     let enChoix = false;
-    for (const [id, e] of this.ent) if (e.choix) { enChoix = true; if ((e.choix.t -= dt) <= 0) this.choisir(id, Math.floor(Math.random() * 3)); }
+    for (const [id, e] of this.ent) if (e.choix) { enChoix = true; if ((e.choix.t -= dt) <= 0) this.choisir(id, Math.floor(Math.random() * 3), true); }
     if (enChoix) {
       const st = this.state;
       if (st.phase === 'attente' || (this.mode === 'survie' && st.phase === 'pause' && st.round === 0)) st.timer = Math.max(st.timer, 1);

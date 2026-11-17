@@ -373,6 +373,7 @@ export const TAGS = {
   aveugle: { nom: 'Aveuglé', duree: 1.8, malus: 0.15 },   // inflige 15 % de dégâts en moins
   racine:  { nom: 'Enlacé',  duree: 2, slow: 0.15 },     // ralenti ; une 2e racine immobilise
   poussee_l: { nom: 'Poussée', force: 170 },   // poussée légère (coups au corps à corps)
+  etourdi: { nom: 'Étourdi', duree: 0.8, immunite: 2 },   // ni déplacement, ni sort ; puis 2 s d'immunité
 };
 
 // Interactions entre un tag entrant et un statut déjà présent sur la cible
@@ -393,6 +394,8 @@ export const INTERACTIONS = [
   { entrant: 'aveugle', statut: 'marque',  nom: 'Purification !', dmgMult: 1.5, retire: ['marque'] },
   { entrant: 'marque',  statut: 'aveugle', nom: 'Éclipse !',      dmgMult: 1.3 },
   { entrant: 'aveugle', statut: 'gel',     nom: 'Prisme !',       dmgMult: 1.3, retire: ['gel'] },
+  { entrant: 'etourdi', statut: 'gel',     nom: 'Fracas !',       dmgMult: 1.3, retire: ['gel'] },
+  { entrant: 'chaine',  statut: 'stun',    nom: 'Surtension !',   dmgMult: 1.25 },
 ];
 
 // ---------------------------------------------------------------------
@@ -691,7 +694,7 @@ for (const [k, c] of Object.entries(CHAMPIONS)) {
 }
 
 // Statuts synchronisés en masque de bits (Player.st / Zombie.st)
-export const STATUS_BITS = ['burn', 'wet', 'slow', 'root', 'frost', 'mark', 'invis', 'armor', 'haste', 'blind', 'vine'];
+export const STATUS_BITS = ['burn', 'wet', 'slow', 'root', 'frost', 'mark', 'invis', 'armor', 'haste', 'blind', 'vine', 'stun'];
 export const hasStatus = (e, name) => ((e.st >> STATUS_BITS.indexOf(name)) & 1) === 1;
 
 export const fusionKey = (a, b) => [a, b].sort().join('+');

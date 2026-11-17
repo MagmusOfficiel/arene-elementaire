@@ -6,7 +6,7 @@ import { initAudio, setMusic, setAmbiance, volumes, setVolume, sfx } from './sfx
 import { FUSIONS, ELEMENTS, tokenUrl, portraitUrl, generateKit } from '../../shared/data.js';
 import { kitHtml } from '../../shared/describe.js';
 import { TOUCH, initTouch } from './touch.js';
-import { progress, TITRES } from './progress.js';
+import { progress, TITRES, titresMaitrise } from './progress.js';
 import { CLASSES } from '../../shared/champions.js';
 import { classe, renderClasse, badge } from './classe.js';
 import { rangDe } from '../../shared/classe.js';
@@ -55,7 +55,8 @@ function renderGrimoire() {
   $('grimoireTitle').textContent = `GRIMOIRE : ${grimoire.size} / ${total} FUSIONS DÉCOUVERTES`;
   $('gallery').innerHTML = Object.entries(FUSIONS).map(([k, f]) => {
     const known = grimoire.has(k);
-    return `<img data-k="${k}" src="${tokenUrl(k)}" title="${f.nom}${known ? '' : ' (pas encore obtenue)'} — clic pour voir ses sorts" style="border-color:${f.css}" class="${f.pure ? 'pure' : ''} ${known ? '' : 'locked'}">`;
+    const mt = progress.maitriseDe(k);
+    return `<span class="gal"><img data-k="${k}" src="${tokenUrl(k)}" title="${f.nom}${known ? '' : ' (pas encore obtenue)'}${mt.niv ? ` — maîtrise ${mt.niv}/5` : ''} — clic pour voir ses sorts" style="border-color:${f.css}" class="${f.pure ? 'pure' : ''} ${known ? '' : 'locked'} ${mt.niv >= 5 ? 'maitre' : ''}">${mt.niv ? `<i class="etoiles">${'★'.repeat(mt.niv)}</i>` : ''}</span>`;
   }).join('');
   $('gallery').querySelectorAll('img').forEach((im) => im.addEventListener('click', () => showFiche(im.dataset.k)));
 }
@@ -64,6 +65,8 @@ function showFiche(k) {
   const [a, b] = k.split('+'), kit = generateKit(a, b), F = FUSIONS[k], fi = $('fiche');
   fi.style.setProperty('--fc', F.css);
   fi.querySelector('.fi-h').innerHTML = `<img src="${portraitUrl(k)}" onerror="this.remove()"><div><b style="color:${F.css}">${F.nom}</b><small>${ELEMENTS[a].nom} + ${ELEMENTS[b].nom} · ${kit.classeNom} · ${kit.arme}${grimoire.has(k) ? '' : ' · 🔒 pas encore obtenue'}</small><br><small>${F.desc || ''}</small></div>`;
+  const mt = progress.maitriseDe(k);
+  fi.querySelector('.fi-h small').insertAdjacentHTML('afterend', `<br><small class="maitrise">Maîtrise : ${'★'.repeat(mt.niv)}${'☆'.repeat(5 - mt.niv)} ${mt.prochain ? `· ${Math.floor(mt.pts)} / ${mt.prochain} pts` : '· maîtrise complète'} · titres « ${titresMaitrise(k)[3]} » (niv. 3) et « ${titresMaitrise(k)[5]} » (niv. 5)</small>`);
   fi.querySelector('.sb-list').innerHTML = kitHtml(kit);
   fi.classList.remove('hidden');
 }
@@ -284,7 +287,7 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
       });
       r.onMessage('choix', (m) => hud.choixChampion(m, (i) => room.send('choisir', { i })));
       r.onMessage('choixFin', () => hud.finChoix());
-      r.onMessage('roll', (m) => { localStorage.setItem('derniereFusion', m.fusion); hud.clearUpgrades(); hud.showRoll(m); setTimeout(() => bus.scene?.lancerTuto?.(), m.choisi ? 1200 : 3800); grimoire.add(m.fusion); localStorage.setItem('grimoire', JSON.stringify([...grimoire])); renderGrimoire(); });
+      r.onMessage('roll', (m) => { localStorage.setItem('derniereFusion', m.fusion); progress.fusionActive = m.fusion; hud.clearUpgrades(); hud.showRoll(m); setTimeout(() => bus.scene?.lancerTuto?.(), m.choisi ? 1200 : 3800); grimoire.add(m.fusion); localStorage.setItem('grimoire', JSON.stringify([...grimoire])); renderGrimoire(); });
       r.onMessage('win', (m) => { hud.victory(m, m.id === room.sessionId); if (m.id === room.sessionId) progress.on(m.tournoi ? 'winTournoi' : 'winRoyale'); if (m.duo && room.state.players.get(room.sessionId)?.eq === m.eq) progress.on('winDuo'); });
       r.onMessage('kill', (m) => {
         hud.addKill(m, room.sessionId);
@@ -310,7 +313,7 @@ async function play(mode = 'arena', forceSolo = false, salon = null) {
       $('hud').classList.add('hidden');
       document.body.classList.remove('ingame');
       setAmbiance(null);
-      renderProgress();
+      renderProgress(); renderGrimoire();
       refreshClasse();
       refreshSurvie();
       compte.sauvegarder();

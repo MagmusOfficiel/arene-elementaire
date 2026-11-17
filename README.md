@@ -234,3 +234,9 @@ Formes de sort : `projectile`, `eventail`, `impact`, `dash`, `soin`, `bouclier`.
 Réglages > Test des visuels : style des champions (normal, illustration, fait maison, pixel art, 3D rendue en 2D) et champion imposé en solo.
 - Pixel art : `python3 tools/lpc_champion.py <spritesheets LPC> client/public <fusion>` (calques CC BY-SA / GPL, crédits dans `sprites_pixel/`).
 - 3D rendue en 2D : `tools/rendu3d/` — `recolor.py` (texture), `rendu.py` (Blender `pip install bpy`, moteur Workbench), `assembler.py` (planches). Modèles KayKit CC0.
+
+## v22 : équilibrage réel, maîtrise, nouveaux sorts
+
+- `/equilibrage.html` : tableau triable des 55 champions (taux de choix, victoires et kills/mort des vrais joueurs), à partir de `/api/stats`.
+- Maîtrise par champion (navigateur, sauvegardée avec le compte) : 5 niveaux, titres « Disciple · Nom » et « Maître · Nom ».
+- Nouvelles formes de sorts : `soin_zone`, `tourelle` (invocation), `mur` ; ultimes `prison`, `sanctuaire`, `armee` ; tag `etourdi` (statut `stun`).

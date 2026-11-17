@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Équilibrage — Arène Élémentaire</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: #0e1015; color: #e8e6e3; }
+  header { padding: 20px 24px 8px; }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  p.aide { margin: 0; color: #9aa0a6; max-width: 900px; }
+  .filtres { padding: 10px 24px; display: flex; gap: 16px; align-items: center; color: #9aa0a6; flex-wrap: wrap; }
+  table { border-collapse: collapse; margin: 0 24px 40px; min-width: 900px; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid #23262d; text-align: right; white-space: nowrap; }
+  th { position: sticky; top: 0; background: #161920; cursor: pointer; user-select: none; color: #c9cdd2; }
+  th:hover { color: #fff; } th.tri::after { content: ' ▾'; } th.tri.asc::after { content: ' ▴'; }
+  td:first-child, th:first-child { text-align: left; }
+  tr.peu td { opacity: 0.45; }
+  .bas { color: #ff8a80; font-weight: 600; } .haut { color: #8be28b; font-weight: 600; }
+  .vide { padding: 24px; color: #9aa0a6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚖️ Équilibrage des champions</h1>
+  <p class="aide">Chiffres des <b>vrais joueurs</b> (les bots sont exclus des colonnes « joueurs »). <b>Choisi</b> = pris quand il est proposé parmi les 3.
+  En rouge : à surveiller (peu choisi, peu de victoires, beaucoup de morts) ; en vert : peut-être trop fort. Les lignes grisées ont moins de 20 parties : pas encore fiables.</p>
+</header>
+<div class="filtres">
+  <label><input type="checkbox" id="fiables"> Seulement les champions avec 20 parties ou plus</label>
+  <span id="maj"></span>
+</div>
+<div id="zone"></div>
+<script>
+const COLS = [
+  ['nom', 'Champion'], ['proposee', 'Proposé'], ['tauxChoix', 'Choisi %'], ['partiesJ', 'Parties (joueurs)'],
+  ['tauxVictoireJ', 'Victoires %'], ['ratioJ', 'Kills / mort'], ['degatsParPartie', 'Dégâts / partie'], ['parties', 'Parties (avec bots)'],
+];
+let lignes = [], tri = 'tauxChoix', asc = true;
+const n = (v) => (v == null ? '—' : v);
+function classe(k, v) {
+  if (v == null) return '';
+  if (k === 'tauxChoix') return v < 20 ? 'bas' : v > 50 ? 'haut' : '';
+  if (k === 'tauxVictoireJ') return v < 8 ? 'bas' : v > 30 ? 'haut' : '';
+  if (k === 'ratioJ') return v < 0.6 ? 'bas' : v > 1.6 ? 'haut' : '';
+  return '';
+}
+function afficher() {
+  const fiables = document.getElementById('fiables').checked;
+  const l = lignes.filter((r) => !fiables || (r.partiesJ || 0) >= 20).sort((a, b) => {
+    const x = a[tri] ?? (asc ? Infinity : -Infinity), y = b[tri] ?? (asc ? Infinity : -Infinity);
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * (asc ? 1 : -1);
+  });
+  if (!l.length) { document.getElementById('zone').innerHTML = '<div class="vide">Pas encore de données. Elles arrivent au fil des parties en ligne.</div>'; return; }
+  const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+  document.getElementById('zone').innerHTML = `<table><thead><tr>${COLS.map(([k, t]) => `<th data-k="${k}" class="${k === tri ? 'tri' + (asc ? ' asc' : '') : ''}">${t}</th>`).join('')}</tr></thead><tbody>${
+    l.map((r) => `<tr class="${(r.partiesJ || 0) < 20 ? 'peu' : ''}">${COLS.map(([k]) => k === 'nom'
+      ? `<td><b style="color:${esc(r.couleur)}">${esc(r.nom)}</b> <small style="color:#777">${esc(r.fusion)}</small></td>`
+      : `<td class="${classe(k, r[k])}">${n(r[k])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  document.querySelectorAll('th').forEach((th) => th.onclick = () => { const k = th.dataset.k; asc = tri === k ? !asc : k === 'nom'; tri = k; afficher(); });
+}
+document.getElementById('fiables').onchange = afficher;
+fetch('/api/stats', { cache: 'no-store' }).then((r) => r.json()).then((d) => {
+  lignes = d; document.getElementById('maj').textContent = `${d.length} champions · mis à jour ${new Date().toLocaleTimeString('fr-FR')}`; afficher();
+}).catch(() => { document.getElementById('zone').innerHTML = '<div class="vide">Serveur injoignable.</div>'; });
+</script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import { progress } from './progress.js';
 import { sfx } from './sfx.js';
 import { couleurDe, cadreDe, EMOTES } from '../../shared/cosmetiques.js';
 import { reglages } from './reglages.js';
@@ -43,6 +44,7 @@ export class Hud {
         <small>${esc(kit.classeNom)} · ${esc(kit.arme || '')}</small>
         <span class="sorts">${sorts}</span>
         <em>★ ${esc(kit.ultime.nom)}</em>
+        ${(() => { const mt = progress.maitriseDe(fusion); return mt.niv ? `<span class="maitrise" title="Ta maîtrise de ce champion">${'★'.repeat(mt.niv)}${'☆'.repeat(5 - mt.niv)}</span>` : ''; })()}
         <p>${esc(F.desc || '')}</p>
       </button>`;
     }).join('');

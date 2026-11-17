@@ -248,7 +248,7 @@ export class ArenaScene extends Phaser.Scene {
     // Retour immédiat à l'écran (geste + son) sans attendre l'aller-retour du serveur,
     // seulement si le sort est disponible d'après les recharges connues
     const myId = this.room.sessionId, p = this.room.state.players.get(myId), kit = p && this.kitOf(p), sp = kit?.[slot];
-    if (!sp || !p.alive || p.locked > 0 || slot === 'esquive') return;
+    if (!sp || !p.alive || p.locked > 0 || slot === 'esquive' || S(p, 'stun')) return;
     const now = performance.now();
     if (slot === 'ultime' ? p.ult < 100 : (this.hud.cdEnd?.[slot] || 0) > now + 60) return;
     if (slot === 'basique' && now - (this.localCast?.basique || 0) < (sp.cd || 0.4) * 900) return;

@@ -530,3 +530,10 @@ body.touch #choix .ch-b { display: none; } body.touch #choix .touche { display: 
   #choix .cartes { flex-wrap: nowrap; gap: 8px; } #choix .carte { width: 31vw; max-width: 230px; padding: 8px; gap: 3px; }
   #choix .carte img { width: 76px; height: 76px; } #choix .carte b { font-size: 14px; } #choix p { display: none; }
 }
+
+/* Maîtrise par champion */
+#gallery .gal { position: relative; display: inline-block; }
+#gallery .gal .etoiles { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); font-style: normal; font-size: 8px; color: #ffcf3a; text-shadow: 0 0 2px #000, 0 0 2px #000; white-space: nowrap; pointer-events: none; }
+#gallery img.maitre { box-shadow: 0 0 8px #ffcf3a, 0 0 2px #ffcf3a; }
+#choix .carte .maitrise { color: #ffcf3a; font-size: 12px; letter-spacing: 1px; }
+#fiche small.maitrise { color: #ffcf3a; }

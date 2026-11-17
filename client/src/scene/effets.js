@@ -212,7 +212,22 @@ export const effets = {
   },
 
   // ---------------- Zones, tornades, novas ----------------
+  // Texture d'un pilier de pierre (gris, teinté ensuite selon l'élément) : murs et totems invoqués
+  texturePilier() {
+    if (this.textures.exists('mur_pilier')) return;
+    const t = this.textures.createCanvas('mur_pilier', 64, 128), c = t.getContext();
+    const g = c.createLinearGradient(0, 0, 64, 0);
+    g.addColorStop(0, '#5a5a5a'); g.addColorStop(0.35, '#e8e8e8'); g.addColorStop(0.7, '#a8a8a8'); g.addColorStop(1, '#4a4a4a');
+    c.fillStyle = g; c.beginPath(); c.moveTo(8, 128); c.lineTo(12, 18); c.lineTo(22, 6); c.lineTo(42, 4); c.lineTo(52, 16); c.lineTo(56, 128); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(20,20,20,0.9)'; c.lineWidth = 3; c.stroke();
+    c.strokeStyle = 'rgba(30,30,30,0.5)'; c.lineWidth = 2;
+    for (const [x0, y0, x1, y1] of [[18, 40, 30, 52], [30, 52, 26, 70], [40, 30, 46, 48], [24, 90, 38, 104], [44, 80, 40, 96]]) { c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
+    c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(20, 10, 8, 112);
+    t.refresh();
+  },
+
   drawZones(time) {
+    this.texturePilier();
     const seen = new Set();
     this.room.state.zones.forEach((z, id) => {
       seen.add(id);
@@ -279,6 +294,28 @@ export const effets = {
           const { tex, ...pc } = FX[z.el] || FX.feu;
           o.em = this.add.particles(0, 0, tex, { ...pc, frequency: 6, quantity: 3, speed: { min: 30, max: 120 }, lifespan: 700 }).setDepth(D_FX + 3);
           o.em.startFollow(o.segs[0]);
+        } else if (z.kind === 'soin') {
+          // cercle de soin : anneau vert et or, runes qui tournent, lueurs qui montent
+          if (o.max > 4.5) this.ultimateMoment(z.x, z.y, 0x8cffb0, 600);
+          o.fill = add(this.add.image(z.x, z.y, 'fx_glow').setTint(0x6ee08f).setBlendMode('ADD').setDepth(D_GROUND + 1).setAlpha(0.4));
+          o.ring = add(this.add.image(z.x, z.y, 'fx_ring').setTint(0xb8ffcf).setBlendMode('ADD').setDepth(D_GROUND + 1).setAlpha(0.8));
+          o.runes = add(this.add.image(z.x, z.y, 'fx_runes').setTint(c1).setBlendMode('ADD').setDepth(D_GROUND + 2).setAlpha(0.55));
+          o.em = this.add.particles(z.x, z.y, 'fx_glow', { scale: { start: 0.12, end: 0 }, alpha: { start: 0.9, end: 0 }, tint: [0x8cffb0, 0xfff1b0], blendMode: 'ADD', speedY: { min: -90, max: -40 }, speedX: { min: -10, max: 10 }, lifespan: 900, frequency: 45, emitZone: { type: 'random', source: new Phaser.Geom.Circle(0, 0, z.r * 0.9), quantity: 1 } }).setDepth(D_FX - 2);
+        } else if (z.kind === 'tourelle') {
+          // totem invoqué : socle de pierre, cristal de l'élément qui flotte et pulse
+          o.base = add(this.add.ellipse(z.x, z.y, 64, 22, 0x000000, 0.45).setDepth(z.y - 2));
+          o.stele = add(this.add.image(z.x, z.y, 'mur_pilier').setOrigin(0.5, 1).setTint(Phaser.Display.Color.ValueToColor(c1).darken(45).color).setScale(0.55, 0.62).setDepth(z.y));
+          o.glow = add(this.add.image(z.x, z.y - 70, 'fx_glow').setTint(c1).setBlendMode('ADD').setDepth(z.y + 1));
+          o.cristal = add(this.add.image(z.x, z.y - 70, 'fx_shard').setTint(c2).setBlendMode('ADD').setDepth(z.y + 2).setScale(1.3));
+          o.ring = add(this.add.image(z.x, z.y, 'fx_ring_thin').setTint(c1).setBlendMode('ADD').setDepth(D_GROUND + 1).setAlpha(0.5).setScale(0.45, 0.18));
+          this.burst[z.el]?.explode(16, z.x, z.y - 40);
+        } else if (z.kind === 'mur') {
+          // pilier de mur : sort de terre, puis s'enfonce à la fin
+          o.base = add(this.add.ellipse(z.x, z.y + 4, z.r * 2.4, z.r * 0.9, 0x000000, 0.45).setDepth(z.y - 2));
+          const teinte = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(c1), Phaser.Display.Color.ValueToColor(0x8a8580), 100, 45);
+          o.pil = add(this.add.image(z.x, z.y + z.r * 0.5, 'mur_pilier').setOrigin(0.5, 1).setTint(Phaser.Display.Color.GetColor(teinte.r, teinte.g, teinte.b)).setDepth(z.y).setScale((z.r * 2.2) / 64, 0.05));
+          o.liseré = add(this.add.image(z.x, z.y + z.r * 0.5, 'mur_pilier').setOrigin(0.5, 1).setTint(c2).setBlendMode('ADD').setAlpha(0.25).setDepth(z.y + 0.1).setScale((z.r * 2.2) / 64, 0.05));
+          this.burst[z.el]?.explode(6, z.x, z.y);
         } else if (z.kind === 'nova') {
           const ring = this.add.image(z.x, z.y, 'fx_ring').setTint(c1).setBlendMode('ADD').setDepth(D_FX).setScale(0.1);
           const flash = this.add.image(z.x, z.y, 'fx_glow').setTint(c2).setBlendMode('ADD').setDepth(D_FX).setScale(0.2);
@@ -298,6 +335,19 @@ export const effets = {
         o.fill.setScale(sc * prog).setAlpha(0.5);
       } else if (z.kind === 'zone') {
         o.fill.setScale(sc * 1.1); o.ring.setScale(z.r / 128); o.sw.setScale(z.r / 128).setRotation(time / 1400);
+      } else if (z.kind === 'soin') {
+        const grow = Math.min(1, prog * 6);
+        o.fill.setScale(sc * 1.1 * grow, sc * 0.5 * grow); o.ring.setScale(z.r / 128 * grow, z.r / 300 * grow).setAlpha(0.6 + Math.sin(time / 160) * 0.25);
+        o.runes.setScale(z.r / 250 * grow, z.r / 600 * grow).setRotation(time / 1200);
+      } else if (z.kind === 'tourelle') {
+        const bob = Math.sin(time / 260) * 6, pul = 1 + Math.sin(time / 140) * 0.12;
+        o.cristal.setPosition(z.x, z.y - 74 + bob).setRotation(Math.sin(time / 400) * 0.2); o.glow.setPosition(z.x, z.y - 74 + bob).setScale(0.9 * pul);
+        o.ring.setRotation(time / 600);
+        const fin = o.max - (time - o.born) / 1000; if (fin < 0.6) o.objs.forEach((x) => x.setAlpha(Math.max(0, fin / 0.6) * (x === o.ring ? 0.5 : 1)));
+      } else if (z.kind === 'mur') {
+        const age = (time - o.born) / 1000, fin = o.max - age;
+        const h = Math.min(1, age / 0.18) * Math.min(1, Math.max(0, fin) / 0.25);   // monte en 0,18 s, redescend à la fin
+        o.pil.setScale((z.r * 2.2) / 64, 0.05 + 0.95 * h); o.liseré.setScale((z.r * 2.2) / 64, 0.05 + 0.95 * h).setAlpha(0.18 + Math.sin(time / 200 + z.x) * 0.08);
       } else if (z.kind === 'piege') {
         o.ring.setScale(z.r / 230).setRotation(time / 800).setAlpha(0.35 + Math.sin(time / 200) * 0.25);
       } else if (z.kind === 'meteore') {

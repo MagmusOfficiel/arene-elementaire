@@ -15,6 +15,7 @@ const EFFETS = {
   perce: 'ignore boucliers et armures',
   aveugle: 'aveugle (la cible fait -15 % de dégâts)',
   racine: 'enlace et ralentit (2e coup : immobilise)',
+  etourdi: 'étourdit (ni déplacement ni sort pendant 0,8 s)',
 };
 
 const n = (v) => Math.round(v);
@@ -60,13 +61,20 @@ function forme(sp) {
     case 'domaine': return `Domaine autour de toi qui blesse pendant ${s(sp.duree)}, puis implose violemment.`;
     case 'dragon': return 'Un dragon élémentaire serpente droit devant en dévastant tout.';
     case 'invocation': return 'Invoque un géant qui frappe toute la zone visée.';
+    case 'soin_zone': return `Crée un cercle de soin ${loin} pendant ${s(sp.duree)} : +${n(sp.soin)} PV toutes les ${s(sp.tick)} pour toi et tes alliés${sp.dmg ? ', et blesse les ennemis dedans' : ''}.`;
+    case 'tourelle': return `Invoque un totem pendant ${s(sp.duree)} qui tire sur l’ennemi le plus proche.`;
+    case 'mur': return `Dresse un mur de ${sp.count} piliers pendant ${s(sp.duree)} : il bloque les déplacements et les projectiles ennemis (les tiens passent).`;
+    case 'prison': return `Enferme la zone visée dans un anneau de piliers pendant ${s(sp.duree)} et frappe l’intérieur.`;
+    case 'sanctuaire': return `Grand cercle sacré autour de toi pendant ${s(sp.duree)} : bouclier de ${n(sp.bouclier)} et +${n(sp.soin)} PV toutes les ${s(sp.tick)} pour toi et tes alliés, blesse les ennemis.`;
+    case 'armee': return `Invoque ${sp.count} totems autour du point visé pendant ${s(sp.duree)}, qui mitraillent les ennemis.`;
     default: return '';
   }
 }
 
 function degats(sp) {
   if (!sp.dmg) return '';
-  const parTick = ['tornade', 'zone', 'tourbillon', 'rayon_ult', 'domaine', 'dragon'].includes(sp.forme);
+  const parTick = ['tornade', 'zone', 'tourbillon', 'rayon_ult', 'domaine', 'dragon', 'soin_zone', 'sanctuaire'].includes(sp.forme);
+  if (['tourelle', 'armee'].includes(sp.forme)) return `${n(sp.dmg)} dégâts par tir, un tir toutes les ${s(sp.tick)}`;
   let t = parTick ? `${n(sp.dmg)} dégâts toutes les ${s(sp.tick || 0.5)}` : `${n(sp.dmg)} dégâts`;
   if (['salve', 'eventail'].includes(sp.forme)) t += ' par projectile';
   if (['pluie', 'fissure'].includes(sp.forme)) t += ' par impact';

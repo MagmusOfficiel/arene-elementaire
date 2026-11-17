@@ -16,7 +16,7 @@ import { EVENTS, TERRAINS, terrainAt, terrainSpeed, ARENA, BIOMES, CONFIG, ELEME
 import { elColor, lerp, R, CHAR_H, ZOMBIE_H, ZLOOK, ELITE_NOMS, FONT, D_GROUND, D_FX, D_UI, FX, PROPS, PROP_NAMES } from './commun.js';
 
 // statut -> icône affichée au-dessus du perso (l'invisibilité n'en a pas, évidemment)
-const ICONES_STATUT = [['burn', '🔥'], ['frost', '❄️'], ['wet', '💧'], ['root', '🌿'], ['vine', '🌿'], ['slow', '🐌'], ['blind', '🌫️'], ['mark', '🎯'], ['armor', '🛡️'], ['haste', '⚡']];
+const ICONES_STATUT = [['stun', '💫'], ['burn', '🔥'], ['frost', '❄️'], ['wet', '💧'], ['root', '🌿'], ['vine', '🌿'], ['slow', '🐌'], ['blind', '🌫️'], ['mark', '🎯'], ['armor', '🛡️'], ['haste', '⚡']];
 
 export const persos = {
   // Horloge serveur : estime le décalage avec la nôtre et la gigue du réseau (pour l'interpolation)
@@ -346,8 +346,10 @@ export const persos = {
     if (!ix && !iy) { ix = touch.mx > J ? 1 : touch.mx < -J ? -1 : 0; iy = touch.my > J ? 1 : touch.my < -J ? -1 : 0; }   // joystick
     const len = Math.hypot(ix, iy) || 1;
     let speed = CONFIG.playerSpeed * (this.kitOf(p)?.vitesse || 1) * terrainSpeed(terrainAt(d.x, d.y, this.ters), p.a, p.b) * (S(p, 'slow') ? 1 - TAGS.lourd.slow : 1) * (S(p, 'frost') ? 1 - TAGS.gel.slow : 1) * (S(p, 'haste') ? 1.4 : 1);
-    if (S(p, 'root')) speed = 0;
+    if (S(p, 'root') || S(p, 'stun')) speed = 0;
     const ox = d.x, oy = d.y;
+    // murs invoqués (zones « mur ») : mêmes collisions que sur le serveur
+    const murs = []; this.room.state.zones.forEach((z) => { if (z.kind === 'mur') murs.push(z); });
     // Déplacement en petits pas (≤ 10 px) : si une image dure longtemps, on ne traverse pas les murs et piliers
     const pasN = Math.min(12, Math.max(1, Math.ceil((speed * dt) / 10)));
     for (let k = 0; k < pasN; k++) {
@@ -355,6 +357,7 @@ export const persos = {
         x: Phaser.Math.Clamp(d.x + (ix / len) * speed * (dt / pasN), R, ARENA.width - R),
         y: Phaser.Math.Clamp(d.y + (iy / len) * speed * (dt / pasN), R, ARENA.height - R),
       }, R, this.blds);
+      for (const m of murs) { const dx = pos.x - m.x, dy = pos.y - m.y, dd = Math.hypot(dx, dy), RR = m.r + R; if (dd < RR && dd > 0.01) { pos.x = Phaser.Math.Clamp(m.x + (dx / dd) * RR, R, ARENA.width - R); pos.y = Phaser.Math.Clamp(m.y + (dy / dd) * RR, R, ARENA.height - R); } }
       d.x = pos.x; d.y = pos.y;
     }
     if (this.breche) { const A = SURVIE.arene, dd = Math.hypot(d.x - A.x, d.y - A.y), RR = A.r - R; if (dd > RR) { d.x = A.x + ((d.x - A.x) / dd) * RR; d.y = A.y + ((d.y - A.y) / dd) * RR; } }

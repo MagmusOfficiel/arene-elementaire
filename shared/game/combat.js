@@ -81,7 +81,7 @@ export const combat = {
       let ix = (e.input.r ? 1 : 0) - (e.input.l ? 1 : 0), iy = (e.input.d ? 1 : 0) - (e.input.u ? 1 : 0);
       const len = Math.hypot(ix, iy) || 1;
       vx = (ix / len) * CONFIG.playerSpeed * 0.6; vy = (iy / len) * CONFIG.playerSpeed * 0.6;
-    } else if (p.root <= 0) {
+    } else if (p.root <= 0 && !(p.stun > 0)) {
       let ix = (e.input.r ? 1 : 0) - (e.input.l ? 1 : 0);
       let iy = (e.input.d ? 1 : 0) - (e.input.u ? 1 : 0);
       const len = Math.hypot(ix, iy) || 1;
@@ -99,6 +99,7 @@ export const combat = {
 
     const r = CONFIG.playerRadius;
     const pos = resolveCollisions({ x: clamp(p.x + vx * dt, r, ARENA.width - r), y: clamp(p.y + vy * dt, r, ARENA.height - r) }, r, this.blds);
+    this.pousserMurs(pos, r);
     p.x = pos.x; p.y = pos.y;
     if (this.mode === 'tournoi' && p.duel !== 255 && this.state.phase === 'jeu') {
       const c = tournoiPit(p.duel, this.duels.length), d = dist(c.x, c.y, p.x, p.y), R = c.r - r;
@@ -139,6 +140,10 @@ export const combat = {
       d.travel += Math.hypot(d.vx, d.vy) * dt;
       if (d.spell.bm && !d.ret && d.travel >= d.spell.range * 0.5) { d.ret = true; d.vx = -d.vx; d.vy = -d.vy; d.hit.clear(); }
       let done = d.travel >= d.spell.range || d.x < 0 || d.y < 0 || d.x > ARENA.width || d.y > ARENA.height;
+      if (!done && this.murs?.size && this.dansMur(d.x, d.y, d.r, d.owner)) {
+        done = true;
+        if (d.spell.explode) this.aoe(d.owner, d.x, d.y, d.spell.explode, d.spell.dmg * 0.5, d.spell.tags, d.spell.element);
+      }
       if (!done && insideBuilding(d.x, d.y, 2, this.blds)) {
         done = true;
         if (d.spell.explode) this.aoe(d.owner, d.x, d.y, d.spell.explode, d.spell.dmg * 0.5, d.spell.tags, d.spell.element);
@@ -213,6 +218,28 @@ export const combat = {
         z.y = clamp(d.oy + Math.sin(d.ang) * fwd + Math.cos(d.ang) * wave, 0, ARENA.height);
         d.tickT -= dt;
         if (d.tickT <= 0) { d.tickT = d.spell.tick; this.aoe(d.owner, z.x, z.y, z.r, d.spell.dmg, d.spell.tags, d.spell.element, null, true); }
+      } else if (z.kind === 'soin') {
+        // zone de soin : soigne le lanceur et ses alliés, blesse les ennemis (si le sort a des dégâts)
+        d.tickT -= dt;
+        if (d.tickT <= 0) {
+          d.tickT = d.spell.tick;
+          if (d.spell.dmg) this.aoe(d.owner, z.x, z.y, z.r, d.spell.dmg, d.spell.tags || [], d.spell.element, null, true);
+          this.soignerAllies(d.owner, z.x, z.y, z.r, d.spell.soin);
+        }
+      } else if (z.kind === 'tourelle') {
+        // invocation : tire sur l'ennemi le plus proche à portée
+        d.tickT -= dt;
+        if (d.tickT <= 0) {
+          d.tickT = d.spell.tick;
+          let best = null, bd = d.spell.portee;
+          this.eachTarget((t, tid) => {
+            if (tid === d.owner || !t.alive || t.locked > 0 || t.invis > 0 || !this.canHarm(d.owner, tid)) return;
+            const dd = dist(z.x, z.y, t.x, t.y); if (dd < bd) { bd = dd; best = t; }
+          });
+          if (best) this.spawnProjectile(d.owner, z.x, z.y - 30, Math.atan2(best.y - (z.y - 30), best.x - z.x), d.tir);
+        }
+      } else if (z.kind === 'mur') {
+        if (d.life <= 0) this.murs.delete(zid);
       } else if (z.kind === 'zone' || z.kind === 'tornade') {
         if (z.kind === 'tornade') {
           z.x = clamp(z.x + d.vx * dt, 0, ARENA.width);
@@ -239,6 +266,7 @@ export const combat = {
     const p = this.state.players.get(id);
     const e = this.ent.get(id);
     if (!p || !e || !e.kit || !p.alive || p.locked > 0) return;
+    if (p.stun > 0) return;   // étourdi : ni sort ni esquive
 
     if (slot === 'esquive') return this.dodge(p, id, e, tx, ty);
     let spell;
@@ -436,7 +464,94 @@ export const combat = {
         this.spawnZone(id, 'zone', c.x, c.y, spell.radius, spell.duree, spell);
         break;
       }
+      // ---------------- soin, invocations, murs ----------------
+      case 'soin_zone': {
+        const c = spell.centre === 'cible' ? target : { x: p.x, y: p.y };
+        this.spawnZone(id, 'soin', c.x, c.y, spell.radius, spell.duree, spell);
+        break;
+      }
+      case 'sanctuaire': {   // ultime : grand cercle de soin + bouclier immédiat pour toi et tes alliés
+        this.spawnZone(id, 'soin', p.x, p.y, spell.radius, spell.duree, spell);
+        this.eachTarget((t, tid) => {
+          if (!t.alive || t instanceof Zombie || (tid !== id && this.canHarm(id, tid)) || dist(p.x, p.y, t.x, t.y) > spell.radius) return;
+          t.shield = Math.max(t.shield, spell.bouclier); const te = this.ent.get(tid); if (te) te.shieldT = Math.max(te.shieldT || 0, spell.duree);
+        });
+        this.aoe(id, p.x, p.y, spell.radius, spell.dmgInitial || 0, spell.tags || [], spell.element);
+        break;
+      }
+      case 'tourelle':
+        this.invoquer(id, target.x, target.y, spell);
+        break;
+      case 'armee':   // ultime : plusieurs invocations en cercle autour du point visé
+        for (let i = 0; i < spell.count; i++) {
+          const a = (i / spell.count) * Math.PI * 2 + ang;
+          this.invoquer(id, target.x + Math.cos(a) * spell.ecart, target.y + Math.sin(a) * spell.ecart, spell);
+        }
+        break;
+      case 'mur': {    // mur perpendiculaire à la visée : bloque déplacements et projectiles ennemis
+        const n = spell.count, pas = spell.epaisseur * 1.7, perp = ang + Math.PI / 2, touches = new Set();
+        for (let i = 0; i < n; i++) {
+          const k = (i - (n - 1) / 2) * pas, mx = target.x + Math.cos(perp) * k, my = target.y + Math.sin(perp) * k;
+          // le mur qui jaillit blesse (une seule fois) ceux qui se trouvent dessus
+          if (spell.dmg) this.eachTarget((t, tid) => { if (tid !== id && !touches.has(tid) && t.alive && t.locked <= 0 && dist(mx, my, t.x, t.y) < spell.epaisseur + 30 + this.radiusOf(t)) { touches.add(tid); this.hit(id, t, tid, spell.dmg, spell.tags || [], mx, my, spell.element); } });
+          this.poserMur(id, mx, my, spell);
+        }
+        break;
+      }
+      case 'prison': { // ultime : anneau de piliers autour du point visé + étourdit au centre
+        const n = spell.count;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          this.poserMur(id, target.x + Math.cos(a) * spell.radius, target.y + Math.sin(a) * spell.radius, spell);
+        }
+        this.aoe(id, target.x, target.y, spell.radius - 10, spell.dmg, spell.tags, spell.element);
+        this.emit('fx', { t: 'slam', x: target.x, y: target.y, r: spell.radius, el: spell.element });
+        break;
+      }
     }
+  },
+
+  // ---------- Murs temporaires : piliers ronds, synchronisés comme des zones (le client les voit et s'y cogne) ----------
+  poserMur(owner, x, y, spell) {
+    x = clamp(x, 20, ARENA.width - 20); y = clamp(y, 20, ARENA.height - 20);
+    const zid = this.spawnZone(owner, 'mur', x, y, spell.epaisseur, spell.duree, spell);
+    (this.murs ||= new Map()).set(zid, { x, y, r: spell.epaisseur, owner });
+    // un mur posé sur quelqu'un le pousse dehors
+    this.eachTarget((t, tid) => { if (t.alive && dist(x, y, t.x, t.y) < spell.epaisseur + this.radiusOf(t)) this.push(tid, t, x, y, 420); });
+    return zid;
+  },
+  pousserMurs(pos, r) {
+    if (!this.murs?.size) return pos;
+    for (const m of this.murs.values()) {
+      const dx = pos.x - m.x, dy = pos.y - m.y, d = Math.hypot(dx, dy), R = m.r + r;
+      if (d < R) { if (d < 0.01) { pos.x += R; continue; } pos.x = m.x + (dx / d) * R; pos.y = m.y + (dy / d) * R; }
+    }
+    pos.x = clamp(pos.x, r, ARENA.width - r); pos.y = clamp(pos.y, r, ARENA.height - r);   // un mur au bord ne pousse pas hors de la carte
+    return pos;
+  },
+  dansMur(x, y, r, owner) {
+    for (const m of this.murs.values()) if (m.owner !== owner && (x - m.x) ** 2 + (y - m.y) ** 2 < (m.r + r) ** 2) return true;
+    return false;
+  },
+  // ---------- Invocation : totem immobile qui tire sur l'ennemi le plus proche ----------
+  invoquer(owner, x, y, spell) {
+    const pos = resolveCollisions({ x: clamp(x, 40, ARENA.width - 40), y: clamp(y, 40, ARENA.height - 40) }, 30, this.blds);
+    const zid = this.spawnZone(owner, 'tourelle', pos.x, pos.y, 34, spell.duree, spell);
+    const d = this.zoneData.get(zid);
+    d.tickT = 0.6;
+    d.tir = { forme: 'projectile', dmg: spell.dmg, speed: spell.speed || 760, radius: 10, range: spell.portee + 60, element: spell.element, tags: spell.tags || [] };
+    this.state.zones.get(zid).f = this.state.players.get(owner)?.fusion || '';
+    return zid;
+  },
+  // ---------- Soin du lanceur et de ses alliés dans un rayon ----------
+  soignerAllies(owner, x, y, r, soin) {
+    if (!(soin > 0)) return;
+    this.state.players.forEach((t, tid) => {
+      if (!t.alive || t.hp >= t.maxHp || dist(x, y, t.x, t.y) > r + CONFIG.playerRadius) return;
+      if (tid !== owner && this.canHarm(owner, tid)) return;   // seulement soi et ses alliés (duo)
+      const avant = t.hp; t.hp = Math.min(t.maxHp, t.hp + soin);
+      if (t.hp - avant >= 1) this.emit('fx', { t: 'heal', x: t.x, y: t.y, v: Math.round(t.hp - avant) });
+    });
   },
 
   // Dégâts le long d'un segment (rayons, faisceaux)
@@ -566,6 +681,13 @@ export const combat = {
       else if (tag === 'marque') t.mark = TAGS.marque.duree;
       else if (tag === 'aveugle') t.blind = TAGS.aveugle.duree;
       else if (tag === 'racine') t.vine = TAGS.racine.duree;
+      else if (tag === 'etourdi') {
+        if (t instanceof Zombie) { if (!ZOMBIES[t.kind]?.boss) t.root = Math.max(t.root || 0, TAGS.etourdi.duree); }
+        else if (((this.stunImm ||= new Map()).get(tid) || 0) <= (this.now || 0)) {
+          t.stun = TAGS.etourdi.duree; this.stunImm.set(tid, (this.now || 0) + TAGS.etourdi.duree + TAGS.etourdi.immunite);
+          if (!quiet) this.emit('fx', { t: 'combo', x: t.x, y: t.y - 40, nom: 'Étourdi !' });
+        }
+      }
       else if (tag === 'poussee' || tag === 'poussee_l') {
         const a = Math.atan2(t.y - fromY, t.x - fromX);
         const F = TAGS[tag].force;
@@ -625,10 +747,11 @@ export const combat = {
     }
     t.alive = false;
     t.deaths++;
-    t.burn = t.wet = t.slow = t.root = t.frost = t.mark = t.invis = t.armor = t.haste = t.blind = t.vine = 0;
+    t.burn = t.wet = t.slow = t.root = t.frost = t.mark = t.invis = t.armor = t.haste = t.blind = t.vine = t.stun = 0;
     const killer = killerId && killerId !== tid ? this.state.players.get(killerId) : null;
-    if (killer) { killer.kills++; this.stats.fusion(killer.fusion, 'kills'); if (!killer.bot) this.stats.joueur(killer.name, 'kills'); this.gainXp(killerId, PROGRESSION.xpKill); }
+    if (killer) { killer.kills++; this.stats.fusion(killer.fusion, 'kills'); if (!killer.bot) { this.stats.joueur(killer.name, 'kills'); this.stats.fusion(killer.fusion, 'killsJ'); } this.gainXp(killerId, PROGRESSION.xpKill); }
     this.stats.fusion(t.fusion, 'morts');
+    if (!t.bot) this.stats.fusion(t.fusion, 'mortsJ');
     const zombie = killerId?.startsWith('z_');
     this.broadcast('kill', { killer: killer?.name || null, victim: t.name, kel: killer?.a, kel2: killer?.b, zombie, kid: killer ? killerId : null, vid: tid, kf: killer?.fusion, vf: t.fusion });
     if (this.mode === 'royale') { t.lives = 0; this.checkWinner(); return; }

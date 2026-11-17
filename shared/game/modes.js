@@ -61,7 +61,7 @@ export const modes = {
       const w = alive[0]?.[1];
       st.phase = 'fin'; st.timer = ROYALE.fin; st.winner = w ? w.name : '';
       this.broadcast('win', { name: w?.name || null, fusion: w?.fusion, id: alive[0]?.[0] });
-      if (w) { this.stats.fusion(w.fusion, 'victoires'); if (!w.bot) this.stats.joueur(w.name, 'victoires'); }
+      if (w) { this.stats.fusion(w.fusion, 'victoires'); if (!w.bot) { this.stats.joueur(w.name, 'victoires'); this.stats.fusion(w.fusion, 'victoiresJ'); } }
     }
   },
 
@@ -207,7 +207,7 @@ export const modes = {
     });
     // un nombre impair de qualifiés : le dernier passe directement
     this.byes = ids.length % 2 ? [ids[ids.length - 1]] : [];
-    this.state.zones.forEach((z, zid) => { this.state.zones.delete(zid); this.zoneData.delete(zid); });
+    this.state.zones.forEach((z, zid) => { this.state.zones.delete(zid); this.zoneData.delete(zid); }); this.murs?.clear();
     st.phase = 'jeu'; st.timer = TOURNOI.duree;
     st.alive = pairs.length * 2;
     this.emit('fx', { t: 'tround', nom: NOMS_TOURS[pairs.length] || `TOUR ${st.round}` });
@@ -250,7 +250,7 @@ export const modes = {
     st.phase = 'fin'; st.timer = TOURNOI.fin; st.winner = w ? w.name : '';
     if (this.classe && id) this.resultatClasse(id, 1);
     this.broadcast('win', { name: w?.name || null, fusion: w?.fusion, id, tournoi: true });
-    if (w) { this.stats.fusion(w.fusion, 'victoires'); if (!w.bot) this.stats.joueur(w.name, 'victoires'); }
+    if (w) { this.stats.fusion(w.fusion, 'victoires'); if (!w.bot) { this.stats.joueur(w.name, 'victoires'); this.stats.fusion(w.fusion, 'victoiresJ'); } }
   },
 
   resetTournoi() {
@@ -317,7 +317,7 @@ export const modes = {
       e.dash = null; e.spin = null; e.kx = e.ky = 0; e.coups = null;
       for (const k2 in e.cds) e.cds[k2] = 0;
     });
-    this.state.zones.forEach((z, zid) => { this.state.zones.delete(zid); this.zoneData.delete(zid); });
+    this.state.zones.forEach((z, zid) => { this.state.zones.delete(zid); this.zoneData.delete(zid); }); this.murs?.clear();
     this.projs.clear();
     st.phase = 'jeu'; st.timer = DUO.duree;
     this.emit('fx', { t: 'tround', nom: `MANCHE ${st.round} — ${st.sA} : ${st.sB}` });
@@ -341,7 +341,7 @@ export const modes = {
       const eq = st.sA >= DUO.gagner ? 1 : 2;
       st.phase = 'fin'; st.timer = DUO.fin; st.winner = noms(eq);
       this.broadcast('win', { name: st.winner, eq, duo: true });
-      st.players.forEach((p) => { if (p.eq === eq) { this.stats.fusion(p.fusion, 'victoires'); if (!p.bot) this.stats.joueur(p.name, 'victoires'); } });
+      st.players.forEach((p) => { if (p.eq === eq) { this.stats.fusion(p.fusion, 'victoires'); if (!p.bot) { this.stats.joueur(p.name, 'victoires'); this.stats.fusion(p.fusion, 'victoiresJ'); } } });
       return;
     }
     st.phase = 'entracte'; st.timer = DUO.entracte;

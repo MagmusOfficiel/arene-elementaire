@@ -182,6 +182,7 @@ export const monstres = {
       const nx = z.x + (dx * speed + e.kx) * dt, ny = z.y + (dy * speed + e.ky) * dt;
       const decay = Math.exp(-7 * dt); e.kx *= decay; e.ky *= decay;
       const pos = resolveCollisions({ x: clamp(nx, K.r, ARENA.width - K.r), y: clamp(ny, K.r, ARENA.height - K.r) }, K.r);
+      this.pousserMurs(pos, K.r);   // les murs invoqués bloquent aussi les monstres
       const moved = dist(z.x, z.y, pos.x, pos.y), wanted = speed * dt;
       if (wanted > 1 && moved < wanted * 0.3 && e.detour <= 0) {
         e.stuck += dt;
@@ -371,7 +372,7 @@ export const monstres = {
   recommencerSurvie() {
     const st = this.state;
     st.zombies.forEach((_, zid) => this.ent.delete(zid)); st.zombies.clear();
-    st.zones.forEach((z, zid) => { st.zones.delete(zid); this.zoneData.delete(zid); });
+    st.zones.forEach((z, zid) => { st.zones.delete(zid); this.zoneData.delete(zid); }); this.murs?.clear();
     st.round = 0; st.phase = 'pause'; st.timer = SURVIE.pauseDebut; st.alive = 0;
     this.survie = { reste: 0, aSortir: 0, cad: 0, kills: 0, temps: 0 };
     this.oublierChoix();

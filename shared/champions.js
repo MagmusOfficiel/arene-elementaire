@@ -60,13 +60,19 @@ const U = {
   dragon:     (nom, o = {}) => ({ nom, forme: 'dragon', radius: 115, speed: 560, duree: 2.2, tick: 0.1, dmg: 11, amp: 95, ...o }),
   tornade:    (nom, o = {}) => ({ nom, forme: 'tornade', radius: 140, speed: 220, duree: 4.5, tick: 0.3, dmg: 8, ...o }),
   invocation: (nom, o = {}) => ({ nom, forme: 'invocation', range: 520, radius: 360, dmg: 72, delay: 1.1, ...o }),
+  // prison : anneau de piliers qui enferme la zone visée + étourdit au centre
+  prison:     (nom, o = {}) => ({ nom, forme: 'prison', range: 600, radius: 190, count: 14, epaisseur: 28, duree: 3.5, dmg: 40, ...o }),
+  // sanctuaire : grand cercle de soin autour de toi, bouclier immédiat pour toi et tes alliés
+  sanctuaire: (nom, o = {}) => ({ nom, forme: 'sanctuaire', radius: 300, duree: 5, tick: 0.5, soin: 7, dmg: 8, bouclier: 40, dmgInitial: 24, ...o }),
+  // armée : plusieurs totems qui mitraillent les ennemis autour du point visé
+  armee:      (nom, o = {}) => ({ nom, forme: 'armee', range: 520, count: 4, ecart: 120, duree: 8, tick: 0.7, portee: 460, dmg: 11, speed: 820, ...o }),
 };
 
 // ---------- Les 36 fiches ----------
 // classe · arme (pour l'ambiance) · ultime (remplace celui de FUSIONS si présent)
 export const CHAMPIONS = {
   'feu+vent':      { classe: 'mage',       arme: 'Ailes de feu',        ultime: U.dragon('Envol du Phénix', { tags: ['brulure', 'poussee'] }) },
-  'eau+feu':       { classe: 'invocateur', arme: 'Masque de vapeur' },
+  'eau+feu':       { classe: 'invocateur', arme: 'Masque de vapeur',      ultime: U.armee('Armée de geysers', { tags: ['mouille', 'brulure'] }) },
   'feu+terre':     { classe: 'brute',      arme: 'Poings de lave',      ultime: U.meteore('Cataclysme', { tags: ['brulure', 'lourd'] }) },
   'eau+terre':     { classe: 'brute',      arme: 'Bâton de racines',    ultime: U.domaine('Marécage originel', { tags: ['mouille', 'lourd'] }) },
   'eau+vent':      { classe: 'mage',       arme: 'Rubans d’eau',        ultime: U.tornade('Typhon', { tags: ['mouille', 'lourd'] }) },   // tornades qui retiennent au lieu de repousser
@@ -87,7 +93,7 @@ export const CHAMPIONS = {
   'glace+terre':   { classe: 'brute',      arme: 'Hache de glace',      ultime: U.invocation('Géant de givre', { tags: ['gel', 'lourd'] }) },
   'glace+vent':    { classe: 'mage',       arme: 'Éventails de neige' },
   'glace+ombre':   { classe: 'bretteur',   arme: 'Faux spectrale',      ultime: U.domaine('Hiver éternel', { tags: ['gel', 'marque'] }) },
-  'glace+metal':   { classe: 'bretteur',   arme: 'Katana trempé' },
+  'glace+metal':   { classe: 'bretteur',   arme: 'Katana trempé',         ultime: U.prison('Prison de givre', { tags: ['gel', 'etourdi'] }) },
   'feu+ombre':     { classe: 'bretteur',   arme: 'Épée de flamme noire', ultime: U.dragon('Dragon noir', { tags: ['brulure', 'marque'] }) },
   'eau+ombre':     { classe: 'invocateur', arme: 'Tentacules des abysses', ultime: U.invocation('Kraken', { tags: ['mouille', 'marque'] }) },
   'ombre+terre':   { classe: 'brute',      arme: 'Pelle de fossoyeur' },
@@ -100,9 +106,9 @@ export const CHAMPIONS = {
   'eclair+eclair': { classe: 'mage',       arme: 'Foudre divine' },
   'glace+glace':   { classe: 'mage',       arme: 'Sceptre de cristal' },
   'ombre+ombre':   { classe: 'invocateur', arme: 'Ombres vivantes',     ultime: U.domaine('Éclipse totale', { radius: 480, tags: ['marque'], final: 60 }) },
-  'metal+metal':   { classe: 'tank',       arme: 'Espadon',             ultime: U.rayon('Lame de la forteresse', { width: 120, dmg: 10, tags: ['perce'] }) },
+  'metal+metal':   { classe: 'tank',       arme: 'Espadon',             ultime: U.prison('Cage d’acier', { radius: 210, count: 16, dmg: 46, tags: ['perce', 'etourdi'] }) },
   // ---- Lumière & Nature ----
-  'eau+lumiere':     { classe: 'mage',       arme: 'Bâton de perles' },
+  'eau+lumiere':     { classe: 'mage',       arme: 'Bâton de perles',       ultime: U.sanctuaire('Source divine', { tags: ['aveugle'] }) },
   'feu+lumiere':     { classe: 'bretteur',   arme: 'Épée solaire',          ultime: U.rayon('Lame de l’aube', { tags: ['brulure', 'aveugle'], dmg: 9 }) },
   'lumiere+terre':   { classe: 'tank',       arme: 'Épée bénie',            ultime: U.invocation('Jugement du paladin', { tags: ['lourd', 'aveugle'] }) },
   'lumiere+vent':    { classe: 'mage',       arme: 'Ailes de lumière',      ultime: U.dragon('Chœur céleste', { tags: ['poussee', 'aveugle'] }) },
@@ -110,7 +116,7 @@ export const CHAMPIONS = {
   'glace+lumiere':   { classe: 'mage',       arme: 'Sceptre d’aurore',      ultime: U.domaine('Aurore boréale', { tags: ['gel', 'aveugle'] }) },
   'lumiere+ombre':   { classe: 'assassin',   arme: 'Dagues du crépuscule',  ultime: U.domaine('Équilibre', { tags: ['marque', 'aveugle'] }) },
   'lumiere+metal':   { classe: 'bretteur',   arme: 'Épée et bouclier sacrés' },
-  'lumiere+nature':  { classe: 'invocateur', arme: 'Bâton fleuri' },
+  'lumiere+nature':  { classe: 'invocateur', arme: 'Bâton fleuri',          ultime: U.sanctuaire('Jardin sacré', { tags: ['racine'], soin: 8 }) },
   'lumiere+lumiere': { classe: 'mage',       arme: 'Halo divin',            ultime: U.meteore('Jugement dernier', { radius: 290, dmg: 92, tags: ['aveugle'] }) },
   'eau+nature':      { classe: 'invocateur', arme: 'Lianes aquatiques' },
   'feu+nature':      { classe: 'brute',      arme: 'Poings de braise',      ultime: U.meteore('Feu de forêt', { tags: ['brulure', 'racine'] }) },
@@ -118,7 +124,7 @@ export const CHAMPIONS = {
   'nature+vent':     { classe: 'assassin',   arme: 'Lames-feuilles' },
   'eclair+nature':   { classe: 'bretteur',   arme: 'Fouet de ronces' },
   'glace+nature':    { classe: 'tireur',     arme: 'Arc de sapin' },
-  'nature+ombre':    { classe: 'invocateur', arme: 'Champignons maudits',   ultime: U.domaine('Forêt maudite', { tags: ['marque', 'racine'] }) },
+  'nature+ombre':    { classe: 'invocateur', arme: 'Champignons maudits',   ultime: U.armee('Forêt d’esprits', { count: 5, tags: ['marque', 'racine'] }) },
   'metal+nature':    { classe: 'brute',      arme: 'Gantelets à épines' },
   'nature+nature':   { classe: 'invocateur', arme: 'Bâton de l’arbre-monde' },
 };

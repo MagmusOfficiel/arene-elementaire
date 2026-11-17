@@ -45,6 +45,13 @@ const MODELES = [
 ];
 const GAINS = [50, 100, 200];
 
+// ---------- Maîtrise par champion : 5 niveaux gagnés en jouant ce champion ----------
+// points gagnés avec le champion en cours ; récompenses : titre « Disciple · Nom » (niv. 3) et « Maître · Nom » (niv. 5)
+export const MAITRISE_PALIERS = [100, 300, 700, 1400, 2500];
+const MAITRISE_EV = { kill: 12, ult: 4, dodge: 0.3, orb: 0.5, zombie: 0.6, duel: 25, legend: 10, titan: 30, vague: 6, manche: 10, winRoyale: 80, winTournoi: 80, winDuo: 60, comboEquipe: 3 };
+export const niveauMaitrise = (pts = 0) => MAITRISE_PALIERS.filter((p) => pts >= p).length;
+export const titresMaitrise = (fusion) => { const nom = FUSIONS[fusion]?.nom || fusion; return { 3: `Disciple · ${nom}`, 5: `Maître · ${nom}` }; };
+
 // Titres permanents : condition sur les statistiques cumulées
 const grimoireSize = () => JSON.parse(localStorage.getItem('grimoire') || '[]').length;
 export const TITRES = [
@@ -67,6 +74,7 @@ export const TITRES = [
 function load() {
   const d = JSON.parse(localStorage.getItem('progression') || '{}');
   d.stats ||= {}; d.stats.killsEl ||= {}; d.titre ||= 'Novice'; d.titres ||= ['Novice'];
+  d.maitrise ||= {};
   d.niv ||= 1; d.xp ||= 0; d.coul ||= ''; d.cadre ||= ''; d.saisonCadres ||= []; d.saisonCouleurs ||= [];
   return d;
 }
@@ -131,10 +139,27 @@ class Progression {
     this.d.day = day; this.d.defis = defis; this.save();
   }
 
+  // Maîtrise : points pour le champion joué en ce moment (fusionActive, posé à chaque tirage)
+  maitriseDe(fusion) { const pts = this.d.maitrise[fusion] || 0, niv = niveauMaitrise(pts); return { pts, niv, prochain: MAITRISE_PALIERS[niv] || null }; }
+  gagnerMaitrise(n) {
+    const f = this.fusionActive; if (!f || !FUSIONS[f] || !(n > 0)) return;
+    const avant = niveauMaitrise(this.d.maitrise[f]);
+    this.d.maitrise[f] = Math.round(((this.d.maitrise[f] || 0) + n) * 10) / 10;
+    const apres = niveauMaitrise(this.d.maitrise[f]);
+    if (apres > avant) {
+      const titre = titresMaitrise(f)[apres];
+      if (titre && !this.d.titres.includes(titre)) this.d.titres.push(titre);
+      this.onToast?.(`${'★'.repeat(apres)} Maîtrise ${FUSIONS[f].nom} niveau ${apres} !${titre ? ` Titre débloqué : « ${titre} »` : ''}`, '#ffcf3a');
+      this.save();
+    }
+  }
+
   // Événement de jeu : met à jour statistiques, défis et titres
   on(ev, val = 1, ctx = {}) {
     this.ensureDay();
     const s = this.d.stats;
+    if (MAITRISE_EV[ev]) this.gagnerMaitrise(MAITRISE_EV[ev] * (ev === 'vague' ? val : 1));
+    if (ev === 'dmg') this.gagnerMaitrise(val * 0.02);
     if (XP_EV[ev]) this.gagnerXp(XP_EV[ev] * (ev === 'vague' ? val : 1));
     if (ev === 'dmg') this.gagnerXp(val * 0.04);
     if (ev === 'combo' || ev === 'lvl') s[ev] = Math.max(s[ev] || 0, val);
