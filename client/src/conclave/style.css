@@ -1,0 +1,161 @@
+/* =====================================================================
+   Le Conclave des éléments — temple de nuit : pierre sombre, or, violet
+   ===================================================================== */
+:root { --or: #f2c94c; --violet: #a259ff; --fond: #0f0d14; --pierre: #1c1924; --pierre2: #26222f; --texte: #ece6da; --doux: #a59fb0; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: radial-gradient(ellipse at 50% 0%, #2a2140 0%, var(--fond) 60%); color: var(--texte); font: 15px/1.45 'Segoe UI', system-ui, sans-serif; }
+button { font: inherit; color: inherit; background: var(--pierre2); border: 1px solid #3d3748; border-radius: 10px; padding: 8px 14px; cursor: pointer; transition: transform .1s, background .2s, border-color .2s; }
+button:hover:not(:disabled) { border-color: var(--or); transform: translateY(-1px); }
+button:disabled { opacity: .45; cursor: default; }
+button.principal { background: linear-gradient(180deg, #d9a92e, #a87a12); color: #1b1408; border-color: #f2c94c; font-weight: 700; }
+button.petit { padding: 4px 10px; font-size: 13px; }
+input, select { font: inherit; color: inherit; background: #120f18; border: 1px solid #3d3748; border-radius: 8px; padding: 8px 10px; }
+.cache { display: none !important; }
+.msg { color: var(--doux); min-height: 1.4em; }
+
+#entete { display: flex; align-items: center; gap: 16px; padding: 10px 18px; border-bottom: 1px solid #2c2736; }
+#entete h1 { margin: 0; font-size: 20px; letter-spacing: .5px; color: var(--or); text-shadow: 0 0 12px rgba(242, 201, 76, .35); }
+#entete .retour { color: var(--doux); text-decoration: none; } #entete .retour:hover { color: var(--texte); }
+#etatCo { margin-left: auto; color: #ff9b7a; }
+
+/* ---------- accueil ---------- */
+#ecranAccueil { display: flex; justify-content: center; padding: 30px 14px; }
+.carteAccueil { width: min(620px, 100%); background: linear-gradient(180deg, #221d2c, #17141e); border: 1px solid #3a3346; border-radius: 18px; padding: 26px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+.pitch { font-size: 17px; text-align: center; margin: 0 0 18px; }
+.pitch b { color: var(--violet); }
+.champ { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; color: var(--doux); }
+.boutons { display: flex; gap: 10px; flex-wrap: wrap; }
+.boutons button { flex: 1; min-width: 180px; padding: 12px; }
+.rejoindre { display: flex; gap: 8px; margin-top: 12px; } .rejoindre input { width: 110px; text-transform: uppercase; letter-spacing: 4px; text-align: center; font-weight: 700; }
+.regles { margin-top: 16px; color: var(--doux); } .regles summary { cursor: pointer; color: var(--texte); }
+.regles li { margin: 6px 0; } .regles .g { color: var(--or); } .regles .c { color: var(--violet); }
+
+/* ---------- salon ---------- */
+#ecranSalon { padding: 18px; max-width: 1150px; margin: 0 auto; }
+.salonHaut { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+.code { font-size: 26px; letter-spacing: 6px; color: var(--or); }
+.salonCorps { display: grid; grid-template-columns: 330px 1fr; gap: 20px; }
+@media (max-width: 800px) { .salonCorps { grid-template-columns: 1fr; } }
+#listeSalon { list-style: none; padding: 0; margin: 0 0 12px; }
+#listeSalon li { display: flex; align-items: center; gap: 8px; padding: 6px; border-bottom: 1px solid #2c2736; }
+#listeSalon img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; object-position: top; border: 2px solid #4a4256; }
+#listeSalon span { margin-left: auto; color: var(--doux); font-size: 13px; }
+#listeSalon small { color: var(--doux); } #listeSalon .hote { color: var(--or); }
+#hoteCtrl { display: flex; flex-direction: column; gap: 10px; } #hoteCtrl .ligne { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+#hoteCtrl small { color: var(--doux); }
+#choixChampions { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.champion { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; text-align: center; position: relative; }
+.champion img { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; object-position: top; border: 3px solid #4a4256; }
+.champion small { color: var(--doux); font-size: 12px; }
+.champion.choisi { border-color: var(--or); box-shadow: 0 0 0 2px var(--or) inset, 0 0 18px rgba(242, 201, 76, .3); }
+.champion.choisi img { border-color: var(--or); }
+.champion em { position: absolute; top: 8px; right: 8px; font-size: 11px; background: #000a; padding: 2px 6px; border-radius: 6px; }
+
+/* ---------- partie ---------- */
+#ecranJeu { display: flex; flex-direction: column; height: calc(100vh - 52px); }
+#barre { display: flex; align-items: center; gap: 14px; padding: 8px 14px; flex-wrap: wrap; }
+#mancheTxt { color: var(--doux); } #phaseTxt { font-weight: 700; color: var(--or); font-size: 17px; }
+#minuteur { position: relative; flex: 1; min-width: 140px; height: 10px; background: #221d2c; border-radius: 6px; overflow: hidden; }
+#minuteurBarre { height: 100%; background: linear-gradient(90deg, #7a5cff, var(--or)); transition: width .9s linear; }
+#minuteurBarre.urgent { background: #ff5a4a; animation: pulse .5s infinite alternate; }
+#minuteurTxt { position: absolute; right: 6px; top: -4px; font-size: 12px; }
+#effetsTxt { color: #c9a0ff; font-size: 13px; }
+@keyframes pulse { to { opacity: .6; } }
+#jeuCorps { flex: 1; display: grid; grid-template-columns: 1fr 340px; gap: 12px; padding: 0 12px; min-height: 0; }
+@media (max-width: 900px) { #jeuCorps { grid-template-columns: 1fr; overflow-y: auto; } #ecranJeu { height: auto; } }
+#plateauZone { display: flex; flex-direction: column; align-items: center; min-height: 0; }
+#plateau { position: relative; width: min(100%, calc(100vh - 260px)); aspect-ratio: 1; min-width: 300px;
+  background: radial-gradient(circle at 50% 52%, #3a3046 0 13%, transparent 13.4%), radial-gradient(circle at 50% 52%, #241f2d 0 48%, #17131d 48.5% 49.5%, transparent 50%), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><path d="M0 20h40M20 0v40" stroke="%23ffffff08"/></svg>');
+  border-radius: 50%; }
+#plateau .allees { position: absolute; inset: 0; width: 100%; height: 100%; }
+#plateau .allees line { stroke: #4a3f58; stroke-width: 2.4; stroke-linecap: round; }
+.lieu { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: box-shadow .3s, filter .3s; user-select: none; }
+#parvis { width: 26%; height: 26%; border: 2px dashed #5a4f68; color: var(--doux); }
+#parvis span { position: absolute; top: -1.4em; font-size: 12px; }
+.sanct { width: 23%; height: 23%; background: radial-gradient(circle, color-mix(in srgb, var(--c) 30%, #1a1620) 0%, #1a1620 72%); border: 3px solid var(--c); box-shadow: 0 0 18px color-mix(in srgb, var(--c) 35%, transparent); }
+.sanct { justify-content: flex-start; padding-top: 9%; }
+.sanct .icone { font-size: 22px; line-height: 1; filter: drop-shadow(0 0 6px var(--c)); }
+.sanct b { font-size: 13px; margin-top: 1px; text-shadow: 0 1px 3px #000; }
+.sanct .etat { position: absolute; bottom: -11px; font-size: 11px; color: var(--doux); background: #110e16; border: 1px solid #3d3748; border-radius: 8px; padding: 0 7px; z-index: 12; white-space: nowrap; }
+.sanct .etat:empty { display: none; }
+.sanct.actif { animation: rituel 1.2s infinite alternate; }
+@keyframes rituel { to { box-shadow: 0 0 34px var(--c), 0 0 4px var(--c) inset; } }
+.sanct.scelle { border-color: var(--or); background: radial-gradient(circle, #6b5418 0%, #2a2212 75%); box-shadow: 0 0 26px rgba(242, 201, 76, .6); }
+.sanct.scelle .etat { color: #1b1408; background: var(--or); border-color: var(--or); font-weight: 700; font-size: 12px; }
+.sanct.scelle::after, .sanct.corrompu::after { content: '⚜'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 300%; opacity: .22; pointer-events: none; }
+.sanct.corrompu::after { content: '☠'; }
+.sanct.corrompu { border-color: var(--violet); background: radial-gradient(circle, #3a1458 0%, #0d0812 75%); box-shadow: 0 0 26px rgba(162, 89, 255, .6); filter: saturate(.7); }
+.sanct.corrompu .etat { color: #fff; background: var(--violet); border-color: var(--violet); font-weight: 700; font-size: 12px; }
+.lieu.cliquable { cursor: pointer; } .lieu.cliquable:hover { filter: brightness(1.3); }
+.sanct .infobulle { display: none; position: absolute; top: 102%; width: 230px; background: #0d0b12f0; border: 1px solid var(--c); border-radius: 10px; padding: 8px; font-size: 12px; z-index: 30; text-align: left; }
+.sanct:hover .infobulle { display: block; }
+.pion { position: absolute; transform: translate(-50%, -50%); width: 8%; aspect-ratio: 1; transition: left .7s cubic-bezier(.3, .8, .3, 1), top .7s cubic-bezier(.3, .8, .3, 1); z-index: 10; cursor: pointer; }
+.pion img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: top; border: 3px solid #d8d2e2; background: #222; box-shadow: 0 3px 8px #000a; }
+.pion .nom { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; white-space: nowrap; background: #000b; padding: 0 5px; border-radius: 5px; }
+.pion .badge { position: absolute; top: -6px; right: -10px; font-size: 11px; background: #000c; border-radius: 6px; padding: 0 4px; white-space: nowrap; }
+.pion .badge:empty { display: none; }
+.pion.moi img { border-color: var(--or); box-shadow: 0 0 14px var(--or); }
+.pion.allie img { border-color: var(--violet); }
+.pion.exile { width: 6%; opacity: .55; filter: grayscale(1); }
+.pion.deco img { opacity: .5; }
+.pion.ciblable img { animation: cible .8s infinite alternate; }
+@keyframes cible { to { box-shadow: 0 0 0 4px #ff5a4a, 0 0 16px #ff5a4a; } }
+.pion.vote img { border-color: #ff5a4a; box-shadow: 0 0 0 4px #ff5a4a; }
+#consigne { margin: 8px 0; min-height: 1.6em; text-align: center; color: var(--texte); }
+
+#panneau { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; }
+#carteRole { cursor: pointer; border: 2px solid var(--c); border-radius: 12px; padding: 10px 12px; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, #1c1924), #1c1924); }
+#carteRole small { color: var(--doux); display: block; } #carteRole b { font-size: 20px; color: var(--c); margin-right: 8px; } #carteRole p { margin: 4px 0 0; font-size: 13px; color: var(--doux); }
+#carteRole.cachee { background: #1c1924; border-color: #3d3748; }
+#actions { display: flex; flex-wrap: wrap; gap: 6px; } #actions .aide { color: var(--doux); font-size: 12px; width: 100%; }
+#savoir { display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; }
+.info { font-size: 13px; background: #191622; border-left: 3px solid #666; padding: 4px 8px; border-radius: 4px; }
+.info.c { border-color: var(--violet); } .info.g { border-color: var(--or); }
+.mini { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 28px; border-radius: 4px; background: color-mix(in srgb, var(--c) 35%, #111); border: 1px solid var(--c); font-size: 13px; margin: 0 1px; vertical-align: middle; }
+.mini.brouillard { --c: #667; }
+#onglets { display: flex; gap: 4px; } #onglets button { flex: 1; padding: 5px; } #onglets .actif { border-color: var(--or); color: var(--or); }
+.vueOnglet { flex: 1; min-height: 180px; display: flex; flex-direction: column; background: #14111a; border: 1px solid #2c2736; border-radius: 10px; overflow: hidden; }
+#chatListe { flex: 1; overflow-y: auto; padding: 8px; font-size: 14px; } #chatListe p { margin: 3px 0; } #chatListe b { color: var(--or); margin-right: 4px; } #chatListe .moi b { color: #9fd4ff; }
+#chatForm { display: flex; gap: 4px; padding: 6px; border-top: 1px solid #2c2736; } #chatForm input { flex: 1; }
+#journal { overflow-y: auto; padding: 8px; font-size: 13px; display: block; } #journal p { margin: 4px 0 8px; border-bottom: 1px solid #221d2a; padding-bottom: 6px; }
+
+#main { display: flex; gap: 8px; justify-content: center; padding: 10px; min-height: 140px; flex-wrap: wrap; position: relative; }
+.carte { width: 96px; height: 132px; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 45%, #1a1620), #15121b 80%); border: 2px solid var(--c); box-shadow: 0 6px 14px #0008; }
+.carte .ic { font-size: 34px; filter: drop-shadow(0 0 8px var(--c)); } .carte b { font-size: 14px; }
+.carte small { font-size: 9.5px; color: var(--doux); line-height: 1.15; text-align: center; }
+.carte.corr { background: linear-gradient(160deg, #3b1260, #120818 80%); }
+#main:not(.active) .carte { cursor: default; }
+#main.active .carte:hover { transform: translateY(-10px) scale(1.04); }
+.carte.bonne { box-shadow: 0 0 0 2px var(--or), 0 6px 18px rgba(242, 201, 76, .4); }
+.carte.partie { animation: poser .4s forwards; }
+@keyframes poser { to { transform: translateY(-120px) scale(.6); opacity: 0; } }
+.bulle { position: absolute; top: -30px; background: #2a1d3a; border: 1px solid var(--violet); padding: 4px 10px; border-radius: 8px; }
+
+/* ---------- voiles (révélation, vote, fin) ---------- */
+#voile { position: fixed; inset: 0; background: #07050bdd; display: flex; align-items: center; justify-content: center; z-index: 100; animation: apparait .3s; padding: 14px; }
+@keyframes apparait { from { opacity: 0; } }
+#voileContenu { max-width: 900px; width: 100%; text-align: center; max-height: 92vh; overflow-y: auto; }
+#voileContenu h2 { color: var(--or); font-size: 28px; margin: 0 0 10px; }
+.rituel { display: inline-block; vertical-align: top; margin: 8px 14px; }
+.rituel h3 { margin: 4px 0; }
+.cartesRev { display: flex; gap: 6px; justify-content: center; perspective: 600px; }
+.carteRev { width: 64px; height: 90px; position: relative; transform-style: preserve-3d; animation: retourne .5s var(--d) forwards; transform: rotateY(180deg); }
+.carteRev > div { position: absolute; inset: 0; border-radius: 8px; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 26px; }
+.carteRev .dos { background: repeating-linear-gradient(45deg, #2b2140 0 6px, #231a34 6px 12px); border: 2px solid #6a5a8a; transform: rotateY(180deg); }
+.carteRev .face { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 50%, #1a1620), #15121b); border: 2px solid var(--c); }
+.carteRev .face small { font-size: 10px; }
+@keyframes retourne { to { transform: rotateY(0deg); } }
+.verdict { margin-top: 6px; font-weight: 700; font-size: 18px; opacity: 0; animation: apparait2 .4s var(--d) forwards; }
+@keyframes apparait2 { to { opacity: 1; } }
+.rituel.scelle .verdict { color: var(--or); text-shadow: 0 0 12px var(--or); } .rituel.corrompu .verdict { color: var(--violet); text-shadow: 0 0 12px var(--violet); } .rituel.rate .verdict { color: var(--doux); }
+.voteRes { font-size: 18px; } .voteRes .exil { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; object-position: top; filter: grayscale(.6); border: 4px solid #ff5a4a; animation: exil 1s; }
+@keyframes exil { from { transform: scale(1.4); filter: none; } }
+.roles { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; text-align: left; }
+.roles li { display: flex; align-items: center; gap: 8px; background: #1a1622; padding: 6px; border-radius: 8px; border-left: 4px solid #888; }
+.roles li.gardiens { border-color: var(--or); } .roles li.corrompus { border-color: var(--violet); }
+.roles img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; object-position: top; }
+.roles span { margin-left: auto; color: var(--doux); }
+
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #241d30; border: 1px solid var(--or); padding: 10px 16px; border-radius: 10px; transition: transform .3s; z-index: 200; max-width: 90vw; }
+#toast.on { transform: translateX(-50%) translateY(0); }

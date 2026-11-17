@@ -240,3 +240,12 @@ Réglages > Test des visuels : style des champions (normal, illustration, fait m
 - `/equilibrage.html` : tableau triable des 55 champions (taux de choix, victoires et kills/mort des vrais joueurs), à partir de `/api/stats`.
 - Maîtrise par champion (navigateur, sauvegardée avec le compte) : 5 niveaux, titres « Disciple · Nom » et « Maître · Nom ».
 - Nouvelles formes de sorts : `soin_zone`, `tourelle` (invocation), `mur` ; ultimes `prison`, `sanctuaire`, `armee` ; tag `etourdi` (statut `stun`).
+
+## Le Conclave des éléments (v23)
+
+Jeu de déduction sociale à 5-10 joueurs, sur le même site et le même serveur : `/conclave/`.
+- Règles et partie (logique pure, testée) : `shared/conclave/regles.js`, `shared/conclave/partie.js`.
+- Salle Colyseus `conclave` : `server/src/ConclaveRoom.js` (vues privées par joueur, reconnexion 60 s, résultats en base via `stats.js`).
+- Page : `client/conclave/index.html` + `client/src/conclave/` (DOM, pas de Phaser).
+- Statistiques : `/api/conclave/stats` (victoires par camp, par réglage).
+- Tests : `tests/conclave.test.mjs` (dont 100 parties complètes jouées par des bots) et section 6 de `tests/navigateur.py`.

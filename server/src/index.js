@@ -8,8 +8,10 @@ import express from 'express';
 import colyseus from 'colyseus';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { ArenaRoom } from './ArenaRoom.js';
+import { ConclaveRoom } from './ConclaveRoom.js';
 import { noterErreur, listeErreurs } from './journal.js';
 import { noterMesure, resumeMesures } from './mesures.js';
+import { statsConclave } from './stats.js';
 import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance, rapportFusions, classement, classementCote, coteDe, placeDe, classementSurvie, palmares } from './stats.js';
 
 const PORT = Number(process.env.PORT || 2567);
@@ -88,6 +90,7 @@ app.get('/api/salon/:code', async (req, res) => {
   if (!r) return res.status(404).json({ erreur: 'Salon introuvable' });
   res.json({ roomId: r.roomId, mode: r.metadata.mode, joueurs: r.clients, max: r.maxClients });
 });
+app.get('/api/conclave/stats', (req, res) => res.json(statsConclave(req.query.nom ? String(req.query.nom).slice(0, 16) : null)));
 app.get('/api/version', (_req, res) => res.json({ version: VERSION_JEU, sauvegarde: persistance }));
 app.get('/api/stats', (_req, res) => res.json(rapportFusions()));       // équilibrage par fusion
 app.get('/api/classement', (_req, res) => res.json(classement(10)));   // meilleurs joueurs
@@ -157,6 +160,7 @@ gameServer.define('tournoi', ArenaRoom, { mode: 'tournoi' });
 gameServer.define('classe', ArenaRoom, { mode: 'tournoi', classe: true });
 gameServer.define('survie', ArenaRoom, { mode: 'survie' });
 gameServer.define('duo', ArenaRoom, { mode: 'duo' });
+gameServer.define('conclave', ConclaveRoom);   // Le Conclave des éléments (page /conclave)
 
 gameServer.listen(PORT).then(() => {
   console.log(`⚔️  Arène Élémentaire — serveur sur http://localhost:${PORT}`);

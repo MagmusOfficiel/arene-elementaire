@@ -44,6 +44,16 @@ auRepos(() => { chargerMoteur(); setTimeout(prechargerAssets, 800); });
 import { creerCompte } from './compte.js';
 import { astuce, oublierAstuces } from './astuces.js';
 import { reglages, changerReglage } from './reglages.js';
+
+// ---------- Accueil commun : choisir l'Arène ou le Conclave ----------
+{
+  const qs = new URLSearchParams(location.search);
+  const direct = qs.has('arene') || qs.has('force') || qs.has('salon') || qs.has('serveur') || sessionStorage.getItem('hubVu');
+  const hub = document.getElementById('hub');
+  if (direct) hub.classList.add('cache-hub-off');
+  document.getElementById('hubArene').onclick = () => { hub.classList.add('cache-hub-off'); sessionStorage.setItem('hubVu', '1'); };
+}
+
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé')), ms))]);
 
 const $ = (id) => document.getElementById(id);

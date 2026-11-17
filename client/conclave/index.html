@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Le Conclave des éléments</title>
+<meta name="description" content="Jeu de déduction sociale en ligne : scellez les sanctuaires, démasquez les Corrompus.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚜️</text></svg>">
+<script src="/config.js"></script>
+</head>
+<body>
+<div id="app">
+  <header id="entete">
+    <a href="/" class="retour" title="Retour à l'accueil">← Accueil</a>
+    <h1>⚜️ Le Conclave des éléments</h1>
+    <span id="etatCo"></span>
+  </header>
+
+  <!-- Accueil -->
+  <section id="ecranAccueil" class="ecran">
+    <div class="carteAccueil">
+      <p class="pitch">Des champions se réunissent au Temple pour sceller les sanctuaires élémentaires…<br>mais un ou deux d'entre eux sont <b>corrompus</b> et sabotent en secret.</p>
+      <label class="champ">Ton pseudo <input id="pseudo" maxlength="16" placeholder="Ton pseudo"></label>
+      <div class="boutons">
+        <button id="btCreer" class="principal">Créer une partie</button>
+        <button id="btRapide">Partie rapide avec des bots</button>
+      </div>
+      <div class="rejoindre"><input id="codeSalon" maxlength="4" placeholder="CODE"><button id="btRejoindre">Rejoindre</button></div>
+      <p id="msgAccueil" class="msg"></p>
+      <details class="regles">
+        <summary>Comment jouer ?</summary>
+        <ol>
+          <li><b>Rôles secrets.</b> Les <b class="g">Gardiens</b> veulent sceller 3 sanctuaires ; les <b class="c">Corrompus</b> (qui se connaissent) veulent en corrompre 3. L'<b>Oracle</b> voit une carte et son auteur à chaque manche ; la <b>Sentinelle</b> protège quelqu'un une fois. À 8 joueurs et plus, un <b>Mercenaire</b> gagne seul s'il se fait exiler.</li>
+          <li><b>Déplacement.</b> Chacun va dans un sanctuaire (2 à 4 joueurs pour qu'un rituel ait lieu) ou reste au parvis.</li>
+          <li><b>Rituel.</b> Chaque présent pose une carte face cachée. Il faut au moins <span class="nbBonnes">2</span> cartes du bon élément (ou Éclat) et <b>aucune Corruption</b> pour sceller. Une Corruption fait rater, deux corrompent le sanctuaire. Au parvis, on peut défausser une carte.</li>
+          <li><b>Révélation.</b> Les cartes sont mélangées : on voit qu'il y a eu sabotage, pas qui l'a fait.</li>
+          <li><b>Débat puis vote.</b> Discutez, accusez, votez. Le plus voté est exilé (son rôle est révélé). Égalité : personne.</li>
+        </ol>
+        <p>Chaque champion a un <b>pouvoir de fusion</b> utilisable une fois ; l'utiliser le révèle à tous. 5 manches maximum.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- Salon -->
+  <section id="ecranSalon" class="ecran cache">
+    <div class="salonHaut">
+      <div>Code du salon : <b id="salonCode" class="code"></b> <button id="btCopier" class="petit">Copier le lien</button></div>
+      <div id="salonInfo"></div>
+    </div>
+    <div class="salonCorps">
+      <div>
+        <h3>Joueurs <span id="nbJoueurs"></span></h3>
+        <ul id="listeSalon"></ul>
+        <div id="hoteCtrl" class="cache">
+          <div class="ligne"><button id="btBotPlus" class="petit">+ Bot</button><button id="btBotMoins" class="petit">− Bot</button></div>
+          <label class="ligne">Bonnes cartes pour sceller
+            <select id="optBonnes"><option value="2">2 (règle de base)</option><option value="3">3 (plus dur pour les Gardiens)</option></select></label>
+          <label class="ligne">Durée du débat
+            <select id="optDebat"><option value="60">60 s</option><option value="90">90 s</option><option value="120">120 s</option></select></label>
+          <button id="btLancer" class="principal">Lancer la partie</button>
+          <small>Il manque des joueurs ? Les places libres jusqu'à 5 sont prises par des bots.</small>
+        </div>
+        <p id="attenteHote" class="msg cache">L'hôte lancera la partie.</p>
+      </div>
+      <div>
+        <h3>Choisis ton champion</h3>
+        <div id="choixChampions"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Partie -->
+  <section id="ecranJeu" class="ecran cache">
+    <div id="barre">
+      <span id="mancheTxt"></span>
+      <span id="phaseTxt"></span>
+      <div id="minuteur"><div id="minuteurBarre"></div><span id="minuteurTxt"></span></div>
+      <span id="effetsTxt"></span>
+    </div>
+    <div id="jeuCorps">
+      <div id="plateauZone">
+        <div id="plateau">
+          <div id="parvis" class="lieu" data-lieu="parvis"><span>Parvis</span></div>
+        </div>
+        <div id="consigne"></div>
+      </div>
+      <aside id="panneau">
+        <div id="carteRole" title="Clique pour cacher / montrer ton rôle"></div>
+        <div id="actions"></div>
+        <div id="savoir"></div>
+        <div id="onglets"><button data-o="chat" class="actif">Débat</button><button data-o="journal">Journal</button></div>
+        <div id="chat" class="vueOnglet"><div id="chatListe"></div><form id="chatForm"><input id="chatInput" maxlength="160" placeholder="Écris au Conclave…" autocomplete="off"><button>➤</button></form></div>
+        <div id="journal" class="vueOnglet cache"></div>
+      </aside>
+    </div>
+    <div id="main"></div>
+  </section>
+
+  <div id="voile" class="cache"><div id="voileContenu"></div></div>
+  <div id="toast"></div>
+</div>
+<script type="module" src="/src/conclave/main.js"></script>
+</body>
+</html>

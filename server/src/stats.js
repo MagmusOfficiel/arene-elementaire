@@ -49,6 +49,7 @@ function fusionner(recu) {
   for (const [k, f] of Object.entries(recu.fusions || {})) { const d = (data.fusions[k] ||= {}); for (const [c, n] of Object.entries(f)) d[c] = (d[c] || 0) + n; }
   for (const [k, j] of Object.entries(recu.joueurs || {})) { const d = (data.joueurs[k] ||= {}); for (const [c, n] of Object.entries(j)) d[c] = (d[c] || 0) + n; }
   for (const [k, c] of Object.entries(recu.cotes || {})) if (!data.cotes[k] || (c.maj || 0) > (data.cotes[k].maj || 0)) data.cotes[k] = c;
+  if (recu.conclave && !data.conclave?.parties) data.conclave = recu.conclave;   // Conclave : la base fait foi au démarrage
   for (const s of recu.survie || []) data.survie.push(s);
   data.survie.sort((a, b) => b.vague - a.vague || b.kills - a.kills); data.survie.length = Math.min(data.survie.length, 50);
 }
@@ -58,6 +59,7 @@ function elaguer() {
   const garder = (obj, n, score) => { const e = Object.entries(obj); if (e.length <= n) return obj; return Object.fromEntries(e.sort((a, b) => score(b[1]) - score(a[1])).slice(0, n)); };
   data.joueurs = garder(data.joueurs, 1500, (j) => (j.victoires || 0) * 50 + (j.kills || 0) + (j.zombies || 0) * 0.1);
   data.cotes = garder(data.cotes, 3000, (c) => (c.maj || 0) / 1e9 + (c.cote || 0));
+  if (data.conclave) data.conclave.joueurs = garder(data.conclave.joueurs, 2000, (j) => j.parties || 0);
 }
 
 let enCours = false;
@@ -91,6 +93,24 @@ export function statJoueur(nom, champ, n = 1) {
   if (!nom) return;
   const j = (data.joueurs[nom] ||= { kills: 0, victoires: 0, zombies: 0 });
   j[champ] = (j[champ] || 0) + n; dirty = true;
+}
+
+// ---------- Le Conclave des éléments : résultats de fin de partie ----------
+export function partieConclave(fin, bilan, options = {}) {
+  const c = (data.conclave ||= { parties: 0, camps: { gardiens: 0, corrompus: 0 }, mercenaires: 0, parBonnes: {}, joueurs: {} });
+  c.parties++; c.camps[fin.camp] = (c.camps[fin.camp] || 0) + 1; c.mercenaires += fin.mercenaire.length;
+  const b = (c.parBonnes[options.bonnes] ||= { gardiens: 0, corrompus: 0 }); b[fin.camp]++;
+  for (const j of bilan) {
+    if (j.bot) continue;
+    const s = (c.joueurs[j.nom] ||= { parties: 0, victoires: { gardiens: 0, corrompus: 0, mercenaire: 0 }, joues: { gardiens: 0, corrompus: 0, mercenaire: 0 }, exilsJustes: 0, sabotagesCaches: 0 });
+    s.parties++; s.joues[j.camp]++; if (j.gagne) s.victoires[j.camp]++;
+    s.exilsJustes += j.exilsJustes; s.sabotagesCaches += j.sabotagesCaches;
+  }
+  dirty = true;
+}
+export function statsConclave(nom) {
+  const c = data.conclave || { parties: 0, camps: {}, mercenaires: 0, parBonnes: {}, joueurs: {} };
+  return { parties: c.parties, camps: c.camps, mercenaires: c.mercenaires, parBonnes: c.parBonnes, joueur: nom ? c.joueurs[nom] || null : undefined };
 }
 
 export function rapportFusions() {

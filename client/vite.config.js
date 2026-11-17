@@ -24,6 +24,7 @@ export default defineConfig({
   build: {
     outDir: 'dist', chunkSizeWarningLimit: 2000,
     // le moteur et le réseau dans des fichiers à part : ils changent rarement, le navigateur les garde en cache
-    rollupOptions: { output: { manualChunks: (id) => (id.includes('/phaser/') || id.includes('phaser-leger') ? 'phaser' : id.includes('colyseus') ? 'reseau' : undefined) } },
+    // deux pages : l'Arène (index.html) et le Conclave des éléments (conclave/index.html)
+    rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), conclave: fileURLToPath(new URL('./conclave/index.html', import.meta.url)) }, output: { manualChunks: (id) => (id.includes('/phaser/') || id.includes('phaser-leger') ? 'phaser' : id.includes('colyseus') ? 'reseau' : undefined) } },
   },
 });

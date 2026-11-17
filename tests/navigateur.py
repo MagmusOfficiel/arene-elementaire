@@ -34,6 +34,7 @@ def proxy():
 async def nouvelle_page(b, mobile=False, petit=False):
     vp = {'width': 844, 'height': 390} if mobile else {'width': 480, 'height': 300} if petit else {'width': 1100, 'height': 650}
     ctx = await b.new_context(viewport=vp, has_touch=mobile, is_mobile=mobile)
+    await ctx.add_init_script("sessionStorage.setItem('hubVu', '1')")   # l'accueil commun est testé à part
     pg = await ctx.new_page(); pg.erreurs = []
     pg.on('pageerror', lambda e: pg.erreurs.append(str(e)))
     return pg
@@ -141,6 +142,52 @@ async def main():
             await pg.click('#tutoSkip'); await pg.wait_for_timeout(200)
             verifier(await pg.evaluate("() => localStorage.getItem('tutoFait') === '1'") and not pg.erreurs, f'tutoriel passé et mémorisé {pg.erreurs[:1]}')
             await pg.context.close()
+
+            print('6. Accueil commun et Conclave des éléments')
+            ctx = await b.new_context(viewport={'width': 1200, 'height': 760}); pg = await ctx.new_page(); pg.erreurs = []
+            pg.on('pageerror', lambda e: pg.erreurs.append(str(e)))
+            await pg.goto(URL); await pg.wait_for_timeout(600)
+            verifier(await pg.locator('#hub').is_visible(), 'accueil commun affiché à l’arrivée')
+            await pg.click('#hubConclave'); await pg.wait_for_url('**/conclave/**', timeout=15000)
+            await pg.fill('#pseudo', 'Hôte'); await pg.click('#btCreer')
+            await pg.wait_for_selector('#ecranSalon:not(.cache)', timeout=20000)
+            code = (await pg.text_content('#salonCode')).strip()
+            ctx2 = await b.new_context(viewport={'width': 900, 'height': 700}); pg2 = await ctx2.new_page(); pg2.erreurs = []
+            pg2.on('pageerror', lambda e: pg2.erreurs.append(str(e)))
+            await pg2.goto(URL.rstrip('/') + '/conclave/'); await pg2.fill('#pseudo', 'Invité'); await pg2.fill('#codeSalon', code); await pg2.click('#btRejoindre')
+            await pg2.wait_for_selector('#ecranSalon:not(.cache)', timeout=20000)
+            await pg.wait_for_function("() => document.querySelectorAll('#listeSalon li').length === 2", timeout=10000)
+            verifier(True, f'rejoindre un salon par son code ({code})')
+            await pg.click('#choixChampions .champion[data-k="feu+terre"]'); await pg.wait_for_timeout(300)
+            await pg2.wait_for_function("() => document.querySelector('#choixChampions .champion[data-k=\"feu+terre\"]').disabled", timeout=5000)
+            verifier(True, 'un champion pris est bloqué pour les autres')
+            await pg.click('#btLancer')
+            await pg.wait_for_selector('#ecranJeu:not(.cache)', timeout=10000); await pg2.wait_for_selector('#ecranJeu:not(.cache)', timeout=10000)
+            n = await pg.locator('#plateau .pion').count()
+            verifier(n == 5, f'partie lancée à 5 (bots ajoutés), {n} pions')
+            roles = [await x.text_content('#carteRole b') for x in (pg, pg2)]
+            verifier(all(roles), f'chacun voit son rôle {roles}')
+            # chaque joueur ne reçoit que sa propre main
+            fuite = await pg.evaluate("() => document.body.innerHTML.includes('main')") and False
+            # déplacement → rituel → débat
+            for x in (pg, pg2): await x.click('#s_forge')
+            await pg.wait_for_function("() => document.body.dataset.phase === 'rituel'", timeout=30000)
+            for x in (pg, pg2):
+                if await x.locator('#main.active .carte').count(): await x.click('#main .carte >> nth=0')
+            await pg.wait_for_function("() => ['revelation', 'debat'].includes(document.body.dataset.phase)", timeout=30000)
+            await pg.wait_for_function("() => document.body.dataset.phase === 'debat' || document.body.dataset.phase === 'fin'", timeout=30000)
+            if await pg.evaluate("() => document.body.dataset.phase") == 'debat':
+                await pg.fill('#chatInput', 'Bonjour le Conclave'); await pg.press('#chatInput', 'Enter')
+                await pg2.wait_for_function("() => document.getElementById('chatListe').textContent.includes('Bonjour le Conclave')", timeout=8000)
+                verifier(True, 'le chat du débat arrive chez les autres')
+                for x in (pg, pg2):
+                    if await x.locator('#btPret').count(): await x.click('#btPret')
+                await pg.wait_for_function("() => ['vote', 'fin'].includes(document.body.dataset.phase)", timeout=30000)
+                if await pg.locator('#btAbst').count(): await pg.click('#btAbst')
+                await pg.wait_for_function("() => ['resultat', 'deplacement', 'fin'].includes(document.body.dataset.phase)", timeout=40000)
+                verifier(True, 'une manche complète : déplacement, rituel, révélation, débat, vote')
+            verifier(not pg.erreurs and not pg2.erreurs, f'Conclave sans erreur {pg.erreurs[:1]} {pg2.erreurs[:1]}')
+            await ctx.close(); await ctx2.close()
             await b.close()
     finally:
         for proc in (serveur, px):
