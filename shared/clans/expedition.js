@@ -6,7 +6,7 @@
 //  la moitié du butin ramassé ; vaincre le boss débloque le palier suivant.
 // =====================================================================
 import { MONSTRES, PALIERS, TERRITOIRES } from './monstres.js';
-import { ELEMENTS } from './cartes.js';
+import { ELEMENTS, RARES } from './cartes.js';
 import { alea } from './combat.js';
 import { pvMax, deckCombat } from './profil.js';
 
@@ -16,6 +16,7 @@ export const SALLES = {
   elite: { nom: 'Élite', ico: '💀' },
   repos: { nom: 'Feu de camp', ico: '🏕️' },
   tresor: { nom: 'Trésor', ico: '💎' },
+  rare: { nom: 'Monstre rare', ico: '🌟' },
   boss: { nom: 'Boss', ico: '👑' },
 };
 
@@ -29,6 +30,7 @@ export function genererCarte(graine) {
       if (e === 0) type = 'combat';
       else if (e === ETAGES - 1) type = 'repos';
       else if (e >= 2 && x < 0.22) type = 'elite';
+      else if (e >= 1 && x < 0.3) type = 'rare';
       else if (x < 0.4) type = 'repos';
       else if (x < 0.55) type = 'tresor';
       return { id: `${e}-${i}`, etage: e, i, type, vers: [] };
@@ -63,6 +65,7 @@ export function ennemisDe(x, id) {
   const s = salle(x.carte, id), M = MONSTRES[x.territoire], r = alea(x.graine + s.etage * 31 + (s.i || 0) * 7);
   if (s.type === 'boss') return [M.boss];
   if (s.type === 'elite') return [M.elite];
+  if (s.type === 'rare') return [M.rare];
   const n = s.etage <= 1 ? 1 : r() < 0.55 ? 2 : 1, l = [];
   for (let k = 0; k < n; k++) l.push(M.normaux[Math.floor(r() * M.normaux.length)]);
   return l;
@@ -89,9 +92,12 @@ export function apresCombat(p, combat) {
   if (combat.fini === 'defaite') return terminer(p, 'defaite');
   p.stats.victoires++;
   x.pv = combat.joueur.pv;
-  const base = { combat: [22, 3], elite: [60, 9], boss: [160, 22] }[s.type] || [0, 0];
+  const base = { combat: [22, 3], elite: [60, 9], boss: [160, 22], rare: [30, 4] }[s.type] || [0, 0];
   const g = { essence: Math.round(base[0] * mult), mat: Math.round(base[1] * mult) };
   x.butin.essence += g.essence; x.butin.mat += g.mat;
+  // les monstres rares et les boss donnent la ressource rare du territoire
+  const rare = s.type === 'rare' ? 1 + x.palier : s.type === 'boss' ? 2 * x.palier : 0;
+  if (rare) { x.butin.rare = (x.butin.rare || 0) + rare; g.rare = rare; }
   if (s.type === 'boss') { p.stats.boss++; return { ...terminer(p, 'victoire'), gain: g }; }
   return { ok: true, gain: g };
 }
@@ -101,6 +107,7 @@ export function terminer(p, issue) {
   const garde = issue === 'victoire' ? 1 : 0.5, mat = ELEMENTS[x.territoire].materiau;
   const gain = { essence: Math.floor(x.butin.essence * garde), [mat]: Math.floor(x.butin.mat * garde) };
   p.ress.essence += gain.essence; p.ress[mat] += gain[mat];
+  if (x.butin.rare) { const r = RARES[x.territoire].id; gain[r] = Math.floor(x.butin.rare * garde); p.ress[r] = (p.ress[r] || 0) + gain[r]; }
   let debloque = null;
   if (issue === 'victoire' && x.palier === p.paliers[x.territoire] && x.palier < PALIERS.length) { p.paliers[x.territoire]++; debloque = p.paliers[x.territoire]; }
   x.fini = issue;

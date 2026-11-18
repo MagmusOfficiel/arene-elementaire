@@ -7,7 +7,7 @@
 // =====================================================================
 import './style.css';
 import { Client } from 'colyseus.js';
-import { CARTES, ELEMENTS, CLANS, CLASSES, LISTE_CLASSES, RARETES, STATUTS, decrire, NIV_MAX } from '../../../shared/clans/cartes.js';
+import { CARTES, ELEMENTS, CLANS, CLASSES, LISTE_CLASSES, RARETES, RARES, STATUTS, decrire, NIV_MAX } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES, PALIERS } from '../../../shared/clans/monstres.js';
 import * as C from '../../../shared/clans/combat.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -29,11 +29,11 @@ let room = null, monId = null;
 let combat = null, cible = null, carteChoisie = null;
 
 // ---------- sauvegarde ----------
-function charger() { try { const x = JSON.parse(localStorage.getItem(CLE) || 'null'); return P.profilValide(x) ? x : null; } catch { return null; } }
+function charger() { try { const x = JSON.parse(localStorage.getItem(CLE) || 'null'); return P.profilValide(x) ? P.completer(x) : null; } catch { return null; } }
 let minuteur = null;
 function sauver() {
   try { localStorage.setItem(CLE, JSON.stringify(p)); } catch { /* plein */ }
-  clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 4000);
+  clearTimeout(minuteur); minuteur = setTimeout(() => { compte.sauvegarder(); envoyerProfil(); }, 2000);
   majBarre();
 }
 const niveau = () => 1 + Math.floor((p?.stats.victoires || 0) / 6) + (p?.stats.boss || 0) * 2;
@@ -41,23 +41,34 @@ const niveau = () => 1 + Math.floor((p?.stats.victoires || 0) / 6) + (p?.stats.b
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.innerHTML = t; $('toasts').append(d); setTimeout(() => d.remove(), 3300); }
 
 // ---------- une carte en HTML ----------
+// Cartes illustrées (images dans client/public/clans/cartes/<id>.webp) ; les autres gardent leur emoji
+const ILLUS = new Set(['lance_magma', 'dragon', 'coeur_volcan', 'leviathan', 'ocean', 'arbre_monde', 'coeur_phenix', 'perle_abysses', 'trident', 'seve_doree', 'titan', 'archimage', 'fleche_lourde', 'maitre_armes', 'colere', 'couronne',
+  'frappe', 'garde', 'coup_double', 'second_souffle', 'etincelle', 'flamme', 'tison', 'cendres', 'boule_de_feu',
+  'incendie', 'combustion', 'phenix', 'meteore', 'jet', 'vague', 'bulle', 'maree', 'tsunami',
+  'carapace', 'ressac', 'source', 'geyser', 'brume', 'ronce', 'seve', 'liane', 'graine', 'chene',
+  'floraison', 'spores', 'croissance', 'fouet', 'gardien', 'charge', 'rempart', 'fracas', 'tourbillon',
+  'cri_guerre', 'second_vent', 'forteresse', 'execution', 'eclair_arcanique', 'bouclier_arcanique', 'missiles', 'meditation', 'torrent', 'nova',
+  'savoir', 'transmutation', 'rayon', 'tir', 'piege', 'tir_rapide', 'volee', 'fleche_poison', 'repli', 'pluie_fleches',
+  'oeil_faucon', 'tir_precis', 'estoc', 'parade', 'botte', 'fente', 'garde_haute', 'elan', 'danse_lames', 'coup_grace', 'concentration', 'rage_ardente', 'feinte', 'coup_bouclier']);
+const ILLUS_MONSTRES = new Set(['seigneur_magma', 'hydre', 'reine_epine', 'salamandre', 'diablotin', 'golem_cendre', 'feu_follet', 'phenix_cendre', 'chimere', 'crabe', 'meduse', 'sirene', 'anguille', 'tortue_dragon', 'kraken', 'champignon', 'loup_ronces', 'treant', 'guepe', 'cerf_emeraude', 'mante']);
 function carteHTML(id, niv = 1, extra = '') {
   const c = CARTES[id];
-  return `<div class="carte ${c.element} r-${c.rarete}" data-id="${id}" title="${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)}">
+  return `<div class="carte ${c.element} r-${c.rarete}${ILLUS.has(id) ? ' aIllus' : ''}" data-id="${id}" title="${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)}">
     <span class="cc">${c.cout}</span><div class="cn">${esc(c.nom)}${niv > 1 ? ` ${'+'.repeat(niv - 1)}` : ''}</div>
-    <div class="ci">${c.ico}</div><div class="ct">${c.type} · ${RARETES[c.rarete].nom}</div>
+    ${ILLUS.has(id) ? `<div class="ci illus" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${id}.webp)"></div>` : `<div class="ci">${c.ico}</div>`}<div class="ct">${c.type} · ${RARETES[c.rarete].nom}</div>
     <div class="cd">${esc(decrire(id, niv))}</div>${c.classe ? `<span class="cclasse" title="Carte de ${esc(CLASSES[c.classe].nom)}">${CLASSES[c.classe].ico}</span>` : ''}${extra}</div>`;
 }
 const coutHTML = (cout) => Object.entries(cout).map(([k, v]) => `<span class="${(p.ress[k] || 0) < v ? 'manque' : ''}">${nf(v)} ${ICO_RESS[k]}</span>`).join(' · ');
-const ICO_RESS = { essence: '✨', braises: '🔥', perles: '🫧', seve: '🍃', eclats: '💠' };
+const ICO_RESS = { essence: '✨', braises: '🔥', perles: '🫧', seve: '🍃', eclats: '💠', cristal: '💎', perle_noire: '⚫', graine_or: '🌰' };
 
 // ---------- la barre du haut ----------
 function majBarre() {
   if (!p) return;
   const el = ELEMENTS[p.clan];
   $('moi').innerHTML = `${esc(p.nom)} <span class="badge ${p.clan}">${el.ico} ${el.clan}</span> ${p.classe ? `<span title="${esc(CLASSES[p.classe].talent)} : ${esc(CLASSES[p.classe].desc)}">${CLASSES[p.classe].ico} ${CLASSES[p.classe].nom}</span>` : ''} <small>niv. ${niveau()}</small>`;
-  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
-    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('');
+  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
+    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)" }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
+    + `<span title="Duels gagnés / perdus">⚔️ ${p.duels?.gagnes || 0}/${p.duels?.perdus || 0}</span>`;
 }
 
 // =====================================================================
@@ -116,8 +127,12 @@ function ecranClan(seulementClasse = false) {
 // =====================================================================
 let derniereTerr = undefined;
 const monde = creerMonde($('monde'), {
-  libre: () => $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && document.activeElement !== $('chatTexte'),
-  agir: (l) => { if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle(); },
+  libre: () => $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
+  agir: (l) => {
+    if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle();
+    else if (l.action === 'filon') { if (room) room.send('ramasser', { id: l.id }); else toast('Les filons rares ne poussent que dans le monde en ligne.'); }
+    else if (l.action === 'defier') { if (p.expedition) return toast('Termine d’abord ton expédition.'); room?.send('defier', { cible: l.id }); }
+  },
   position: (j) => {
     const t = monde.territoire();
     if (t !== derniereTerr) {
@@ -125,7 +140,7 @@ const monde = creerMonde($('monde'), {
       const b = $('bandeau');
       if (!t) { b.className = ''; b.textContent = 'Le Carrefour — terre neutre'; }
       else if (t === p.clan) { b.className = ''; b.textContent = `${TERRITOIRES[t].ico} ${TERRITOIRES[t].nom} — ton territoire`; }
-      else { b.className = 'ennemi'; b.textContent = `⚠️ ${TERRITOIRES[t].nom} — territoire du ${ELEMENTS[t].clan}. Ses joueurs pourront bientôt te défier en duel.`; }
+      else { b.className = 'ennemi'; b.textContent = `⚠️ ${TERRITOIRES[t].nom} — territoire du ${ELEMENTS[t].clan}. Ses joueurs peuvent t'attaquer ici. Filons : ${RARES[t].ico} ${RARES[t].nom}.`; }
       clearTimeout(b._t); b._t = setTimeout(() => b.classList.add('cache'), 5000);
     }
     envoyerPos(j);
@@ -140,29 +155,35 @@ function envoyerPos(j) {
 }
 function entrerMonde() {
   $('ecranClan').classList.add('cache'); $('ecranMonde').classList.remove('cache');
-  majBarre(); monde.demarrer(p.clan, p.nom); connecter();
+  majBarre(); monde.demarrer(p.clan, p.nom, p.classe); connecter();
   const x = p.expedition;
   if (x?.combatEnCours) setTimeout(() => lancerCombat(X.combatDe(p, x.combatEnCours), X.salle(x.carte, x.combatEnCours).type), 400);
   else if (x) setTimeout(() => fenetreExpedition(x.territoire), 400);
 }
 async function connecter() {
   try {
-    room = await new Client(SERVER_URL).joinOrCreate('clans', { nom: p.nom, clan: p.clan, classe: p.classe, niv: niveau() });
+    room = await new Client(SERVER_URL).joinOrCreate('clans', { nom: p.nom, clan: p.clan, classe: p.classe, niv: niveau(), deck: P.deckCombat(p), pvMax: P.pvMax(p), essence: p.ress.essence });
     room.onMessage('bienvenue', (m) => { monId = m.id; });
     room.onMessage('monde', (liste) => { monde.majAutres(liste, monId); listeEnLigne(liste); });
     room.onMessage('chat', ajouterChat);
+    room.onMessage('filons', (l) => monde.majFilons(l));
+    room.onMessage('ramasse', (m) => { const r = RARES[m.terr]; p.ress[r.id] = (p.ress[r.id] || 0) + m.n; sauver(); toast(`+${m.n} ${r.ico} ${r.nom}`); });
+    room.onMessage('info', (m) => toast(esc(m.t)));
+    room.onMessage('duel', afficherDuel);
+    room.onMessage('duelResultat', finDuel);
     room.onLeave(() => { room = null; ajouterChat({ systeme: true, t: 'Déconnecté du monde. Nouvelle tentative…' }); setTimeout(connecter, 5000); });
   } catch {
     room = null; listeEnLigne([]);
     ajouterChat({ systeme: true, t: 'Le monde partagé est injoignable : tu joues seul pour l’instant.' });
   }
 }
+function envoyerProfil() { room?.send('profil', { deck: P.deckCombat(p), pvMax: P.pvMax(p), essence: p.ress.essence }); }
 function listeEnLigne(liste) {
   const par = { feu: [], eau: [], plante: [] };
   for (const [id, nom, clan, , , , statut, niv, classe] of liste) par[clan]?.push({ nom, niv, statut, classe, moi: id === monId });
   if (!liste.length) par[p.clan].push({ nom: p.nom, niv: niveau(), classe: p.classe, moi: true });
   $('nbEnLigne').textContent = `(${Math.max(1, liste.length)})`;
-  $('listeClans').innerHTML = CLANS.map((k) => `<div class="groupeClan"><b class="${k}">${ELEMENTS[k].ico} ${ELEMENTS[k].clan} · ${par[k].length}</b>${par[k].map((j) => `<span>${j.moi ? '★ ' : ''}${CLASSES[j.classe]?.ico || ''} ${esc(j.nom)} <i>niv. ${j.niv}${j.statut === 'expedition' ? ' · en expédition' : ''}</i></span>`).join('')}</div>`).join('');
+  $('listeClans').innerHTML = CLANS.map((k) => `<div class="groupeClan"><b class="${k}">${ELEMENTS[k].ico} ${ELEMENTS[k].clan} · ${par[k].length}</b>${par[k].map((j) => `<span>${j.moi ? '★ ' : ''}${CLASSES[j.classe]?.ico || ''} ${esc(j.nom)} <i>niv. ${j.niv}${j.statut === 'expedition' ? ' · en expédition' : j.statut === 'duel' ? ' · ⚔️ en duel' : ''}</i></span>`).join('')}</div>`).join('');
 }
 // ---------- chat ----------
 let canal = 'tous';
@@ -239,9 +260,12 @@ function fenetreTirages(resultat = null) {
       <button class="bouton" id="bt1" ${p.ress.essence < P.PRIX_TIRAGE ? 'disabled' : ''}>Tirer ×1 — ${P.PRIX_TIRAGE} ✨</button>
       <button class="bouton" id="bt10" ${p.ress.essence < P.PRIX_TIRAGE_10 ? 'disabled' : ''}>Tirer ×10 — ${P.PRIX_TIRAGE_10} ✨ <small>(une épique au moins)</small></button>
       <p class="taux">Commune 62 % · Rare 27 % · Épique 9 % · Légendaire 2 %</p></div>
+    <h3>🏺 Reliques des territoires</h3><p class="sousTitre">Ces cartes ne sortent jamais aux tirages : on les forge avec les ressources rares d'un territoire (filons sur la carte, monstres rares 🌟 et boss en expédition).</p>
+    <div class="reliques">${Object.values(CARTES).filter((c) => c.exclusif).map((c) => { const cout = P.coutFabrication(c.id), n = p.collection[c.id]?.n || 0; return `<div class="carteCol">${carteHTML(c.id, p.collection[c.id]?.niv || 1, n ? `<span class="cnb">×${n}</span>` : '')}<small class="cout">${coutHTML(cout)}</small><button class="bouton" data-fab="${c.id}">Forger</button></div>`; }).join('')}</div>
     ${resultat ? `<div class="grilleCartes resultatTirage">${resultat.map((x, i) => `<div style="position:relative;animation-delay:${i * 0.12}s" class="carteCol">${carteHTML(x.id, p.collection[x.id].niv)}${x.nouveau ? '<span class="nouveau">NOUVEAU</span>' : ''}${x.eclats ? `<small>+${x.eclats} 💠</small>` : ''}</div>`).join('')}</div>` : ''}`, () => {
     const t = (n) => { const r = P.tirer(p, n, (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0); if (!r.ok) return toast(r.raison); sauver(); const meilleur = r.cartes.map((x) => CARTES[x.id].rarete).find((x) => x === 'legendaire') || r.cartes.map((x) => CARTES[x.id].rarete).find((x) => x === 'epique'); if (meilleur) toast(meilleur === 'legendaire' ? '🌟 <b>LÉGENDAIRE !</b>' : '💜 Une carte épique !'); fenetreTirages(r.cartes); };
     $('bt1').onclick = () => t(1); $('bt10').onclick = () => t(10);
+    $('fenetreCorps').querySelectorAll('[data-fab]').forEach((b) => b.onclick = () => { const r = P.fabriquer(p, b.dataset.fab); if (!r.ok) return toast(r.raison || 'Impossible.'); sauver(); toast(`🏺 ${CARTES[b.dataset.fab].nom} forgée ! Ajoute-la à ton deck.`); fenetreTirages(); });
   });
 }
 
@@ -262,7 +286,7 @@ function fenetreExpedition(terr) {
   const poss = X.choixPossibles(x), etages = [...x.carte.etages, [x.carte.boss]];
   ouvrir(`<h2>${TERRITOIRES[x.territoire].ico} ${esc(TERRITOIRES[x.territoire].nom)} — ${PALIERS[x.palier - 1].nom}</h2>
     <div class="etatExpe"><span>❤️ ${x.pv} / ${x.pvMax}</span><span>Butin : ${nf(x.butin.essence)} ✨ · ${nf(x.butin.mat)} ${ICO_RESS[ELEMENTS[x.territoire].materiau]}</span><span class="espace" style="flex:1"></span><button class="bouton second" id="btAbandon">Abandonner (moitié du butin)</button></div>
-    <p class="sousTitre">Choisis ta prochaine salle (elles brillent). ⚔️ combat · 💀 élite · 🏕️ feu de camp · 💎 trésor · 👑 boss</p>
+    <p class="sousTitre">Choisis ta prochaine salle (elles brillent). ⚔️ combat · 🌟 monstre rare (${RARES[x.territoire].ico}) · 💀 élite · 🏕️ feu de camp · 💎 trésor · 👑 boss</p>
     <div class="carteExpe" id="carteExpe"><svg id="liensExpe"></svg>${etages.map((et) => `<div class="etage">${et.map((s) => `<button class="salle ${s.type === 'boss' ? 'boss' : ''} ${poss.includes(s.id) ? 'possible' : ''} ${x.position === s.id ? 'ici' : ''}" data-s="${s.id}" ${poss.includes(s.id) ? '' : 'disabled'} title="${X.SALLES[s.type].nom}">${X.SALLES[s.type].ico}</button>`).join('')}</div>`).join('')}</div>`, () => {
     $('fenetreCorps').querySelectorAll('[data-s]').forEach((b) => b.onclick = () => entrerSalle(b.dataset.s));
     $('btAbandon').onclick = () => { if (!confirm('Abandonner l’expédition ? Tu gardes la moitié du butin.')) return; const r = X.terminer(p, 'defaite'); sauver(); bilanExpedition(r); };
@@ -290,7 +314,7 @@ function bilanExpedition(r) {
   statut('libre');
   ouvrir(`<h2>${r.fin === 'victoire' ? '👑 Expédition réussie !' : '💀 Expédition terminée'}</h2>
     <p>${r.fin === 'victoire' ? 'Le boss est tombé.' : 'Tu rentres au village en boitant, avec la moitié de ton butin.'}</p>
-    <p class="recolte">Tu ramènes <b>${nf(r.gainTotal.essence)} ✨</b> et <b>${nf(r.gainTotal[mat])} ${ICO_RESS[mat]}</b> · +${xp} XP de compte</p>
+    <p class="recolte">Tu ramènes <b>${nf(r.gainTotal.essence)} ✨</b> et <b>${nf(r.gainTotal[mat])} ${ICO_RESS[mat]}</b>${r.gainTotal[RARES[r.territoire].id] ? ` et <b>${r.gainTotal[RARES[r.territoire].id]} ${RARES[r.territoire].ico}</b>` : ''} · +${xp} XP de compte</p>
     ${r.debloque ? `<p>🔓 <b>${PALIERS[r.debloque - 1].nom}</b> débloqué dans les ${esc(TERRITOIRES[r.territoire].nom)} !</p>` : ''}
     <button class="bouton" id="btOk">Retour au monde</button>`, () => { $('btOk').onclick = fermer; });
 }
@@ -312,7 +336,7 @@ function dessinerCombat() {
   const c = combat;
   $('cbEnnemis').innerHTML = c.ennemis.map((e) => `<div class="ennemi ${e.rang} ${e.pv <= 0 ? 'mort' : ''} ${carteChoisie != null ? 'ciblable' : ''}" data-e="${e.uid}">
     <div class="intention">${C.decrireIntention(c, e).map((it) => `<span class="${it.type}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵' }[it.type]}${it.txt}</span>`).join('')}</div>
-    <div class="corpsE">${e.ico}</div><div class="nomE">${esc(e.nom)}</div>
+    ${ILLUS_MONSTRES.has(e.id) ? `<div class="corpsE illus" style="background-image:url(${import.meta.env.BASE_URL}clans/monstres/${e.id}.webp)"></div>` : `<div class="corpsE">${e.ico}</div>`}<div class="nomE">${esc(e.nom)}</div>
     <div class="barre"><i style="width:${(e.pv / e.pvMax) * 100}%"></i><b>${e.pv} / ${e.pvMax}</b></div>
     ${e.bloc ? `<span class="bloc">🛡️ ${e.bloc}</span>` : ''}<div class="statuts">${statutsHTML(e)}</div></div>`).join('');
   const j = c.joueur;
@@ -376,8 +400,50 @@ function finCombat() {
   const r = X.apresCombat(p, combat); sauver();
   $('combat').classList.add('cache'); combat = null;
   if (r.fin) return bilanExpedition(r);
-  toast(`Victoire ! +${r.gain.essence} ✨ · +${r.gain.mat} matériaux`);
+  toast(`Victoire ! +${r.gain.essence} ✨ · +${r.gain.mat} matériaux${r.gain.rare ? ` · +${r.gain.rare} ${RARES[p.expedition.territoire].ico}` : ''}`);
   fenetreExpedition(p.expedition.territoire);
+}
+
+// =====================================================================
+//  LE DUEL (le serveur fait tourner le combat, on affiche et on envoie nos coups)
+// =====================================================================
+let vueDu = null, minuterieDu = null;
+function afficherDuel(v) {
+  const premier = $('duel').classList.contains('cache');
+  vueDu = v;
+  if (premier) { $('fenetre').classList.add('cache'); $('combat').classList.add('cache'); monde.arreter(); $('duel').classList.remove('cache'); }
+  const a = v.adv, m = v.moi;
+  $('duTitre').textContent = `⚔️ Duel contre ${a.nom}`;
+  $('duAdv').innerHTML = `<div class="corpsE">${CLASSES[a.classe]?.ico || ELEMENTS[a.clan].ico}</div><div class="nomE">${esc(a.nom)} <span class="badge ${a.clan}">${ELEMENTS[a.clan].ico}</span></div>
+    <div class="barre"><i style="width:${(a.pv / a.pvMax) * 100}%"></i><b>${a.pv} / ${a.pvMax}</b></div>${a.bloc ? `<span class="bloc">🛡️ ${a.bloc}</span>` : ''}<div class="statuts">${statutsHTML(a)}</div>
+    <div class="mainAdv" title="Cartes en main">${'🂠'.repeat(a.nMain)}</div>`;
+  $('duPortrait').textContent = CLASSES[p.classe]?.ico || ELEMENTS[p.clan].ico;
+  $('duPv').style.width = `${(m.pv / m.pvMax) * 100}%`; $('duPvTxt').textContent = `${m.pv} / ${m.pvMax}${m.bloc ? `  ·  🛡️ ${m.bloc}` : ''}`;
+  $('duStatuts').innerHTML = `<div class="statuts" style="justify-content:flex-start">${statutsHTML(m)}</div>`;
+  $('duEnergieTxt').textContent = v.aMoi ? `${m.energie}/3` : '–';
+  const n = m.main.length;
+  $('duMain').innerHTML = m.main.map((k, i) => { const rot = (i - (n - 1) / 2) * 5, dy = Math.abs(i - (n - 1) / 2) * 6; let h = carteHTML(k.id, k.niv); if (k.cout < CARTES[k.id].cout) h = h.replace(`<span class="cc">${CARTES[k.id].cout}</span>`, `<span class="cc reduit">${k.cout}</span>`); return h.replace('class="carte', `style="transform: rotate(${rot}deg) translateY(${dy}px)" data-i="${i}" class="carte ${v.aMoi && k.cout <= m.energie ? '' : 'injouable'}`); }).join('');
+  $('duMain').querySelectorAll('.carte').forEach((d) => d.onclick = () => { if (!vueDu?.aMoi) return toast("Ce n'est pas ton tour."); room?.send('duelJouer', { i: +d.dataset.i }); });
+  $('btDuelFin').disabled = !v.aMoi;
+  $('duJournal').innerHTML = v.journal.map((t) => `<p>${esc(t)}</p>`).join('');
+  clearInterval(minuterieDu);
+  const maj = () => { const s = Math.max(0, Math.ceil((v.limite - Date.now()) / 1000)); $('duTour').className = v.aMoi ? 'moi' : ''; $('duTour').textContent = `${v.aMoi ? 'À toi de jouer !' : `${a.nom} réfléchit…`} · ${s} s`; };
+  maj(); minuterieDu = setInterval(maj, 500);
+}
+$('btDuelFin').onclick = () => room?.send('duelFin');
+$('btDuelAbandon').onclick = () => { if (confirm('Abandonner le duel ? Ton adversaire gagne.')) room?.send('duelAbandon'); };
+addEventListener('keydown', (e) => { if (!$('duel').classList.contains('cache') && (e.key === 'e' || e.key === 'E') && vueDu?.aMoi) room?.send('duelFin'); });
+function finDuel(r) {
+  clearInterval(minuterieDu); $('duel').classList.add('cache'); vueDu = null;
+  p.ress.essence = Math.max(0, p.ress.essence + r.butin);
+  if (r.issue === 'victoire') p.duels.gagnes++; else if (r.issue === 'defaite') p.duels.perdus++;
+  sauver();
+  const titre = { victoire: '🏆 Victoire !', defaite: '💀 Défaite', nul: '🤝 Égalité' }[r.issue];
+  const raison = r.raison === 'abandon' ? (r.issue === 'victoire' ? `${esc(r.adv)} a abandonné.` : 'Tu as abandonné.') : r.raison === 'depart' ? `${esc(r.adv)} a pris la fuite.` : '';
+  ouvrir(`<h2>${titre}</h2><p>Duel contre <b>${esc(r.adv)}</b>. ${raison}</p>
+    <p class="recolte">${r.butin > 0 ? `Tu remportes <b>${nf(r.butin)} ✨</b> de son essence.` : r.butin < 0 ? `Tu perds <b>${nf(-r.butin)} ✨</b>.` : 'Personne ne perd rien.'}</p>
+    <p class="cout">Après un duel, tu es protégé 2 minutes. Bilan : ${p.duels.gagnes} victoire${p.duels.gagnes > 1 ? 's' : ''}, ${p.duels.perdus} défaite${p.duels.perdus > 1 ? 's' : ''}.</p>
+    <button class="bouton" id="btOk">Retour au monde</button>`, () => { $('btOk').onclick = fermer; });
 }
 
 // =====================================================================
@@ -386,4 +452,4 @@ function finCombat() {
 p = charger();
 if (p) { if (!p.nom) p.nom = localStorage.getItem('pseudo') || 'Joueur'; if (p.classe) entrerMonde(); else ecranClan(true); } else ecranClan();
 addEventListener('pagehide', () => { if (p) localStorage.setItem(CLE, JSON.stringify(p)); });
-window.__clans = { get p() { return p; }, get combat() { return combat; }, monde, C, P, X };
+window.__clans = { get p() { return p; }, get combat() { return combat; }, monde, C, P, X, lancerCombat };

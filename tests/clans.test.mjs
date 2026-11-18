@@ -162,3 +162,62 @@ test('classes : deck de départ, PV, tirages et ancien profil', () => {
   assert.ok(P.profilValide(vieux)); assert.ok(P.choisirClasse(vieux, 'escrimeur'));
   assert.ok(vieux.deck.includes('estoc') && vieux.collection.parade.n === 1); assert.equal(P.choisirClasse(vieux, 'mage'), false);
 });
+
+import * as D from '../shared/clans/duel.js';
+import { RARES } from '../shared/clans/cartes.js';
+import { territoireDe, obstacles, praticable, CENTRES, CARREFOUR, MAISONS, LIEUX, NT } from '../shared/clans/geo.js';
+
+const joueurDuel = (nom, clan, classe) => { const p = P.nouveauProfil(clan, nom, 0, classe); return { nom, clan, classe, pvMax: P.pvMax(p), deck: P.deckCombat(p) }; };
+function duelAuto(d) {
+  for (let t = 0; t < 200 && !d.fini; t++) {
+    const q = d.actif, j = d.j[q];
+    for (;;) { const i = j.main.findIndex((k, n) => D.coutDe(j, n) <= j.energie); if (i < 0 || !D.jouer(d, q, i)) break; if (d.fini) break; }
+    if (!d.fini) D.finTour(d, q);
+  }
+  return d;
+}
+
+test('duel : chacun son tour, on ne joue pas chez l’autre, et quelqu’un finit par gagner', () => {
+  const d = D.nouveauDuel(joueurDuel('A', 'feu', 'combattant'), joueurDuel('B', 'eau', 'mage'), 5);
+  const q = d.actif;
+  assert.equal(d.j[q].main.length, 5); assert.equal(d.j[q].energie, 3);
+  assert.equal(D.jouer(d, 1 - q, 0), false, 'pas son tour');
+  assert.equal(D.finTour(d, 1 - q), false);
+  assert.ok(D.finTour(d, q)); assert.equal(d.actif, 1 - q);
+  const v = D.vue(d, q); assert.equal(v.aMoi, false); assert.ok(!('main' in v.adv)); assert.equal(typeof v.adv.nMain, 'number');
+  duelAuto(d); assert.ok(d.fini && (d.gagnant === 0 || d.gagnant === 1 || d.gagnant === null));
+  // aucune combinaison ne gagne tout : sur 24 duels Feu contre Eau, chacun en remporte
+  let a = 0, b = 0;
+  for (let g = 0; g < 24; g++) { const x = duelAuto(D.nouveauDuel(joueurDuel('A', 'feu', 'tireur'), joueurDuel('B', 'plante', 'escrimeur'), g + 1)); if (x.gagnant === 0) a++; if (x.gagnant === 1) b++; }
+  assert.ok(a >= 3 && b >= 3, `${a} / ${b}`);
+});
+
+test('duel : decks venus du navigateur vérifiés, butin plafonné', () => {
+  assert.ok(D.deckValide(joueurDuel('A', 'feu', 'mage').deck));
+  assert.equal(D.deckValide([{ id: 'frappe' }]), false);
+  assert.equal(D.deckValide(Array(10).fill({ id: 'triche' })), false);
+  assert.equal(D.deckValide(Array(10).fill({ id: 'frappe', niv: 9 })), false);
+  assert.equal(P.BUTIN_DUEL(1000), 150); assert.equal(P.BUTIN_DUEL(100000), 300); assert.equal(P.BUTIN_DUEL(-5), 0);
+});
+
+test('ressources rares : monstres rares, cartes exclusives, géographie', () => {
+  for (const t of CLANS) assert.ok(MONSTRES[t].rare);
+  // les exclusives ne sortent pas aux tirages
+  const p = P.nouveauProfil('feu', 'T', 0, 'mage'); p.ress.essence = 1e6;
+  for (let i = 0; i < 60; i++) for (const x of P.tirer(p, 10, i + 3).cartes) assert.ok(!CARTES[x.id].exclusif, x.id);
+  assert.equal(P.fabriquer(p, 'trident').ok, false);
+  p.ress.perle_noire = 15; assert.ok(P.fabriquer(p, 'trident').ok); assert.equal(p.collection.trident.n, 1); assert.equal(p.ress.perle_noire, 0);
+  // un ancien profil reçoit les nouveaux champs
+  const v = P.nouveauProfil('eau', 'V', 0); delete v.ress.cristal; delete v.duels; P.completer(v); assert.equal(v.ress.cristal, 0); assert.ok(v.duels);
+  // la géographie partagée
+  for (const k of ['feu', 'eau', 'plante']) assert.equal(territoireDe(...CENTRES[k]), k);
+  assert.equal(territoireDe(...CARREFOUR), null);
+  const o = obstacles(); assert.ok(praticable(CARREFOUR[0], CARREFOUR[1] + 80, o));
+  // tout se rejoint à pied depuis le Carrefour : maisons, portails, autel
+  const L = NT.l, vu = new Uint8Array(L * NT.h), pile = [[Math.floor(CARREFOUR[0] / 16), Math.floor((CARREFOUR[1] + 80) / 16)]]; vu[pile[0][1] * L + pile[0][0]] = 1;
+  while (pile.length) { const [x, y] = pile.pop(); for (const [a, b] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { if (a < 0 || b < 0 || a >= L || b >= NT.h || vu[b * L + a] || o.grille[b * L + a]) continue; vu[b * L + a] = 1; pile.push([a, b]); } }
+  const accessible = (x, y) => vu[Math.floor(y / 16) * L + Math.floor(x / 16)] === 1;
+  for (const k in MAISONS) for (const m of MAISONS[k]) assert.ok(accessible(m.x, m.y + 40) && praticable(m.x, m.y + 40, o), `maison ${k}`);
+  for (const l of LIEUX) assert.ok(accessible(l.x, l.y + 50), l.id);
+  assert.ok(Object.values(RARES).every((r) => r.id && r.ico));
+});

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Les Clans Élémentaires</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚜️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <!-- Choix du clan -->
@@ -52,6 +53,22 @@
     <div id="cbPiles"><span id="cbPioche" title="Pioche"></span><span id="cbDefausse" title="Défausse"></span><span id="cbEpuisees" title="Épuisées"></span></div>
     <button id="btFinTour">Fin du tour</button>
     <div id="cbAide"></div>
+  </section>
+
+  <!-- Duel entre joueurs -->
+  <section id="duel" class="cache">
+    <div id="duFond"></div>
+    <div id="duHaut"><span id="duTitre">Duel</span><span id="duTour"></span></div>
+    <div id="duAdv"></div>
+    <div id="duMoi">
+      <div id="duPortrait"></div>
+      <div id="duVie"><div class="barre"><i id="duPv"></i><b id="duPvTxt"></b></div><div id="duStatuts"></div></div>
+      <div id="duEnergie"><b id="duEnergieTxt"></b><small>énergie</small></div>
+    </div>
+    <div id="duMain"></div>
+    <div id="duJournal"></div>
+    <button id="btDuelFin">Fin du tour</button>
+    <button id="btDuelAbandon">Abandonner</button>
   </section>
 
   <div id="toasts"></div>

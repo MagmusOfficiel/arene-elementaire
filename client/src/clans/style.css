@@ -194,3 +194,37 @@ button { font: inherit; cursor: pointer; }
 #cbTalent.pret { box-shadow: 0 0 16px rgba(255,216,112,.8); border-color: #ffd870; }
 .carte .cc.reduit { background: radial-gradient(circle at 35% 30%, #e0ffd0, #5ad06a 60%, #1a6a2a); }
 .carte .cclasse { position: absolute; bottom: 4px; left: 6px; font-size: 12px; }
+
+/* ---------- duel ---------- */
+#duel { position: fixed; inset: 0; z-index: 32; overflow: hidden; }
+#duFond { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 25%, #4a1a3a, #0c0610 70%); }
+#duFond::before { content: ''; position: absolute; inset: 0; background: repeating-conic-gradient(from 0deg at 50% 30%, rgba(255,255,255,.03) 0 6deg, transparent 6deg 12deg); }
+#duHaut { position: absolute; top: 10px; left: 0; right: 0; text-align: center; z-index: 2; }
+#duTitre { font-family: Georgia, serif; font-size: 22px; color: #ff9a8a; } #duTour { display: block; font-size: 15px; margin-top: 4px; }
+#duTour.moi { color: #ffd870; font-weight: bold; }
+#duAdv { position: absolute; top: 11%; left: 50%; transform: translateX(-50%); z-index: 2; width: 240px; text-align: center; }
+#duAdv .corpsE { width: 140px; height: 140px; font-size: 80px; border-color: #e04a3a; box-shadow: 0 0 26px rgba(224,74,58,.5); }
+#duAdv .mainAdv { margin-top: 6px; letter-spacing: -6px; font-size: 22px; }
+#duMoi { position: absolute; left: 20px; bottom: 228px; display: flex; align-items: center; gap: 14px; z-index: 3; }
+#duPortrait { width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44px; border: 3px solid var(--or); background: radial-gradient(circle, rgba(255,255,255,.2), rgba(0,0,0,.5)); }
+#duVie { width: 220px; }
+#duEnergie { width: 70px; height: 70px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 30%, #fff6c0, #e8b030 55%, #7a4a08); color: #2a1808; border: 3px solid #2a1808; }
+#duEnergie b { font-size: 24px; line-height: 1; } #duEnergie small { font-size: 9px; text-transform: uppercase; }
+#duMain { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; z-index: 4; }
+#duMain .carte { margin: 0 -14px; cursor: pointer; transform-origin: bottom center; }
+#duMain .carte:hover { transform: translateY(-34px) scale(1.12) !important; z-index: 5; }
+#duMain .carte.injouable { filter: brightness(.55) saturate(.6); cursor: not-allowed; }
+#duJournal { position: absolute; right: 20px; top: 30%; width: 230px; font-size: 13px; color: #c8bca8; z-index: 2; }
+#duJournal p { margin: 3px 0; background: rgba(0,0,0,.4); padding: 3px 8px; border-radius: 6px; }
+#btDuelFin { position: absolute; right: 20px; bottom: 170px; z-index: 5; padding: 12px 22px; border-radius: 10px; border: 2px solid #2a1808; background: linear-gradient(#e8c060, #b08a30); color: #1a1208; font-weight: bold; font-size: 16px; }
+#btDuelFin:disabled { filter: grayscale(1); opacity: .5; }
+#btDuelAbandon { position: absolute; right: 20px; top: 12px; z-index: 5; background: rgba(0,0,0,.5); color: #c8bca8; border: 1px solid #6a4a4a; border-radius: 8px; padding: 6px 12px; }
+.reliques { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-top: 10px; }
+@media (max-width: 760px) { #duMain .carte { width: 110px; height: 160px; margin: 0 -18px; } #duMain .carte .ci { height: 44px; font-size: 30px; } #duMoi { bottom: 176px; left: 8px; } #duVie { width: 130px; } #btDuelFin { bottom: 120px; } #duJournal { display: none; } }
+.carte .ci.illus { background-size: cover; background-position: center; border-color: rgba(255,255,255,.3); box-shadow: inset 0 0 12px rgba(0,0,0,.45); }
+.carte.aIllus .ci.illus { height: 96px; }
+.carte.aIllus .ct { margin: 2px 0; }
+.carte.aIllus .cd { font-size: 10.5px; line-height: 1.22; padding: 4px; }
+@media (max-width: 760px) { #cbMain .carte.aIllus .ci.illus, #duMain .carte.aIllus .ci.illus { height: 58px; } }
+.corpsE.illus { background-size: cover; background-position: center 25%; } .ennemi.boss .corpsE.illus { width: 190px; height: 190px; }
+@media (max-width: 760px) { .ennemi.boss .corpsE.illus { width: 110px; height: 110px; } }

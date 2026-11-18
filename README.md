@@ -358,3 +358,18 @@ Au départ, on choisit son clan puis sa **classe** (12 combinaisons). Un profil 
 - Deck de départ : 3 Frappe, 3 Garde, 2 cartes de classe, 4 cartes d'élément (`deckDepart`).
 - Paliers rééquilibrés (PV ×1,3 / ×1,7 / ×2,2, dégâts ×1,2 / ×1,45 / ×1,75) : un bot gagne le palier I environ 2 fois sur 3, selon la combinaison.
 - La classe s'affiche dans la barre, dans la liste des joueurs en ligne et sur les cartes ; en combat, une bulle montre le talent et son état.
+
+## Les Clans Élémentaires, phase 2 : duels et territoires (v38)
+- **Duels PvP** : un joueur ennemi qui entre sur le territoire de ton clan peut être défié (E à côté de lui, anneau rouge). Duel de cartes au tour par tour avec vos decks, arbitré par le serveur (`shared/clans/duel.js`), 40 s par tour, 30 tours max.
+- **Enjeu** : le gagnant prend 15 % de l'essence du perdant (300 max). Abandonner ou se déconnecter = défaite. 2 minutes de protection après chaque duel.
+- **Filons rares** : le serveur fait pousser des filons (💎 cristal de lave, ⚫ perle noire, 🌰 graine d'or) dans chaque territoire, jusqu'à 15 à la fois. Les monstres rares 🌟 et les boss d'expédition en donnent aussi.
+- **Reliques** : 6 cartes exclusives qui ne sortent jamais aux tirages, à forger à l'autel avec les ressources rares (épique : 6 + 300 ✨, légendaire : 15 + 800 ✨).
+- Fichiers : `shared/clans/geo.js` (géographie commune client/serveur), `shared/clans/duel.js`, `server/src/ClansRoom.js`.
+- **Illustrations (style shōnen, Anifusion)** : les 88 cartes dans `client/public/clans/cartes/<id>.webp` et les 21 monstres dans `client/public/clans/monstres/<id>.webp`. Pour illustrer une autre carte : déposer l'image et ajouter son id à `ILLUS` (ou `ILLUS_MONSTRES`) dans `client/src/clans/main.js`.
+
+## Les Clans Élémentaires : la carte en pixel art (v39)
+- Le monde est maintenant une grille de tuiles de 16 px, 200 × 130 tuiles (3200 × 2080, 4 fois plus grand qu'avant).
+- Sols par territoire : prairie et place pavée au Carrefour ; roche, cendre et lacs de lave au Feu ; sable, hauts-fonds et lagons à l'Eau ; sylve, mousse et mares à la Plante. La lave, l'eau profonde et les mares sont infranchissables.
+- Décor, maisons, autel, portails, bannières, filons et personnages sont des sprites dessinés pixel par pixel en code, triés par profondeur. Chaque classe a sa silhouette (épaulières, chapeau de mage, capuche, cape).
+- Affichage avec zoom entier, sans lissage. Mini-carte à un pixel par tuile, avec le champ de vision.
+- Fichiers : `shared/clans/geo.js` (grille, sols, collisions partagées avec le serveur) et `client/src/clans/monde.js` (rendu). Un test vérifie que maisons, portails et autel se rejoignent à pied.

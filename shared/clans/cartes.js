@@ -16,6 +16,13 @@ export const ELEMENTS = {
   neutre: { nom: 'Neutre', couleur: '#9a8a7a', fonce: '#2a2420', ico: '✦' },
 };
 export const CLANS = ['feu', 'eau', 'plante'];
+// les ressources rares : une par territoire, ramassée sur les filons ou sur les monstres rares
+export const RARES = {
+  feu: { id: 'cristal', nom: 'Cristal de lave', ico: '💎' },
+  eau: { id: 'perle_noire', nom: 'Perle noire', ico: '⚫' },
+  plante: { id: 'graine_or', nom: "Graine d'or", ico: '🌰' },
+};
+export const RECETTES = { epique: { rare: 6, essence: 300 }, legendaire: { rare: 15, essence: 800 } };
 // les classes : PV en plus ou en moins, un talent (géré par combat.js) et leurs propres cartes
 export const CLASSES = {
   combattant: { nom: 'Combattant', ico: '⚔️', pv: 15, talent: 'Endurci', desc: 'Commence chaque combat avec 6 de bouclier.', depart: ['charge', 'rempart'] },
@@ -31,7 +38,8 @@ export const RARETES = {
   legendaire: { nom: 'Légendaire', couleur: '#f0b030', eclats: 100 },
 };
 
-const c = (id, nom, element, rarete, cout, type, ico, effets, classe = null) => ({ id, nom, element, rarete, cout, type, ico, effets, classe });
+const c = (id, nom, element, rarete, cout, type, ico, effets, classe = null, exclusif = null) => ({ id, nom, element, rarete, cout, type, ico, effets, classe, exclusif });
+const X = (terr) => (id, nom, rarete, cout, type, ico, effets) => c(id, nom, terr, rarete, cout, type, ico, effets, null, terr);
 const k = (classe) => (id, nom, rarete, cout, type, ico, effets) => c(id, nom, 'neutre', rarete, cout, type, ico, effets, classe);
 const CO = k('combattant'), MA = k('mage'), TI = k('tireur'), ES = k('escrimeur');
 export const CARTES = Object.fromEntries([
@@ -80,6 +88,13 @@ export const CARTES = Object.fromEntries([
   c('gardien', 'Gardien sylvestre', 'plante', 'epique', 2, 'defense', '🪵', { bouclier: 10, epines: 5 }),
   c('colere', 'Colère de la forêt', 'plante', 'legendaire', 2, 'attaque', '🌲', { degats: 8, fois: 2, tous: true }),
   c('arbre_monde', 'Arbre-monde', 'plante', 'legendaire', 3, 'pouvoir', '🌳', { soin: 15, bouclier: 15, regen: 4, epuise: true }),
+  // ---- cartes exclusives : elles ne sortent pas aux tirages, on les fabrique avec les ressources rares d'un territoire
+  X('feu')('lance_magma', 'Lance de magma', 'epique', 2, 'attaque', '🔱', { degats: 12, brulure: 6 }),
+  X('feu')('coeur_phenix', 'Cœur de phénix', 'legendaire', 3, 'pouvoir', '🔥', { soin: 20, force: 3, brulure: 5, tous: true, epuise: true }),
+  X('eau')('perle_abysses', 'Perle des abysses', 'epique', 1, 'defense', '🦪', { bouclier: 10, pioche: 2 }),
+  X('eau')('trident', 'Trident du roi des mers', 'legendaire', 2, 'attaque', '🔱', { degats: 12, fois: 2, trempe: 2 }),
+  X('plante')('seve_doree', 'Sève dorée', 'epique', 1, 'defense', '🍯', { soin: 8, regen: 4 }),
+  X('plante')('couronne', "Couronne de l'arbre-monde", 'legendaire', 2, 'pouvoir', '👑', { bouclier: 12, epines: 6, force: 2, epuise: true }),
   // ---- combattant
   CO('charge', 'Charge', 'commune', 1, 'attaque', '🐂', { degats: 9 }),
   CO('rempart', 'Rempart', 'commune', 1, 'defense', '🧱', { bouclier: 7 }),

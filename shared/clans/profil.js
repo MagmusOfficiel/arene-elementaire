@@ -4,7 +4,7 @@
 //  et les règles qui les font évoluer : tirages, amélioration des cartes,
 //  production et construction de la parcelle, butin des expéditions.
 // =====================================================================
-import { CARTES, CLANS, CLASSES, ELEMENTS, RARETES, deckDepart, NIV_MAX } from './cartes.js';
+import { CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
 import { alea } from './combat.js';
 
 export const DECK_MIN = 10, DECK_MAX = 25, COPIES_MAX = 4;
@@ -17,7 +17,8 @@ export function nouveauProfil(clan, nom = 'Joueur', maintenant = Date.now(), cla
   for (const id of deck) collection[id] = { n: (collection[id]?.n || 0) + 1, niv: 1 };
   return {
     v: 2, clan, classe, nom: String(nom).slice(0, 16) || 'Joueur', creeLe: maintenant,
-    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0 },
+    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0 },
+    duels: { gagnes: 0, perdus: 0 },
     collection, deck,
     parcelle: { maison: 1, autel: 1, atelier: 1, recolte: maintenant },
     tirages: { total: 0, depuisLegendaire: 0 },
@@ -46,7 +47,7 @@ function tirerRarete(r, p, garantieEpique) {
 function tirerCarte(r, clan, rarete, classe) {
   // le pool : l'élément de son clan et les cartes de sa classe sortent bien plus souvent
   const poids = (c) => (c.classe ? (c.classe === classe ? 5 : 0.6) : c.element === clan ? 5 : c.element === 'neutre' ? 2 : 1.2);
-  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete);
+  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif);
   const tot = pool.reduce((s, c) => s + poids(c), 0);
   let x = r() * tot;
   for (const c of pool) { x -= poids(c); if (x <= 0) return c.id; }
@@ -86,6 +87,30 @@ export function ameliorer(p, id) {
   for (const [k, v] of Object.entries(cout)) p.ress[k] -= v;
   c.niv++;
   return { ok: true, niv: c.niv };
+}
+
+// ---------- fabriquer une carte exclusive avec les ressources rares de son territoire ----------
+export function coutFabrication(id) {
+  const c = CARTES[id]; if (!c?.exclusif) return null;
+  const r = RECETTES[c.rarete];
+  return { [RARES[c.exclusif].id]: r.rare, essence: r.essence };
+}
+export function fabriquer(p, id) {
+  const cout = coutFabrication(id); if (!cout) return { ok: false };
+  const c = (p.collection[id] ||= { n: 0, niv: 1 });
+  if (c.n >= COPIES_MAX) return { ok: false, raison: `${COPIES_MAX} exemplaires au plus.` };
+  for (const [k, v] of Object.entries(cout)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };
+  for (const [k, v] of Object.entries(cout)) p.ress[k] -= v;
+  c.n++;
+  return { ok: true };
+}
+// ---------- le butin d'un duel (calculé par le serveur, appliqué par chacun) ----------
+export const BUTIN_DUEL = (essencePerdant) => Math.min(300, Math.floor(Math.max(0, essencePerdant) * 0.15));
+// un profil plus ancien : les champs ajoutés depuis
+export function completer(p) {
+  for (const k of ['cristal', 'perle_noire', 'graine_or']) p.ress[k] ??= 0;
+  p.duels ??= { gagnes: 0, perdus: 0 };
+  return p;
 }
 
 // ---------- le deck ----------
