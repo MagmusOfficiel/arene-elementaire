@@ -10,6 +10,9 @@
 //  objectifs de départ.
 //  Phase 5 « Profondeur » : compétences, métiers, coupures d'eau et
 //  d'électricité, armes à feu, hélicoptère et hordes, compte et classement.
+//  Coop en ligne (2 à 4) : le serveur fait vivre le monde partagé (zombies,
+//  portes, barricades, meubles, feux, heure) ; ici on n'en garde qu'un MIROIR
+//  et chacun garde son propre survivant.
 // =====================================================================
 import './style.css';
 import Phaser from 'phaser';
@@ -21,6 +24,7 @@ import { FUSILS, tirer, recharger } from '../../../shared/survie/tir.js';
 import { calendrier, elecCoupee, eauCoupee, nuitDeHorde, frigoPerime, PERISSABLE } from '../../../shared/survie/evenements.js';
 import { progress } from '../progress.js';
 import { creerCompte } from '../compte.js';
+import { Client } from 'colyseus.js';
 import { raisonBarricade, barricader, raisonDemontage, demonter, RECETTES, peutCuisiner, cuisiner, nomRecette, raisonFeu, allumerFeu, BARRICADE } from '../../../shared/survie/construction.js';
 import { nouveauSurvivant, completerSurvivant, blesser, bander, majSurvivant, tirerBlessure, peutCourir, facteurVitesse, humeurs, BLESSURES, armeTenue, userArme, utiliser, retirer, basculerLampe, capacite, poids, peutDormir } from '../../../shared/survie/survivant.js';
 import { OBJETS, genererContenu, typeMeuble, nomMeuble, ajouterObjet, retirerObjet } from '../../../shared/survie/objets.js';
@@ -34,6 +38,8 @@ const SERVER_URL = new URLSearchParams(location.search).get('serveur') || window
 const HTTP_URL = SERVER_URL.replace(/^ws/, 'http');
 const compte = creerCompte(HTTP_URL);
 let metierChoisi = localStorage.getItem('zoneMorteMetier') || 'chomeur';
+// coop : null en solo, sinon { room, code, moi, autres: Map(id -> joueur) }
+let net = null;
 
 // ---------- couleurs des tuiles ----------
 const COUL = {
@@ -50,7 +56,7 @@ let partie = null;   // { graine, joueur:{x,y}, temps, vus:Set, survivant, debut
 let monde = null, horde = null;
 function chargerSauvegarde() { try { return JSON.parse(localStorage.getItem(CLE_SAUVEGARDE) || 'null'); } catch { return null; } }
 function sauver() {
-  if (!partie || partie.survivant.mort) return;
+  if (!partie || partie.survivant.mort || net) return;   // en coop, le monde vit sur le serveur
   try {
     localStorage.setItem(CLE_SAUVEGARDE, JSON.stringify({ v: 2, graine: partie.graine, x: partie.joueur.x, y: partie.joueur.y, temps: partie.temps, modifs: monde.modifs, vus: [...partie.vus], survivant: partie.survivant, horde: horde.sauvegarde(), conteneurs: partie.conteneurs, barricades: monde.barricades, feux: partie.feux, obj: partie.obj, evts: partie.evts }));
   } catch { /* stockage plein ou bloqué : tant pis */ }
@@ -73,7 +79,7 @@ function reprendre(s) {
 // sauvegarde sur le compte : la partie compressée (gzip + base64), si elle n'est pas trop grosse
 async function sauverSurCompte() {
   try {
-    if (!partie || partie.survivant.mort || typeof CompressionStream === 'undefined') return;
+    if (!partie || partie.survivant.mort || net || typeof CompressionStream === 'undefined') return;
     const brut = localStorage.getItem(CLE_SAUVEGARDE); if (!brut) return;
     const flux = new Blob([brut]).stream().pipeThrough(new CompressionStream('gzip'));
     const octets = new Uint8Array(await new Response(flux).arrayBuffer());
@@ -94,7 +100,8 @@ async function lireSauvegardeCompte() {
 }
 function mourir() {
   const sv = partie.survivant, jours = (partie.temps - 480) / 1440;
-  localStorage.removeItem(CLE_SAUVEGARDE); localStorage.removeItem('zoneMorteCompte');
+  if (net) net.room.send('mort', { cause: sv.mort });
+  else { localStorage.removeItem(CLE_SAUVEGARDE); localStorage.removeItem('zoneMorteCompte'); }
   // XP du compte (partagée avec l'Arène et le Conclave) et classement en ligne
   const xp = Math.round(30 + jours * 80 + sv.tues * 2);
   try { progress.gagnerXp(xp); progress.save(); } catch { /* rien */ }
@@ -288,7 +295,7 @@ class SceneZone extends Phaser.Scene {
     this.anneau = this.add.graphics().setDepth(49);
     this.bruitVisuel = 0;
     this.arcCoup = this.add.graphics().setDepth(66);
-    this.tCoup = 0; this.tAction = 0; this.tAgrippe = 0; this.pas = 0; this.dejaVuZombie = false; this.rouge = 0;
+    this.tCoup = 0; this.tAction = 0; this.tAgrippe = 0; this.tempsPrec = null; this.pas = 0; this.dejaVuZombie = false; this.rouge = 0;
     this.input.on('pointerdown', (pt) => { if (pt.wasTouch) return; if (pt.rightButtonDown()) bousculeDemandee = true; else coupDemande = true; });
     this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.dessinerJoueur();
@@ -374,7 +381,7 @@ class SceneZone extends Phaser.Scene {
     course = course && peutCourir(sv) && !sv.accroupi;
     if (dx || dy) { const l = Math.hypot(dx, dy); this.dir = { x: dx / l, y: dy / l }; }
     const fait = deplacer(monde, p, dx, dy, dt, course, facteurVitesse(sv));
-    majSurvivant(sv, dt, { course, bouge: fait > 0, minutes: dt * MIN_PAR_S });
+    majSurvivant(sv, dt, { course, bouge: fait > 0, minutes: this.minutes(dt) });
     // bruit des pas : courir s'entend de loin, s'accroupir presque pas
     this.pas += fait;
     if (this.pas >= 1) {
@@ -390,8 +397,9 @@ class SceneZone extends Phaser.Scene {
     }
     this.joueur.setPosition(p.x * TILE, p.y * TILE); this.dessinerJoueur();
     this.cameras.main.centerOn(p.x * TILE, p.y * TILE);
-    // temps qui passe
-    partie.temps += dt * MIN_PAR_S;
+    // temps qui passe (en coop, c'est le serveur qui donne l'heure)
+    if (!net) partie.temps += dt * MIN_PAR_S;
+    this.envoyerPosition(dt);
     this.streamer();
     // interaction
     const pile = pileProche(p), feu = feuProche(p);
@@ -456,6 +464,43 @@ class SceneZone extends Phaser.Scene {
     this.majEvenements(dt, p);
     this.tSauve -= dt; if (this.tSauve <= 0) { this.tSauve = 10; sauver(); this.nSauve = (this.nSauve || 0) + 1; if (this.nSauve % 12 === 0) sauverSurCompte(); }
   }
+  // minutes de jeu écoulées depuis la dernière image (en coop : d'après l'heure du serveur)
+  minutes(dt) {
+    if (!net) return dt * MIN_PAR_S;
+    const m = this.tempsPrec == null ? 0 : Math.max(0, partie.temps - this.tempsPrec);
+    this.tempsPrec = partie.temps; return Math.min(m, 60);
+  }
+  envoyerPosition(dt) {
+    if (!net) return;
+    this.tPos = (this.tPos || 0) - dt; if (this.tPos > 0) return; this.tPos = 0.066;
+    const sv = partie.survivant, p = partie.joueur;
+    net.room.send('pos', { x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, dir: Math.round(Math.atan2(this.dir.y, this.dir.x) * 100) / 100, accroupi: sv.accroupi, dort: !!sv.dort, lumiere: !!sv.lampe?.allumee, sante: sv.sante });
+  }
+  // un zombie (du serveur ou d'ici) porte un coup au survivant
+  recevoirCoup(zx, zy, encercle) {
+    const sv = partie.survivant, p = partie.joueur; if (sv.mort) return;
+    const a = Math.atan2(zy - p.y, zx - p.x) - Math.atan2(this.dir.y, this.dir.x), deDos = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) > 2.1;
+    const type = tirerBlessure(encercle, deDos);
+    if (sv.dort) reveiller('<b>Réveillé en sursaut !</b>');
+    if (type === 'agrippe') { this.tAgrippe = 0.6; this.cameras.main.shake(80, 0.004); message('Un zombie t\'agrippe ! <small>F pour le repousser</small>', 1500); return; }
+    blesser(sv, type);
+    son('blesse'); this.sang(p.x, p.y); this.cameras.main.shake(140, 0.008); this.rouge = 1;
+    message(type === 'morsure' ? '<b style="color:#ff6a50">Tu as été mordu…</b>' : `${BLESSURES[type].nom} !${sv.saignements ? ' <small>Tu saignes : B pour te bander</small>' : ''}`, 2500);
+  }
+  // résultat d'un coup ou d'un tir (calculé ici en solo, par le serveur en coop)
+  appliquerTouches(touches, type) {
+    const sv = partie.survivant;
+    for (const t of touches) {
+      this.sang(t.x, t.y, t.mort ? 2 : 1);
+      if (t.mort) { sv.tues++; this.cadavre(t); if (type === 'coup') son('tue'); } else if (type === 'coup') son('impact');
+    }
+    if (type === 'coup' && touches.length) {
+      this.xp('combat', touches.length);
+      const casse = userArme(sv); if (casse) { message(casse); son('coupPorte'); }
+      this.cameras.main.shake(70, 0.003);
+    }
+    if (type === 'tir') this.xp('tir', touches.length ? touches.length * 1.5 : 0.3);
+  }
   // ---------- combat : frapper, bousculer, se bander ----------
   combat(dt, p, sv) {
     this.tCoup -= dt;
@@ -468,19 +513,20 @@ class SceneZone extends Phaser.Scene {
         this.tCoup = arme.recharge * fatigue; sv.endurance = Math.max(0, sv.endurance - arme.endurance);
         son('swing'); this.dessinerArc(p, arme);
         const k = bonusDegats(sv) * (fatigue > 1 ? 0.6 : 1);
-        const touches = horde.coup({ ...p }, this.dir, { ...arme, degats: arme.degats.map((d) => d * k), chute: fatigue > 1 ? arme.chute / 2 : arme.chute });
-        if (touches.length) this.xp('combat', touches.length);
-        for (const t of touches) {
-          this.sang(t.z.x, t.z.y, t.mort ? 2 : 1);
-          if (t.mort) { sv.tues++; this.cadavre(t.z); son('tue'); } else son('impact');
+        if (net) net.room.send('coup', { arme: tenue?.id && ARMES[tenue.id] ? tenue.id : 'poings', dir: Math.atan2(this.dir.y, this.dir.x), k, fatigue: fatigue > 1 });
+        else {
+          const touches = horde.coup({ ...p }, this.dir, { ...arme, degats: arme.degats.map((d) => d * k), chute: fatigue > 1 ? arme.chute / 2 : arme.chute });
+          this.appliquerTouches(touches.map((t) => ({ x: t.z.x, y: t.z.y, mort: t.mort, angle: t.z.angle, look: t.z.look })), 'coup');
+          if (touches.length) horde.bruit(p.x, p.y, arme.bruit);
         }
-        if (touches.length) { const casse = userArme(sv); if (casse) { message(casse); son('coupPorte'); } }
-        if (touches.length) { horde.bruit(p.x, p.y, arme.bruit); this.cameras.main.shake(70, 0.003); }
       }
     }
     if (bousculeDemandee) {
       bousculeDemandee = false;
-      if (this.tCoup <= 0 && sv.endurance > 5) { this.tCoup = 0.6; sv.endurance -= 6; const n = horde.bousculer(p, this.dir); this.dessinerArc(p, { portee: 1.2, arc: 2.2 }, 0xc8d0b8); if (n) son('impact'); }
+      if (this.tCoup <= 0 && sv.endurance > 5) {
+        this.tCoup = 0.6; sv.endurance -= 6; this.dessinerArc(p, { portee: 1.2, arc: 2.2 }, 0xc8d0b8);
+        if (net) net.room.send('bouscule', { dir: Math.atan2(this.dir.y, this.dir.x) }); else if (horde.bousculer(p, this.dir)) son('impact');
+      }
     }
     if (bandageDemande) {
       bandageDemande = false;
@@ -495,17 +541,23 @@ class SceneZone extends Phaser.Scene {
     if (this.tCoup > 0 || this.tAction > 0 || this.fouille) return;
     if (!(tenue.charge > 0)) { this.recharger(sv, tenue); if (!this.fouille) son('clic'); return; }
     tenue.charge--; this.tCoup = def.cadence;
-    const r = tirer(horde, { x: p.x, y: p.y }, this.dir, def, bonusPrecision(sv));
     son(tenue.id === 'fusil' ? 'fusil' : 'tir'); this.cameras.main.shake(90, tenue.id === 'fusil' ? 0.009 : 0.005);
     this.bruitVisuel = Math.max(this.bruitVisuel, def.bruit);
-    // traînée et éclair au bout du canon
-    const g = this.arcCoup; g.clear().lineStyle(2, 0xfff2b0, 0.9).lineBetween(p.x * TILE, p.y * TILE, r.fin.x * TILE, r.fin.y * TILE).fillStyle(0xffd060, 0.9).fillCircle((p.x + this.dir.x * 0.5) * TILE, (p.y + this.dir.y * 0.5) * TILE, 6);
-    g.setAlpha(1); this.tweens.add({ targets: g, alpha: 0, duration: 120 });
-    for (const t of r.touches) { this.sang(t.z.x, t.z.y, t.mort ? 2 : 1); if (t.mort) { sv.tues++; this.cadavre(t.z); } }
-    if (r.touches.length) this.xp('tir', r.touches.length * 1.5); else this.xp('tir', 0.3);
+    if (net) net.room.send('tir', { arme: tenue.id, dir: Math.atan2(this.dir.y, this.dir.x), bonus: bonusPrecision(sv) });
+    else {
+      const r = tirer(horde, { x: p.x, y: p.y }, this.dir, def, bonusPrecision(sv));
+      this.trainee(p.x, p.y, r.fin);
+      this.appliquerTouches(r.touches.map((t) => ({ x: t.z.x, y: t.z.y, mort: t.mort, angle: t.z.angle, look: t.z.look })), 'tir');
+    }
     tenue.etat = (tenue.etat ?? def.usure) - 1;
     if (tenue.etat <= 0) { message(`${OBJETS[tenue.id].nom} s'est enrayé pour de bon !`); retirer(sv, sv.arme); }
     if (!this.dejaTire) { this.dejaTire = true; message('<b>BANG.</b> Tout le quartier t\'a entendu…', 3000); }
+  }
+  // traînée de la balle et éclair au bout du canon
+  trainee(x, y, fin) {
+    const a = Math.atan2(fin.y - y, fin.x - x), g = this.arcCoup;
+    g.clear().lineStyle(2, 0xfff2b0, 0.9).lineBetween(x * TILE, y * TILE, fin.x * TILE, fin.y * TILE).fillStyle(0xffd060, 0.9).fillCircle((x + Math.cos(a) * 0.5) * TILE, (y + Math.sin(a) * 0.5) * TILE, 6);
+    g.setAlpha(1); this.tweens.add({ targets: g, alpha: 0, duration: 120 });
   }
   recharger(sv, tenue) {
     const def = FUSILS[tenue.id];
@@ -523,6 +575,7 @@ class SceneZone extends Phaser.Scene {
     const ev = partie.evts, t = partie.temps, cal = calendrier(monde.seed);
     if (!ev.elec && t >= cal.elec) { ev.elec = true; son('alerte'); message('💡 <b>L\'électricité vient de sauter.</b> Les cuisinières ne marchent plus, les frigos vont tourner.', 6000); }
     if (!ev.eau && t >= cal.eau) { ev.eau = true; son('alerte'); message('🚱 <b>L\'eau ne coule plus au robinet.</b> Garde tes bouteilles précieusement.', 6000); }
+    if (net) { this.dessinerHelico(net.helico); return; }   // en coop, hélicoptère et hordes viennent du serveur
     // hélicoptère : il traverse le quartier en attirant tous les morts sous lui
     if (!ev.helico && t >= cal.helico) {
       ev.helico = true;
@@ -533,16 +586,8 @@ class SceneZone extends Phaser.Scene {
     if (this.helico) {
       const h = this.helico; h.x += h.vx * dt; h.y += h.vy * dt; h.t -= dt; h.son -= dt;
       if (h.son <= 0) { h.son = 1; son('helico', Math.hypot(h.x - p.x, h.y - p.y) / 4); horde.bruit(h.x, h.y, 28); }
-      if (!this.helicoImg) {
-        if (!this.textures.exists('helico')) {
-          const tx = this.textures.createCanvas('helico', 90, 90), c = tx.getContext();
-          c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(45, 45, 14, 7, 0, 0, 7); c.fill(); c.fillRect(45, 43, 34, 4);
-          c.strokeStyle = 'rgba(0,0,0,.2)'; c.lineWidth = 3; c.beginPath(); c.arc(45, 45, 38, 0, 7); c.stroke(); tx.refresh();
-        }
-        this.helicoImg = this.add.image(0, 0, 'helico').setDepth(90).setScale(1.4);
-      }
-      this.helicoImg.setPosition(h.x * TILE, h.y * TILE).setRotation(Math.atan2(h.vy, h.vx) + Math.PI).setAngle(this.helicoImg.angle);
-      if (h.t <= 0) { this.helicoImg.destroy(); this.helicoImg = null; this.helico = null; }
+      if (h.t <= 0) this.helico = null;
+      this.dessinerHelico(this.helico ? { x: h.x, y: h.y, a: Math.atan2(h.vy, h.vx) } : null);
     }
     // horde : certaines nuits, un groupe de morts marche droit vers ton quartier
     const jour = heure(t).jour, hr = heure(t).h;
@@ -557,6 +602,41 @@ class SceneZone extends Phaser.Scene {
       son('alerte'); message('🌑 <b>Un grondement au loin…</b> une horde approche. Barricade-toi et ne fais pas de bruit.', 6000);
     }
   }
+  dessinerHelico(h) {
+    if (!h) { if (this.helicoImg) { this.helicoImg.destroy(); this.helicoImg = null; } return; }
+    if (!this.helicoImg) {
+      if (!this.textures.exists('helico')) {
+        const tx = this.textures.createCanvas('helico', 90, 90), c = tx.getContext();
+        c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(45, 45, 14, 7, 0, 0, 7); c.fill(); c.fillRect(45, 43, 34, 4);
+        c.strokeStyle = 'rgba(0,0,0,.2)'; c.lineWidth = 3; c.beginPath(); c.arc(45, 45, 38, 0, 7); c.stroke(); tx.refresh();
+      }
+      this.helicoImg = this.add.image(h.x * TILE, h.y * TILE, 'helico').setDepth(90).setScale(1.4);
+    }
+    this.helicoImg.x += (h.x * TILE - this.helicoImg.x) * 0.2; this.helicoImg.y += (h.y * TILE - this.helicoImg.y) * 0.2;
+    this.helicoImg.setRotation(h.a + Math.PI);
+  }
+  // ---------- les autres survivants (coop) ----------
+  majAutres(dt) {
+    this.autresImg ||= new Map();
+    const vus = new Set();
+    if (net) for (const [id, j] of net.autres) {
+      vus.add(id); let e = this.autresImg.get(id);
+      if (!e) {
+        const g = this.add.graphics().setDepth(64), txt = this.add.text(0, 0, j.nom, { fontFamily: 'Segoe UI, sans-serif', fontSize: '12px', color: '#fff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(95);
+        e = { g, txt, x: j.x, y: j.y }; this.autresImg.set(id, e);
+      }
+      e.x += (j.x - e.x) * Math.min(1, dt * 12); e.y += (j.y - e.y) * Math.min(1, dt * 12);
+      const c = Phaser.Display.Color.HexStringToColor(j.couleur).color, a = j.dir;
+      e.g.clear().setPosition(e.x * TILE, e.y * TILE).setAlpha(j.mort ? 0.45 : 1);
+      if (j.mort || j.dort) e.g.fillStyle(c, 1).fillEllipse(0, 0, 26, 12).fillStyle(0xd9b38c, 1).fillCircle(12, 0, 6);
+      else {
+        e.g.setScale(j.accroupi ? 0.85 : 1).fillStyle(0x000000, 0.3).fillEllipse(3, 4, 18, 18).fillStyle(c, 1).fillEllipse(0, 0, 18, 14)
+          .fillStyle(0xd9b38c, 1).fillCircle(Math.cos(a) * 2, Math.sin(a) * 2, 6).fillStyle(0xffffff, 0.8).fillTriangle(Math.cos(a) * 14, Math.sin(a) * 14, Math.cos(a + 0.5) * 9, Math.sin(a + 0.5) * 9, Math.cos(a - 0.5) * 9, Math.sin(a - 0.5) * 9);
+      }
+      e.txt.setPosition(e.x * TILE, e.y * TILE - 14).setText(`${j.nom}${j.mort ? ' 💀' : j.dort ? ' 💤' : j.sante < 40 ? ' 🩸' : ''}`);
+    }
+    for (const [id, e] of this.autresImg) if (!vus.has(id)) { e.g.destroy(); e.txt.destroy(); this.autresImg.delete(id); }
+  }
   dessinerArc(p, arme, couleur = 0xffffff) {
     const g = this.arcCoup, a = Math.atan2(this.dir.y, this.dir.x), r = arme.portee * TILE;
     g.clear().fillStyle(couleur, 0.22).slice(p.x * TILE, p.y * TILE, r, a - arme.arc / 2, a + arme.arc / 2).fillPath();
@@ -570,23 +650,17 @@ class SceneZone extends Phaser.Scene {
     while (this.decors.length > 250) this.decors.shift().destroy();
   }
   cadavre(z) {
-    const img = this.add.image(z.x * TILE, z.y * TILE, `zsol${z.look}`).setDepth(4).setRotation(z.angle).setTint(0x9a9a9a);
+    const img = this.add.image(z.x * TILE, z.y * TILE, `zsol${z.look ?? 0}`).setDepth(4).setRotation(z.angle).setTint(0x9a9a9a);
     this.decors.push(img);
   }
   // ---------- zombies : simulation + affichage (seulement ceux qu'on voit) ----------
   majZombies(dt, p, nuit) {
     const sv = partie.survivant;
-    horde.activer(p.x, p.y);
-    horde.maj(dt, { x: p.x, y: p.y, accroupi: sv.accroupi, mort: !!sv.mort, dort: !!sv.dort, lumiere: !!sv.lampe?.allumee }, nuit, (z) => {
-      // un zombie porte un coup
-      const a = Math.atan2(z.y - p.y, z.x - p.x) - Math.atan2(this.dir.y, this.dir.x), deDos = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) > 2.1;
-      const type = tirerBlessure(horde.autour(p.x, p.y, 1.6), deDos);
-      if (sv.dort) reveiller('<b>Réveillé en sursaut !</b>');
-      if (type === 'agrippe') { this.tAgrippe = 0.6; this.cameras.main.shake(80, 0.004); message('Un zombie t\'agrippe ! <small>F pour le repousser</small>', 1500); return; }
-      blesser(sv, type);
-      son('blesse'); this.sang(p.x, p.y); this.cameras.main.shake(140, 0.008); this.rouge = 1;
-      message(type === 'morsure' ? '<b style="color:#ff6a50">Tu as été mordu…</b>' : `${BLESSURES[type].nom} !${sv.saignements ? ' <small>Tu saignes : B pour te bander</small>' : ''}`, 2500);
-    });
+    this.majAutres(dt);
+    if (!net) {   // en coop, le serveur fait bouger les zombies : on ne garde que leurs photos
+      horde.activer(p.x, p.y);
+      horde.maj(dt, { x: p.x, y: p.y, accroupi: sv.accroupi, mort: !!sv.mort, dort: !!sv.dort, lumiere: !!sv.lampe?.allumee }, nuit, (z) => this.recevoirCoup(z.x, z.y, horde.autour(p.x, p.y, 1.6)));
+    }
     for (const e of horde.evenements.splice(0)) {
       const d = Math.hypot(e.x - p.x, e.y - p.y);
       if (e.type === 'grogne') son('grogne', d);
@@ -603,7 +677,8 @@ class SceneZone extends Phaser.Scene {
       const voit = d < portee && visible(monde, p.x, p.y, z.x, z.y, portee);
       if (!img) { if (!voit) continue; img = this.add.image(z.x * TILE, z.y * TILE, `z${z.look}`).setDepth(54).setAlpha(0); this.sprites.set(z.id, img); }
       vus.add(z.id);
-      img.setPosition(z.x * TILE, z.y * TILE).setRotation(z.angle);
+      if (net) { img.x += (z.x * TILE - img.x) * Math.min(1, dt * 12); img.y += (z.y * TILE - img.y) * Math.min(1, dt * 12); img.setRotation(z.angle); }
+      else img.setPosition(z.x * TILE, z.y * TILE).setRotation(z.angle);
       img.setTexture(z.aTerre > 0 ? `zsol${z.look}` : `z${z.look}`);
       img.setScale(z.prep > 0 ? 1.12 : 1);
       img.setAlpha(Phaser.Math.Linear(img.alpha, voit ? 1 : 0, Math.min(1, dt * 8)));
@@ -631,10 +706,11 @@ class SceneZone extends Phaser.Scene {
       if (r) { message(r); return; }
       const d = BARRICADE.duree * vitesseTravail(sv);
       this.fouille = { texte: 'Tu cloues une planche', t: d, duree: d, fin: () => {
-        if (barricader(sv, monde, cc.x, cc.y)) { son('coupPorte'); partie.obj.barricade = true; this.xp('charpente', 3); message(`Planche clouée (${monde.barricade(cc.x, cc.y).n}/${BARRICADE.max}).`); }
+        if (barricader(sv, monde, cc.x, cc.y)) { envoyerBarricade(cc.x, cc.y); son('coupPorte'); partie.obj.barricade = true; this.xp('charpente', 3); message(`Planche clouée (${monde.barricade(cc.x, cc.y).n}/${BARRICADE.max}).`); }
       } };
       horde.bruit(p.x, p.y, BARRICADE.bruit); this.bruitVisuel = Math.max(this.bruitVisuel, BARRICADE.bruit); son('impact');
     } else {
+      if (net && !monde.barricade(cc.x, cc.y) && !partie.conteneurs[cle]) { ouvrirConteneur(cle, typeMeuble(monde, cc.x, cc.y)); message('Regarde d\'abord ce qu\'il contient.'); return; }
       if (!monde.barricade(cc.x, cc.y) && DEMONTABLES.has(monde.tuile(cc.x, cc.y))) contenuDe(cle, typeMeuble(monde, cc.x, cc.y));   // on regarde d'abord ce qu'il y a dedans
       const r = raisonDemontage(sv, monde, cc.x, cc.y, partie.conteneurs[cle]);
       if (r && partie.conteneurs[cle]?.length && !monde.barricade(cc.x, cc.y)) { message(r); ouvrirConteneur(cle, typeMeuble(monde, cc.x, cc.y)); return; }
@@ -644,7 +720,7 @@ class SceneZone extends Phaser.Scene {
       this.fouille = { texte: barr ? 'Tu arraches une planche' : 'Tu démontes le meuble', t: d, duree: d, fin: () => {
         this.xp('charpente', 2);
         const n = demonter(sv, monde, cc.x, cc.y, barr ? null : []);
-        if (n) { delete partie.conteneurs[cle]; message(`+${n} planche${n > 1 ? 's' : ''}.`); son('coupPorte'); }
+        if (n) { delete partie.conteneurs[cle]; if (net) { net.room.send('vider', { cle }); if (barr) envoyerBarricade(cc.x, cc.y); } message(`+${n} planche${n > 1 ? 's' : ''}.`); son('coupPorte'); }
       } };
       horde.bruit(p.x, p.y, 8); son('impact');
     }
@@ -704,15 +780,16 @@ class SceneZone extends Phaser.Scene {
   }
   // ---------- sommeil : le temps file 30 fois plus vite, les zombies, eux, continuent ----------
   majSommeil(dt, p, sv) {
-    const minutes = dt * MIN_PAR_S * 30;
-    partie.temps += minutes;
+    let minutes;
+    if (net) { minutes = this.minutes(dt); this.envoyerPosition(dt); }   // en coop, le temps ne file que si tout le monde dort
+    else { minutes = dt * MIN_PAR_S * 30; partie.temps += minutes; }
     majSurvivant(sv, dt, { minutes });
     this.majZombies(dt, p, obscurite(partie.temps));
     // un zombie qui te poursuit tout près te réveille
     if (sv.dort && horde.z.some((z) => z.etat === 'chasse' && Math.hypot(z.x - p.x, z.y - p.y) < 7)) reveiller('<b>Des râles tout près… tu te réveilles !</b>');
     if (!sv.dort && !sv.mort && $('sommeil').classList.contains('on')) reveiller(sv.fatigue <= 0 ? 'Tu te réveilles reposé.' : '');
     if (sv.mort) { mourir(); return; }
-    $('sommeilHeure').textContent = heure(partie.temps).texte;
+    $('sommeilHeure').textContent = heure(partie.temps).texte + (net && [...net.autres.values()].some((j) => !j.dort && !j.mort) ? ' — en coop, le temps file seulement quand tout le monde dort' : '');
     majHudSurvivant(sv);
     this.dessinerNuit(p, true, false);
     $('hudHeure').textContent = heure(partie.temps).texte;
@@ -819,7 +896,9 @@ function majHudSurvivant(sv) {
 // ---------- inventaire et meubles fouillés (un seul panneau, deux colonnes) ----------
 const panneau = { ouvert: false, cle: null, type: null, pos: null, signature: '' };
 const panneauOuvert = () => panneau.ouvert;
+function envoyerBarricade(x, y) { if (net) { const k = `${Math.floor(x)},${Math.floor(y)}`; net.room.send('barr', { k, b: monde.barricades[k] || null }); } }
 function contenuDe(cle, type) {
+  if (net) { if (!partie.conteneurs[cle]) partie.conteneurs[cle] = []; return partie.conteneurs[cle]; }   // le serveur répondra
   if (!partie.conteneurs[cle]) {
     if (type === 'sol' || type === 'feu') partie.conteneurs[cle] = [];
     else { const [x, y] = cle.split(',').map(Number); partie.conteneurs[cle] = genererContenu(monde.seed, x, y, type); }
@@ -827,6 +906,7 @@ function contenuDe(cle, type) {
   return partie.conteneurs[cle];
 }
 function ouvrirConteneur(cle, type) {
+  if (net) net.room.send('ouvrir', { cle, type });
   const c = contenuDe(cle, type);
   // après la coupure de courant, ce qui était au frigo s'abîme
   if (type === 'frigo' && frigoPerime(monde.seed, partie.temps)) for (const o of c) if (PERISSABLE.has(o.id)) o.id = 'pourri';
@@ -939,8 +1019,13 @@ function dessinerPanneau() {
   $('actionsCont').innerHTML = actions.join('');
   $('listeCont').innerHTML = cont.length ? cont.map((o, i) => `<li><span class="ic">${OBJETS[o.id].ic}</span><span class="nom">${OBJETS[o.id].nom}${o.n > 1 ? ` ×${o.n}` : ''}${pourcent(o)}</span><button data-t="${i}">Prendre</button></li>`).join('') : '<li class="vide">Vide.</li>';
 }
+function recevoirObjet(o) {
+  const e = ajouterObjet(partie.survivant.inv, o.id, o.n, o.etat ?? (ARMES[o.id] ? ARMES[o.id].usure : FUSILS[o.id] ? FUSILS[o.id].usure : o.id === 'lampe' ? 100 : undefined));
+  if (FUSILS[o.id]) e.charge = o.charge ?? Math.floor(Math.random() * (FUSILS[o.id].chargeur + 1));
+}
 function prendre(i, tout) {
   const cont = partie.conteneurs[panneau.cle], o = cont[i]; if (!o) return;
+  if (net) { net.room.send('prendre', { cle: panneau.cle, i, id: o.id, n: tout ? o.n : 1 }); return; }
   const n = tout ? o.n : 1, r = retirerObjet(cont, i, n);
   const e = ajouterObjet(partie.survivant.inv, r.id, r.n, o.etat ?? (ARMES[r.id] ? ARMES[r.id].usure : FUSILS[r.id] ? FUSILS[r.id].usure : r.id === 'lampe' ? 100 : undefined));
   if (FUSILS[r.id]) e.charge = o.charge ?? Math.floor(Math.random() * (FUSILS[r.id].chargeur + 1));   // une arme trouvée est plus ou moins chargée
@@ -953,17 +1038,19 @@ $('panneau').addEventListener('click', (e) => {
   if (b.dataset.p != null) {
     const i = +b.dataset.p, o = sv.inv[i]; if (!o) return;
     if (!panneau.cle) { const p = partie.joueur; panneau.cle = `sol:${Math.floor(p.x)},${Math.floor(p.y)}`; panneau.type = 'sol'; panneau.pos = { x: Math.floor(p.x) + 0.5, y: Math.floor(p.y) + 0.5 }; contenuDe(panneau.cle, 'sol'); }
-    const etat = o.etat, charge = o.charge, r = retirer(sv, i, o.n); const e = ajouterObjet(partie.conteneurs[panneau.cle], r.id, r.n, etat); if (charge != null) e.charge = charge;
+    const etat = o.etat, charge = o.charge, r = retirer(sv, i, o.n);
+    if (net) net.room.send('deposer', { cle: panneau.cle, type: panneau.type, id: r.id, n: r.n, etat, charge });
+    else { const e = ajouterObjet(partie.conteneurs[panneau.cle], r.id, r.n, etat); if (charge != null) e.charge = charge; }
   }
   if (b.dataset.t != null) prendre(+b.dataset.t, true);
-  if (b.id === 'btToutPrendre') { const c = partie.conteneurs[panneau.cle]; while (c.length) prendre(0, true); }
+  if (b.id === 'btToutPrendre') { const c = partie.conteneurs[panneau.cle]; if (net) for (const o of [...c]) net.room.send('prendre', { cle: panneau.cle, i: 0, id: o.id, n: o.n }); else while (c.length) prendre(0, true); }
   if (b.id === 'btBoireRobinet') { sv.soif = 0; message('Tu bois longuement au robinet. L\'eau coule encore… pour combien de temps ?'); }
   if (b.id === 'btRemplir') { let n = 0; sv.inv.forEach((o) => { if (o.id === 'bouteille') { o.id = 'eau'; n += o.n; } }); const fus = sv.inv.filter((o) => o.id === 'eau'); if (fus.length > 1) { fus[0].n = fus.reduce((a, o) => a + o.n, 0); sv.inv = sv.inv.filter((o) => o.id !== 'eau' || o === fus[0]); } message(`${n} bouteille${n > 1 ? 's' : ''} remplie${n > 1 ? 's' : ''}.`); }
   if (b.id === 'btDormir') dormir();
   if (b.dataset.r != null && cuisiner(sv, RECETTES[+b.dataset.r])) { message(`${OBJETS[RECETTES[+b.dataset.r].id].nom} : c'est prêt !`); son('porteFermee'); }
   if (b.id === 'btFeu') {
     const p = partie.joueur, r = raisonFeu(sv, monde, p.x, p.y);
-    if (r) message(r); else if (allumerFeu(sv, monde, partie.feux, p.x, p.y, partie.temps)) message('Le feu prend. Il brûlera 4 heures : cuisine, réchauffe… et se voit de loin.');
+    if (r) message(r); else if (allumerFeu(sv, monde, partie.feux, p.x, p.y, partie.temps)) { if (net) net.room.send('feu', { x: p.x, y: p.y }); message('Le feu prend. Il brûlera 4 heures : cuisine, réchauffe… et se voit de loin.'); }
   }
   dessinerPanneau();
 });
@@ -1005,17 +1092,24 @@ function dessinerMinicarte() {
   }
   ctx.putImageData(img, 0, 0);
   ctx.fillStyle = '#ff5a3a'; ctx.beginPath(); ctx.arc(taille / 2, taille / 2, grand ? 5 : 3, 0, 7); ctx.fill();
+  if (net) for (const j of net.autres.values()) {   // les copains, même hors de la zone explorée (bord de carte sinon)
+    const x = Math.max(4, Math.min(taille - 4, taille / 2 + (j.x - p.x) * echelle)), y = Math.max(4, Math.min(taille - 4, taille / 2 + (j.y - p.y) * echelle));
+    ctx.fillStyle = j.couleur; ctx.beginPath(); ctx.arc(x, y, grand ? 5 : 3, 0, 7); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+  }
 }
 
 // ---------- menu ----------
 let menuOuvert = true;
 let jeu = null;
 function basculerMenu(ouvrir = !menuOuvert) {
-  if (!partie || partie.survivant.mort) return;
+  if (!partie || (partie.survivant.mort && !net)) return;
   menuOuvert = ouvrir; $('menu').classList.toggle('cache', !ouvrir); $('hud').classList.toggle('cache', ouvrir);
   if (ouvrir) { sauver(); sauverSurCompte(); majMenu(); }
 }
 function majMenu() {
+  $('btQuitterCoop').classList.toggle('cache', !net);
+  if (!$('nomCoop').value) $('nomCoop').value = localStorage.getItem('pseudo') || '';
+  $('btReprendreCoop').classList.toggle('cache', !net);
   const s = chargerSauvegarde();
   $('btContinuer').classList.toggle('cache', !s);
   if (s) $('btContinuer').textContent = `Continuer · ${heure(s.temps).texte}${s.survivant?.metier ? ` · ${METIERS[s.survivant.metier]?.nom || ''}` : ''}`;
@@ -1048,9 +1142,113 @@ function lancer() {
   }
   message(heure(partie.temps).h < 9 && partie.temps < 600 ? 'Jour 1. Trouve un abri avant la nuit.' : 'De retour dans la Zone Morte.', 3500);
 }
-$('btContinuer').onclick = () => { const s = chargerSauvegarde(); if (s) { reprendre(s); lancer(); } };
-$('btRecommencer').onclick = () => { nouvellePartie(''); lancer(); };
+$('btContinuer').onclick = () => { const s = chargerSauvegarde(); if (s) { quitterCoop(); reprendre(s); lancer(); } };
+$('btRecommencer').onclick = () => {
+  if (net) { partie.survivant = appliquerMetier(nouveauSurvivant(), metierChoisi); partie.obj = {}; net.room.send('renaitre'); lancer(); return; }
+  nouvellePartie(''); lancer();
+};
+
+// =====================================================================
+//  COOP EN LIGNE : connexion, miroir du monde, messages du serveur
+// =====================================================================
+const clientColyseus = new Client(SERVER_URL);
+async function rejoindreCoop(code) {
+  $('msgCoop').textContent = 'Connexion…';
+  const nom = ($('nomCoop').value.trim() || localStorage.getItem('pseudo') || 'Survivant').slice(0, 16);
+  localStorage.setItem('pseudo', nom);
+  try {
+    let room;
+    if (code) {
+      const r = await fetch(`${HTTP_URL}/api/salon/${encodeURIComponent(code)}`).then((x) => (x.ok ? x.json() : null));
+      if (!r || r.mode !== 'zonemorte') throw new Error('Partie introuvable : vérifie le code.');
+      if (r.joueurs >= r.max) throw new Error('La partie est pleine (4 survivants).');
+      room = await clientColyseus.joinById(r.roomId, { nom });
+    } else room = await clientColyseus.create('zonemorte', { nom, graine: $('graine').value.trim() });
+    brancherCoop(room);
+    $('msgCoop').textContent = '';
+  } catch (e) { $('msgCoop').textContent = e.message || 'Impossible de rejoindre.'; }
+}
+function quitterCoop() {
+  if (!net) return;
+  const r = net.room; net = null; try { r.leave(true); } catch { /* déjà parti */ }
+  $('hudCoop').classList.add('cache'); $('chat').classList.add('cache');
+}
+function brancherCoop(room) {
+  net = { room, code: '', moi: room.sessionId, autres: new Map(), helico: null };
+  let premier = true;
+  room.onMessage('init', (m) => {
+    net.code = m.code; net.moi = m.moi;
+    monde = new Monde(m.graine, m.modifs || {}, m.barricades || {});
+    // ce que je change dans le monde part chez les autres ; ce qui vient du serveur ne repart pas
+    const poserLocal = monde.poser.bind(monde);
+    monde.poserLocal = poserLocal;
+    monde.poser = (x, y, v) => { poserLocal(x, y, v); room.send('poser', { x: Math.floor(x), y: Math.floor(y), v }); };
+    horde = new Horde(monde);
+    horde.bruit = (x, y, r) => { if (r > 0) room.send('bruit', { x, y, r }); };
+    horde.activer = () => {};
+    const survivant = partie && !premier && !partie.survivant.mort ? partie.survivant : appliquerMetier(nouveauSurvivant(), metierChoisi);
+    partie = { graine: m.graine, joueur: { ...m.depart }, temps: m.temps, vus: new Set(), survivant, conteneurs: { ...(m.sols || {}) }, feux: m.feux || [], obj: partie?.obj && !premier ? partie.obj : {}, evts: { ...(m.evts || {}) } };
+    $('hudCoop').classList.remove('cache'); $('chat').classList.remove('cache');
+    $('hudCoop').innerHTML = `👥 Coop · <b>${esc(net.code)}</b>`;
+    if (premier) { premier = false; lancer(); message(`Partie en coop · code <b>${esc(net.code)}</b> : donne-le à tes amis (jusqu'à 4).`, 6000); }
+    else if (jeu) jeu.scene.getScene('zone').scene.restart();
+  });
+  room.onMessage('photo', (m) => {
+    if (!partie) return;
+    partie.temps = m.t;
+    horde.z = m.z.map(([id, x, y, a, f, look]) => ({ id, x: x / 100, y: y / 100, angle: a / 100, aTerre: f & 1 ? 1 : 0, prep: f & 2 ? 1 : 0, etat: f & 4 ? 'chasse' : 'errance', look }));
+    const vus = new Set();
+    for (const [id, nom, couleur, x, y, dir, f, sante] of m.j) {
+      if (id === net.moi) continue; vus.add(id);
+      net.autres.set(id, { nom, couleur, x, y, dir, accroupi: !!(f & 1), dort: !!(f & 2), lumiere: !!(f & 4), mort: !!(f & 8), sante });
+    }
+    for (const id of [...net.autres.keys()]) if (!vus.has(id)) net.autres.delete(id);
+    net.helico = m.h ? { x: m.h[0], y: m.h[1], a: m.h[2] } : null;
+    $('hudCoop').innerHTML = `👥 Coop · <b>${esc(net.code)}</b> · ${net.autres.size + 1}/4`;
+  });
+  const scene = () => jeu?.scene.getScene('zone');
+  room.onMessage('poser', (m) => { if (monde?.poserLocal && monde.tuile(m.x, m.y) !== m.v) monde.poserLocal(m.x, m.y, m.v); });
+  room.onMessage('barr', (m) => { if (!monde) return; if (m.b) monde.barricades[m.k] = m.b; else delete monde.barricades[m.k]; monde.rev = (monde.rev || 0) + 1; });
+  room.onMessage('conteneur', (m) => { if (!partie) return; if (m.inv) partie.conteneurs[m.cle] = m.inv; else delete partie.conteneurs[m.cle]; });
+  room.onMessage('pris', (o) => { if (partie) recevoirObjet(o); });
+  room.onMessage('feux', (l) => { if (partie) partie.feux = l; });
+  room.onMessage('touche', (m) => scene()?.recevoirCoup(m.zx, m.zy, m.encercle));
+  room.onMessage('res_coup', (m) => scene()?.appliquerTouches(m.touches, 'coup'));
+  room.onMessage('res_tir', (m) => { const sc = scene(); if (!sc) return; sc.trainee(m.x, m.y, m.fin); sc.appliquerTouches(m.touches, 'tir'); });
+  room.onMessage('bouscule', (m) => { if (m.n) son('impact'); });
+  room.onMessage('sang', (m) => {   // un copain a frappé ou tiré
+    const sc = scene(); if (!sc || !partie) return;
+    for (const t of m.touches) { sc.sang(t.x, t.y, t.mort ? 2 : 1); if (t.mort) sc.cadavre(t); }
+    if (m.fin) { sc.trainee(m.x, m.y, m.fin); son(m.arme === 'fusil' ? 'fusil' : 'tir', Math.hypot(m.x - partie.joueur.x, m.y - partie.joueur.y) / 3); }
+  });
+  room.onMessage('ev', (e) => {
+    if (!partie) return;
+    if (e.type === 'helico') { message('🚁 <b>Un hélicoptère !</b> Le bruit va rameuter tous les morts du coin…', 6000); son('helico'); return; }
+    if (e.type === 'horde') { son('alerte'); message('🌑 <b>Un grondement au loin…</b> une horde approche. Barricadez-vous et pas de bruit.', 6000); return; }
+    horde.evenements.push(e);   // grognements, vitres, portes, planches : traités comme en solo
+  });
+  room.onMessage('message', (m) => ajouterChat(m.texte));
+  room.onMessage('chat', (m) => ajouterChat(`<b style="color:${esc(m.couleur)}">${esc(m.nom)}</b> ${esc(m.texte)}`));
+  room.onLeave(() => { if (net?.room === room) { net = null; $('hudCoop').classList.add('cache'); $('chat').classList.add('cache'); message('Connexion à la partie perdue.', 5000); basculerMenu(true); } });
+}
+// petit fil de discussion en coop (Entrée pour écrire)
+function ajouterChat(html) {
+  const l = $('chatFil'), p = document.createElement('p'); p.innerHTML = html; l.append(p);
+  while (l.children.length > 6) l.firstChild.remove();
+  setTimeout(() => p.classList.add('vieux'), 12000);
+}
+$('chatSaisie').addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') { const t = e.target.value.trim(); if (t && net) net.room.send('chat', { texte: t }); e.target.value = ''; e.target.blur(); }
+  if (e.key === 'Escape') e.target.blur();
+});
+addEventListener('keydown', (e) => { if (e.key === 'Enter' && net && document.activeElement !== $('chatSaisie') && !menuOuvert) { e.preventDefault(); $('chatSaisie').focus(); } });
+$('btCreerCoop').onclick = () => rejoindreCoop('');
+$('btRejoindreCoop').onclick = () => { const c = $('codeCoop').value.trim().toUpperCase(); if (c) rejoindreCoop(c); };
+$('btReprendreCoop').onclick = () => basculerMenu(false);
+$('btQuitterCoop').onclick = () => { quitterCoop(); partie = null; majMenu(); };
 $('btNouvelle').onclick = () => {
+  quitterCoop();
   if (chargerSauvegarde() && !confirm('Commencer une nouvelle partie ? L\'ancienne sera effacée.')) return;
   nouvellePartie($('graine').value.trim()); lancer();
 };

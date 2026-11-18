@@ -222,7 +222,7 @@ async def main():
             await pg.fill('#graine', 'test'); await pg.click('#btNouvelle'); await pg.wait_for_timeout(1200)
             verifier(await pg.evaluate("window.__zm.partie.survivant.inv.some((o) => o.id === 'pistolet') && window.__zm.partie.survivant.metier === 'policier'"), 'métier choisi : le policier part avec un pistolet')
             avant = await pg.evaluate('window.__zm.partie.joueur.x')
-            await pg.keyboard.down('d'); await pg.wait_for_timeout(1200); await pg.keyboard.up('d')
+            await pg.keyboard.down('d'); await pg.wait_for_timeout(2000); await pg.keyboard.up('d')
             verifier(await pg.evaluate('window.__zm.partie.joueur.x') > avant + 1, 'le survivant marche')
             ok = await pg.evaluate('''() => { const z = window.__zm, m = z.monde, p = z.partie.joueur;
               for (let y = Math.floor(p.y) - 25; y < p.y + 25; y++) for (let x = Math.floor(p.x) - 25; x < p.x + 25; x++)
@@ -263,6 +263,64 @@ async def main():
             await pg.click('#btRecommencer'); await pg.wait_for_timeout(800)
             verifier(await pg.evaluate('!window.__zm.partie.survivant.mort'), 'on peut recommencer')
             verifier(not pg.erreurs, f'Zone Morte sans erreur {pg.erreurs[:1]}')
+            await ctx.close()
+
+            print('9. Zone Morte en coop : deux survivants dans le même monde')
+            ca = await b.new_context(viewport={'width': 1000, 'height': 620}); cb = await b.new_context(viewport={'width': 1000, 'height': 620})
+            A = await ca.new_page(); B = await cb.new_page(); errs = []
+            for pg in (A, B): pg.on('pageerror', lambda e: errs.append(str(e)))
+            await A.goto(URL + 'zone-morte/'); await B.goto(URL + 'zone-morte/')
+            await A.fill('#nomCoop', 'Alice'); await A.fill('#graine', 'coop'); await A.click('#btCreerCoop')
+            await A.wait_for_function('window.__zm && window.__zm.partie', timeout=20000); await A.wait_for_timeout(800)
+            code = (await A.inner_text('#hudCoop')).split('·')[1].strip()
+            await B.fill('#nomCoop', 'Bob'); await B.fill('#codeCoop', code); await B.click('#btRejoindreCoop')
+            await B.wait_for_function('window.__zm && window.__zm.partie', timeout=20000)
+            try: await A.wait_for_function("document.getElementById('hudCoop').textContent.includes('2/4')", timeout=10000); ok = True
+            except Exception: ok = False
+            verifier(ok, f'Bob rejoint la partie d’Alice avec le code {code}')
+            await B.keyboard.down('d'); await B.wait_for_timeout(1500); await B.keyboard.up('d')
+            bx = await B.evaluate('window.__zm.partie.joueur.x')
+            try: await A.wait_for_function(f"(() => {{ const sc = window.__zm.jeu.scene.getScene('zone'); const e = [...(sc.autresImg?.values() || [])][0]; return e && Math.abs(e.x - {bx}) < 1; }})()", timeout=20000); ok = True
+            except Exception: ok = False
+            ax = await A.evaluate("(() => { const sc = window.__zm.jeu.scene.getScene('zone'); return [...(sc.autresImg?.values() || [])][0]?.x ?? 0 })()")
+            verifier(ok and bx > 35.6, f'Alice voit Bob bouger ({ax:.1f} / {bx:.1f})')
+            porte = await A.evaluate("""() => { const z = window.__zm, m = z.monde, p = z.partie.joueur; for (let y = Math.floor(p.y) - 25; y < p.y + 25; y++) for (let x = Math.floor(p.x) - 25; x < p.x + 25; x++) if (m.tuile(x, y) === 9) { m.poser(x, y, 10); return [x, y]; } }""")
+            try: await B.wait_for_function(f'window.__zm.monde.tuile({porte[0]}, {porte[1]}) === 10', timeout=20000); ok = True
+            except Exception: ok = False
+            verifier(ok, 'une porte ouverte par Alice est ouverte chez Bob')
+            verifier(await B.evaluate('window.__zm.horde.z.length') > 0, 'Bob reçoit les zombies du serveur')
+            await A.keyboard.press('Enter'); await A.keyboard.type('salut'); await A.keyboard.press('Enter')
+            try: await B.wait_for_function("document.getElementById('chatFil').textContent.includes('salut')", timeout=20000); ok = True
+            except Exception: ok = False
+            verifier(ok, 'le message d’Alice arrive chez Bob')
+            verifier(not errs, f'coop sans erreur {errs[:1]}')
+            await ca.close(); await cb.close()
+
+            print('10. Les Ombres de Baker Street : une enquête jusqu’au rapport')
+            ctx = await b.new_context(viewport={'width': 1200, 'height': 760}); pg = await ctx.new_page(); errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            await pg.goto(URL); await pg.click('#hubEnquete'); await pg.wait_for_url('**/enquete/**', timeout=15000)
+            await pg.fill('#nomJoueur', 'Testeur'); await pg.click('#btNouvelle')
+            await pg.wait_for_selector('#dialogue:not(.cache)', timeout=5000)
+            await pg.click('#dlgChoix button >> nth=0')
+            await pg.click('#btCarte'); await pg.click('.pin:has-text("Atelier")'); await pg.click('#btFiacre')
+            for z in ['Porte enfoncée', 'Serrure de la porte', 'Carnet de commandes']:
+                await pg.click(f'.zone[title="{z}"]')
+            await pg.click('.perso:has-text("Hannah")'); await pg.click('#dlgChoix button:has-text("Qu’avez-vous vu")'); await pg.click('#dlgChoix button >> nth=0'); await pg.click('#dlgChoix button:has-text("Au revoir")')
+            verifier(await pg.evaluate("window.__ombres.e.indices.length") >= 4, 'fouille de l’atelier et témoignage de Hannah')
+            await pg.click('#btCarnet'); await pg.click('.fiche[data-i="verrou"]'); await pg.click('.fiche[data-i="ressort"]'); await pg.click('#btRelier')
+            verifier(await pg.evaluate("window.__ombres.e.deductions.includes('porte_auto')"), 'déduction dans le carnet : la porte s’est fermée toute seule')
+            await pg.click('#carnet .fermer')
+            await pg.click('#btCarte'); await pg.click('.pin:has-text("Scotland Yard")'); await pg.click('#btFiacre')
+            await pg.click('.perso:has-text("Gribble")'); await pg.click('#dlgChoix button >> nth=0'); await pg.click('#dlgChoix button:has-text("Je sais qui")')
+            await pg.wait_for_selector('#accusation:not(.cache)', timeout=5000)
+            await pg.click('#acSuspects .perso:has-text("Arthur")'); await pg.click('#btAccuser')
+            await pg.wait_for_selector('#rapport:not(.cache)', timeout=5000)
+            verifier('erreur' in (await pg.inner_text('#rpFin')).lower(), f"rapport de fin : {await pg.inner_text('#rpFin')}")
+            verifier('Lusk' in await pg.inner_text('#rpVerite'), 'le rapport révèle la vérité')
+            await pg.reload(); await pg.wait_for_timeout(500)
+            verifier(await pg.is_visible('#btContinuer'), 'la partie est sauvegardée')
+            verifier(not errs, f'enquête sans erreur {errs[:1]}')
             await ctx.close()
             await b.close()
     finally:

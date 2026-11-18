@@ -123,6 +123,35 @@ test('reconnexion : on revient dans la même partie avec le même joueur', async
   await r2.leave();
 });
 
+test('Zone Morte en coop : salon par code, monde partagé, zombies, meubles, combat', async () => {
+  const msgs = (room) => { const l = []; room.onMessage('*', (t, m) => l.push([t, m])); return l; };
+  const attendreMsg = async (l, t, f = () => true, ms = 4000) => { for (let i = 0; i < ms / 50; i++) { const m = l.find(([x, v]) => x === t && f(v)); if (m) return m[1]; await attendre(50); } return null; };
+  const a = await new Client(WS).create('zonemorte', { nom: 'Alice', graine: 'coop' }); const la = msgs(a);
+  const ia = await attendreMsg(la, 'init');
+  assert.match(ia.code, /^[A-Z2-9]{4}$/); assert.ok(ia.depart && ia.graine);
+  const s = await json(`/api/salon/${ia.code}`); assert.equal(s.body.mode, 'zonemorte');
+  const b = await new Client(WS).joinById(s.body.roomId, { nom: 'Bob' }); const lb = msgs(b);
+  assert.ok(await attendreMsg(lb, 'init'));
+  // la photo montre les deux joueurs et des zombies
+  const ph = await attendreMsg(lb, 'photo', (p) => p.j.length === 2);
+  assert.ok(ph && Array.isArray(ph.z) && typeof ph.t === 'number');
+  // Alice ouvre une porte : Bob le voit
+  a.send('poser', { x: 40, y: 41, v: 10 });
+  assert.ok(await attendreMsg(lb, 'poser', (m) => m.x === 40 && m.y === 41 && m.v === 10));
+  // un meuble : contenu fixé par le serveur, ce qu'Alice prend disparaît pour Bob
+  a.send('ouvrir', { cle: '3,4', type: 'rayon:supermarché' });
+  const c = await attendreMsg(la, 'conteneur', (m) => m.cle === '3,4');
+  assert.ok(c.inv.length >= 1);
+  a.send('prendre', { cle: '3,4', i: 0, id: c.inv[0].id });
+  assert.equal((await attendreMsg(la, 'pris')).id, c.inv[0].id);
+  b.send('deposer', { cle: 'sol:5,5', id: 'eau', n: 2 });
+  assert.equal((await attendreMsg(la, 'conteneur', (m) => m.cle === 'sol:5,5')).inv[0].n, 2);
+  // Bob frappe dans le vide : le serveur répond quand même
+  b.send('coup', { arme: 'batte', dir: 0, k: 1 });
+  assert.ok(await attendreMsg(lb, 'res_coup'));
+  await a.leave(); await b.leave();
+});
+
 test('journal des erreurs : une erreur de navigateur est notée et regroupée', async () => {
   const envoi = () => fetch(HTTP + '/api/erreurs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ou: 'test.js', msg: 'boum de test', version: VERSION_JEU }) });
   assert.equal((await envoi()).status, 204);

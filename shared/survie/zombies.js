@@ -51,9 +51,13 @@ export class Horde {
   }
 
   // ---------- apparition / rangement selon la position du joueur ----------
+  // activer(x, y, zoneSure) en solo, ou activer([{ x, y }, …], zoneSure) en coop
   activer(px, py, zoneSure = null) {
-    const pcx = fdiv(Math.floor(px), CH), pcy = fdiv(Math.floor(py), CH), R = ZOMBIE.rayonSimu;
-    for (let cx = pcx - R; cx <= pcx + R; cx++) for (let cy = pcy - R; cy <= pcy + R; cy++) {
+    const pos = Array.isArray(px) ? px : [{ x: px, y: py }];
+    if (Array.isArray(px)) zoneSure = py ?? null;
+    if (!pos.length) return;
+    const R = ZOMBIE.rayonSimu, centres = pos.map((q) => [fdiv(Math.floor(q.x), CH), fdiv(Math.floor(q.y), CH)]);
+    for (const [pcx, pcy] of centres) for (let cx = pcx - R; cx <= pcx + R; cx++) for (let cy = pcy - R; cy <= pcy + R; cy++) {
       const k = `${cx},${cy}`; if (this.actifs.has(k)) continue;
       this.actifs.add(k);
       const n = this.pop[k] ?? populationInitiale(this.monde.seed, cx, cy);
@@ -69,7 +73,7 @@ export class Horde {
     // on range les morceaux trop loin (avec les zombies qui s'y trouvent)
     for (const k of [...this.actifs]) {
       const [cx, cy] = k.split(',').map(Number);
-      if (Math.abs(cx - pcx) <= R + 1 && Math.abs(cy - pcy) <= R + 1) continue;
+      if (centres.some(([pcx, pcy]) => Math.abs(cx - pcx) <= R + 1 && Math.abs(cy - pcy) <= R + 1)) continue;
       this.actifs.delete(k);
       const restants = this.z.filter((z) => fdiv(Math.floor(z.x), CH) === cx && fdiv(Math.floor(z.y), CH) === cy);
       this.pop[k] = (this.pop[k] || 0) + restants.length;
@@ -121,23 +125,28 @@ export class Horde {
 
   // ---------- un pas de simulation ----------
   // joueur : { x, y, accroupi, mort } ; nuit : 0..1 ; frapper(z, joueur) appelé quand un coup porte
-  maj(dt, joueur, nuit, frapper) {
-    const m = this.monde;
-    const nuitVue = joueur.lumiere ? nuit * 0.25 : nuit;   // une lampe allumée se voit de loin
-    const vue = (ZOMBIE.vue + (ZOMBIE.vueNuit - ZOMBIE.vue) * nuitVue) * (joueur.accroupi ? ZOMBIE.vueAccroupi : 1) * (joueur.dort ? 0.6 : 1);
+  // joueurs : un joueur { x, y, accroupi, mort, dort, lumiere } en solo, ou une liste en coop
+  maj(dt, joueurs, nuit, frapper) {
+    const m = this.monde, liste = (Array.isArray(joueurs) ? joueurs : [joueurs]).filter((j) => j && !j.mort);
+    const vueDe = (j) => (ZOMBIE.vue + (ZOMBIE.vueNuit - ZOMBIE.vue) * (j.lumiere ? nuit * 0.25 : nuit)) * (j.accroupi ? ZOMBIE.vueAccroupi : 1) * (j.dort ? 0.6 : 1);   // une lampe allumée se voit de loin
     const vit = ZOMBIE.vitesse + (ZOMBIE.vitesseNuit - ZOMBIE.vitesse) * nuit;
+    const vues = liste.map(vueDe);
     for (const z of this.z) {
       z.recharge = Math.max(0, z.recharge - dt);
       z.grogne -= dt; if (z.grogne <= 0) { z.grogne = 4 + Math.random() * 10; if (z.etat !== 'errance' || Math.random() < 0.3) this.evenements.push({ type: 'grogne', x: z.x, y: z.y }); }
       if (z.aTerre > 0) { z.aTerre -= dt; z.prep = 0; continue; }
-      const d = Math.hypot(joueur.x - z.x, joueur.y - z.y);
-      // vue
-      if (!joueur.mort && d < vue && visible(m, z.x, z.y, joueur.x, joueur.y, vue)) {
+      // vue : le joueur visible le plus proche devient la proie
+      let joueur = null, d = Infinity;
+      for (let k = 0; k < liste.length; k++) {
+        const j = liste[k], dj = Math.hypot(j.x - z.x, j.y - z.y);
+        if (dj < d && dj < vues[k] && visible(m, z.x, z.y, j.x, j.y, vues[k])) { joueur = j; d = dj; }
+      }
+      if (joueur) {
         if (z.etat !== 'chasse') { z.chemin = null; z.tChemin = 0; }
         z.etat = 'chasse'; z.vu = { x: joueur.x, y: joueur.y };
-      } else if (z.etat === 'chasse') { z.etat = 'alerte'; z.cible = z.vu || { x: joueur.x, y: joueur.y }; }
+      } else if (z.etat === 'chasse') { z.etat = 'alerte'; z.cible = z.vu || { x: z.x, y: z.y }; }
       // attaque
-      if (z.etat === 'chasse' && d < ZOMBIE.allonge + 0.15 && !joueur.mort) {
+      if (z.etat === 'chasse' && joueur && d < ZOMBIE.allonge + 0.15) {
         z.angle = Math.atan2(joueur.y - z.y, joueur.x - z.x);
         if (z.prep > 0) { z.prep -= dt; if (z.prep <= 0) { z.recharge = ZOMBIE.recharge; if (d < ZOMBIE.allonge + 0.3) frapper?.(z, joueur); } }
         else if (z.recharge <= 0) z.prep = ZOMBIE.preparation;

@@ -552,4 +552,6 @@ body.touch #choix .ch-b { display: none; } body.touch #choix .touche { display: 
 .hub-carte.conclave { background: linear-gradient(160deg, #3a2160, #140e1e); border: 2px solid #c9a0ff; box-shadow: 0 0 30px rgba(162, 89, 255, .25); }
 .hub-carte.zonemorte { background: linear-gradient(160deg, #2c3324, #0e100c); border: 2px solid #9fc25a; box-shadow: 0 0 30px rgba(159, 194, 90, .2); }
 .hub-carte.zonemorte i { color: #9fc25a; font-style: normal; }
+.hub-carte.enquete { background: linear-gradient(160deg, #3a2a1a, #120c08); border: 2px solid #c9a35a; box-shadow: 0 0 30px rgba(201, 163, 90, .2); font-family: Georgia, 'Times New Roman', serif; }
+.hub-carte.enquete i { color: #c9a35a; font-style: normal; }
 .hub-pied { color: #9a94a6; }

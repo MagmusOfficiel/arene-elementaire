@@ -282,3 +282,28 @@ Troisième jeu du site, page `/zone-morte/` (bouton dans l'accueil commun). Surv
 - `shared/survie/evenements.js` : calendrier tiré de la graine. Électricité coupée entre le jour 4 et le jour 6 (cuisinières hors service, frigos qui pourrissent un jour après), eau coupée un ou deux jours plus tard ; hélicoptère le jour 2 ou 3 qui attire les morts ; nuits de horde (de plus en plus fréquentes).
 - Compte et classement : la partie est sauvegardée compressée sur le compte (reprise sur un autre appareil), fin de partie = XP de compte + score envoyé à `/api/zonemorte/score`, classement mondial `/api/zonemorte/classement` affiché dans le menu.
 - Tests : 5 nouveaux dans `tests/zonemorte.test.mjs`, 1 dans `tests/serveur.test.mjs`, métier et fin de partie dans `tests/navigateur.py`.
+
+## Zone Morte en coop (v30)
+- `server/src/ZoneMorteRoom.js` : salle privée `zonemorte` (2 à 4 joueurs, code à 4 lettres, trouvée par `/api/salon/:code`). Le serveur fait vivre le monde partagé : zombies (horde multi-joueurs : chacun poursuit le survivant visible le plus proche), portes et vitres, barricades, contenu des meubles, objets posés, feux, heure (le temps ne file en dormant que si tout le monde dort), hélicoptère et hordes. Photos des zombies proches 10 fois par seconde, messages courts pour le reste, petit chat.
+- Chaque joueur garde son survivant (santé, sac, besoins, compétences) dans son navigateur ; les coups et tirs sont calculés par le serveur, qui renvoie les touches.
+- Client : mode réseau « miroir » dans `client/src/zone-morte/main.js` (variable `net`), autres survivants dessinés avec leur nom, sur la carte aussi ; mort = on repart avec un nouveau survivant dans le même monde.
+- Tests : `tests/serveur.test.mjs` (salle coop), `tests/zonemorte.test.mjs` (horde multi-joueurs), section 9 de `tests/navigateur.py`.
+
+## Les Ombres de Baker Street, chapitre 1 (v31)
+Quatrième jeu du site, page `/enquete/` : enquête en 2D dans le Londres de 1891, où tes choix font de toi un détective… ou un criminel.
+- `shared/enquete/moteur.js` : moteur pur (heure, argent, indices, déductions, jauges Justice/Corruption et Yard/Pègre, lieux et horaires, dialogues à conditions et effets, ruelles dangereuses la nuit, blessures et mort, dormir et reprise au dernier matin, délai, accusation, rapport, titres), plus une vérification automatique d'un chapitre.
+- `shared/enquete/chapitre1.js` : « L'Horloger de Clerkenwell » — 8 lieux, 12 personnages, 16 indices, 5 déductions, 8 fins (Justice rendue, Double jeu, L'erreur, Trop tard, Faute de preuves, Le marché, La recrue, Mort).
+- `client/enquete/` + `client/src/enquete/` : écran titre, carte de Londres (fiacre ou à pied), lieux à fouiller, dialogues avec portraits, carnet (indices, déductions, personnes, journal), rencontres nocturnes, accusation avec preuves, rapport final ; illustrations lues dans `client/public/enquete/img/` (portrait_<id>.jpg, decor_<lieu>.jpg, carte.jpg, titre.jpg), silhouettes à la place tant qu'elles manquent.
+- Sauvegarde dans le navigateur et sur le compte commun ; XP de compte à la fin du chapitre.
+- Tests : `tests/enquete.test.mjs` (14 tests, chaque fin jouée automatiquement), section 10 de `tests/navigateur.py`.
+
+## Les Ombres de Baker Street, chapitre 2 (v33)
+
+« La Chambre forte de la City » (`shared/enquete/chapitre2.js`). La banque Crale est vidée sans effraction, le veilleur Tobias Reed est tué, et le Yard veut pendre Hannah Bright.
+
+- **Héritage du chapitre 1** : à la fin d'un chapitre, `M.heritage(ch, e)` résume la fin, le titre, les jauges, l'argent et les drapeaux. `M.nouvelEtat(ch2, nom, heritage)` les reprend (drapeaux préfixés `prec_`, fin en `prec_fin_<fin>`), puis `ch.heriter()` en tire les conséquences : Arthur libre ou en cellule, Lusk en prison ou dans sa boutique, le Doyen ami (mission : faire tomber Hannah) ou ennemi (ses tueurs rôdent la nuit), Vane qui se souvient de ce que tu as fait.
+- 17 indices, 7 déductions, 9 lieux (nouveau : l'hôtel Crale à Mayfair), 15 personnages (nouveaux : Edmund Crale, Martha Reed).
+- 10 fins : justice, double jeu, erreur, complice, faute de preuves, trop tard, **bras droit du Doyen**, **le nouveau Doyen** (prendre la pègre avec Gros Bill), **maître chanteur**, mort.
+- Écran titre : « Chapitre 2 » repart de la dernière fin du chapitre 1 sauvegardée (sinon « Justice rendue »). Le rapport du chapitre 1 propose « Chapitre suivant ».
+- Rencontres conditionnelles (`cond` sur une rencontre) ; option d'accusation propre à chaque chapitre (`ch.option`).
+- Tests : `tests/enquete2.test.mjs` (héritage + chaque fin jouée).

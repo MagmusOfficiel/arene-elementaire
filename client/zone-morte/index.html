@@ -18,6 +18,7 @@
     <a href="/" class="retour" title="Retour à l'accueil">←</a>
     <div id="hudHeure">Jour 1 · 08:00</div>
     <div id="hudLieu">Saint-Aubin</div>
+    <div id="hudCoop" class="cache"></div>
   </div>
   <div id="survivant">
     <div class="barre"><i id="barreSante"></i><span>Santé</span></div>
@@ -27,6 +28,7 @@
   </div>
   <canvas id="minicarte" width="150" height="150" title="Carte (M pour agrandir)"></canvas>
   <div id="invite"></div>
+  <div id="chat" class="cache"><div id="chatFil"></div><input id="chatSaisie" maxlength="120" placeholder="Entrée pour parler aux autres"></div>
   <div id="message"></div>
   <div id="aide">ZQSD marcher · Maj courir · C accroupi · Espace/clic frapper · F bousculer · B bander · E fouiller · R barricader / recharger · X démonter · I sac · L lampe · M carte</div>
   <div id="joystick"><i></i></div>
@@ -70,12 +72,19 @@
   <div class="carte">
     <h1>☣️ ZONE <b>MORTE</b></h1>
     <p class="pitch">Le monde s'est arrêté il y a trois jours.<br>Tu es seul à Saint-Aubin, et la route continue à l'infini.</p>
+    <button id="btReprendreCoop" class="principal cache">Retour à la partie en coop</button>
+    <button id="btQuitterCoop" class="cache">Quitter la coop</button>
     <button id="btContinuer" class="principal">Continuer</button>
     <button id="btCompte" class="cache"></button>
     <div class="choixMetier"><small>Ton métier avant l'apocalypse</small><div id="metiers"></div><small id="metierDesc"></small></div>
     <button id="btNouvelle">Nouvelle partie</button>
     <label class="graine">Graine du monde <input id="graine" maxlength="10" placeholder="au hasard"></label>
     <p class="note">Fouille les maisons, mange, bois, barricade-toi et dors à l'abri. Les morts entendent tes pas, te suivent dans les maisons et arrachent les planches. Une morsure ne pardonne pas.</p>
+    <details class="coop" open><summary>👥 Coop en ligne (2 à 4 survivants)</summary>
+      <div><input id="nomCoop" maxlength="16" placeholder="Ton nom"><button id="btCreerCoop">Créer une partie</button></div>
+      <div><input id="codeCoop" maxlength="6" placeholder="CODE"><button id="btRejoindreCoop">Rejoindre</button></div>
+      <small>Même monde, mêmes zombies, chacun son survivant (le métier choisi plus haut). Le temps ne file en dormant que si tout le monde dort. Entrée pour parler.</small>
+      <small id="msgCoop"></small></details>
     <p id="record" class="note"></p>
     <div id="classement"></div>
     <details class="compte"><summary id="codeCompte">Compte</summary><small>Ta partie et ton record sont aussi gardés sur ton compte (le même que l'Arène). Sur un autre appareil, entre ton code :</small>

@@ -117,3 +117,15 @@ body.tactile #btOutil { display: block; position: absolute; pointer-events: auto
 #panneau .nom b { color: var(--vert); }
 #actionsCont .info { font-size: 13px; color: #ffb05a; }
 #menu .carte { max-height: 96vh; overflow: auto; }
+
+/* ---------- coop ---------- */
+#hudCoop { color: #9fc2ff; }
+.coop { font-size: 13px; color: var(--doux); text-align: left; }
+.coop summary { cursor: pointer; color: var(--texte); }
+.coop div { display: flex; gap: 6px; margin: 6px 0; } .coop input { flex: 1; } #codeCoop { text-transform: uppercase; }
+.coop small { display: block; font-size: 12px; } #msgCoop { color: #ffb05a; }
+#chat { position: absolute; left: 10px; bottom: 40px; width: min(380px, 60vw); pointer-events: auto; }
+#chatFil p { margin: 2px 0; font-size: 13px; text-shadow: 0 1px 3px #000; transition: opacity 2s; }
+#chatFil p.vieux { opacity: .25; }
+#chatSaisie { width: 100%; background: rgba(0, 0, 0, .45); font-size: 13px; padding: 4px 8px; }
+body.tactile #chat { bottom: 170px; }

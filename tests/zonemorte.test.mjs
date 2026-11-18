@@ -378,3 +378,18 @@ test('le monde s\'effondre : électricité puis eau coupées, hélicoptère, nui
   let n = 0; for (let j = 2; j < 32; j++) if (nuitDeHorde(5, j)) n++;
   assert.ok(n > 8 && n < 28, `${n} nuits de horde sur 30`);
 });
+
+// ---------------------------------------------------------------- coop
+test('coop : un zombie poursuit le survivant visible le plus proche, et ignore les morts', () => {
+  const m = mondeVide(), h = new Horde(m), z = h.ajouter(10.5, 10.5);
+  const loin = { x: 20.5, y: 10.5 }, pres = { x: 10.5, y: 15.5 };
+  let cible = null;
+  for (let i = 0; i < 160; i++) h.maj(0.05, [loin, pres], 0, (_z, j) => { cible = j; });
+  assert.equal(cible, pres);
+  const h2 = new Horde(m), z2 = h2.ajouter(10.5, 10.5);
+  h2.maj(0.05, [{ x: 12.5, y: 10.5, mort: true }, { x: 22.5, y: 10.5 }], 0);
+  assert.equal(z2.etat, 'chasse'); assert.ok(z2.vu.x > 20);
+  // activer autour de plusieurs joueurs : les morceaux des deux sont simulés
+  const m3 = new Monde(4), h3 = new Horde(m3); h3.activer([{ x: 10, y: 10 }, { x: 600, y: 10 }]);
+  assert.ok(h3.actifs.has('0,0') && h3.actifs.has('18,0'));
+});
