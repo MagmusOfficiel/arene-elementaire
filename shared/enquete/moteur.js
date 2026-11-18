@@ -42,7 +42,7 @@ export function nouvelEtat(ch, nom = 'Toi', heritageRecu = null) {
 // ce qu'un chapitre terminé transmet au suivant
 export function heritage(ch, e) {
   const fin = ch.fins[e.fin] || {};
-  return { chapitre: ch.id, fin: e.fin, finTitre: fin.titre || '', titre: titre(ch, e), jauges: { ...e.jauges }, argent: e.argent,
+  return { chapitre: ch.id, fin: e.fin, finTitre: fin.titre || '', titre: titre(ch, e), jauges: { ...e.jauges }, tableau: (e.accusation?.tableau || []).map((d) => { const q = ch.questions.find((x) => x.id === d.id); return { question: q.titre, reponse: q.options.find((o) => o[0] === d.rep)?.[1] || (d.rep === 'personne' ? 'Personne' : 'sans réponse'), bonne: q.options.find((o) => o[0] === q.bonne)?.[1], juste: d.juste, fondee: d.fondee }; }), argent: e.argent,
     drapeaux: Object.fromEntries(Object.entries(e.drapeaux).filter(([k]) => !k.startsWith('_') && !k.startsWith('prec_'))) };
 }
 
@@ -144,6 +144,26 @@ export function fouiller(ch, e, zoneId) {
   return { texte: typeof t === 'function' ? t(e) : t, nouv, deja };
 }
 
+// ---------- plan vu de dessus : examiner un meuble ----------
+// un meuble relié à une zone donne l'indice (si la condition de la zone est remplie) ;
+// sinon c'est un leurre : un texte, et un peu de temps perdu.
+export function examiner(ch, e, objId) {
+  if (e.fin || e.mort || e.dialogue || e.rencontre) return null;
+  const l = ch.lieux[e.lieu], o = l.plan?.objets.find((x) => x.id === objId);
+  if (!o) return null;
+  if (o.zone) {
+    const z = (l.zones || []).find((x) => x.id === o.zone);
+    if (z && verifier(ch, e, z.cond)) return { ...fouiller(ch, e, o.zone), objet: o.id };
+    e.temps += 3; verifierDelai(ch, e);
+    return { texte: o.avant || 'Rien de particulier.', nouv: [], rien: true, objet: o.id };
+  }
+  const cle = `${e.lieu}:${o.id}`, deja = e.fouilles.includes(cle);
+  if (!deja) { e.fouilles.push(cle); e.temps += o.temps ?? 3; }
+  verifierDelai(ch, e);
+  return { texte: typeof o.texte === 'function' ? o.texte(e) : o.texte, nouv: [], deja, objet: o.id };
+}
+export const examine = (e, lieu, o) => e.fouilles.includes(`${lieu}:${o.zone || o.id}`);
+
 // ---------- personnages présents et dialogues ----------
 export const presents = (ch, e, lieu = e.lieu) => Object.entries(ch.personnages).filter(([, p]) => (p.lieux || []).some((l) => l.lieu === lieu && verifier(ch, e, l.cond))).map(([id]) => id);
 export function parler(ch, e, pnj) {
@@ -216,6 +236,23 @@ export function accuser(ch, e, suspect, preuves = [], options = {}) {
   e.fin = r.fin; e.accusation = { suspect, preuves: p, verdict: r.verdict };
   return r;
 }
+// le tableau façon Cluedo : une réponse par question (qui, avec quoi, comment, pourquoi).
+// Une réponse compte si elle est juste ET fondée sur un indice ou une déduction de la liste « preuves ».
+export function jugerTableau(ch, e, rep = {}) {
+  return (ch.questions || []).map((q) => {
+    const r = rep[q.id] || null, juste = r === q.bonne;
+    return { id: q.id, rep: r, juste, fondee: juste && (q.preuves || []).some((p) => e.indices.includes(p) || e.deductions.includes(p)) };
+  });
+}
+export function accuserTableau(ch, e, rep = {}, options = {}) {
+  if (e.fin || e.mort) return null;
+  const detail = jugerTableau(ch, e, rep), force = detail.filter((d) => d.fondee).length;
+  const suspect = rep.qui || 'personne';
+  const r = ch.accusation(e, suspect, [], { ...options, force, tableau: detail });
+  appliquer(ch, e, r.effets);
+  e.fin = r.fin; e.accusation = { suspect, preuves: [], verdict: r.verdict, tableau: detail, force };
+  return r;
+}
 export function titre(ch, e) {
   const { justice, yard } = e.jauges;
   return (ch.titres || TITRES).find((t) => verifier(ch, e, t.cond))?.nom || 'Assistant de Vane';
@@ -234,10 +271,10 @@ export function rapport(ch, e) {
   const trouves = Object.keys(ch.indices).filter((i) => e.indices.includes(i));
   const fin = ch.fins[e.mort ? 'mort' : e.fin] || ch.fins.mort;
   return {
-    titreChapitre: ch.titre, fin: fin.titre, texteFin: typeof fin.texte === 'function' ? fin.texte(e) : fin.texte, verite: ch.verite,
+    titreChapitre: ch.titre, fin: fin.titre, reussi: !e.mort && !!fin.bonne, texteFin: typeof fin.texte === 'function' ? fin.texte(e) : fin.texte, verite: ch.verite,
     trouves: trouves.map((i) => ch.indices[i].nom), rates: Object.keys(ch.indices).filter((i) => !e.indices.includes(i) && !ch.indices[i].secret).map((i) => ch.indices[i].nom),
     score: `${trouves.length}/${tot}`, deductions: e.deductions.map((d) => ch.deductions[d].nom), decisions: e.journal.map((j) => j.texte),
-    titre: titre(ch, e), jauges: { ...e.jauges }, suite: typeof fin.suite === 'function' ? fin.suite(e) : fin.suite,
+    titre: titre(ch, e), jauges: { ...e.jauges }, tableau: (e.accusation?.tableau || []).map((d) => { const q = ch.questions.find((x) => x.id === d.id); return { question: q.titre, reponse: q.options.find((o) => o[0] === d.rep)?.[1] || (d.rep === 'personne' ? 'Personne' : 'sans réponse'), bonne: q.options.find((o) => o[0] === q.bonne)?.[1], juste: d.juste, fondee: d.fondee }; }), suite: typeof fin.suite === 'function' ? fin.suite(e) : fin.suite,
     xp: e.mort ? 20 : 60 + trouves.length * 8 + e.deductions.length * 10 + (fin.bonne ? 60 : 0),
   };
 }
@@ -270,5 +307,37 @@ export function verifierChapitre(ch) {
   for (const [id, x] of Object.entries(ch.deductions)) { for (const i of x.indices) if (!ch.indices[i]) erreurs.push(`déduction ${id} : indice ${i}`); voirEffets(x.effets, `déduction ${id}`); }
   for (const rc of ch.rencontres) { voirCond(rc.cond, `rencontre ${rc.id}`); } for (const rc of ch.rencontres) for (const c of rc.choix) { voirCond(c.cond, `rencontre ${rc.id}`); for (const is of c.issues) voirEffets(is.effets, `rencontre ${rc.id}`); }
   for (const i of Object.keys(ch.indices)) if (!donnes.has(i)) erreurs.push(`indice jamais donné : ${i}`);
+  for (const [id, l] of Object.entries(ch.lieux)) if (l.plan) erreurs.push(...verifierPlan(ch, id, l));
+  for (const q of ch.questions || []) {
+    if (!q.options.some((o) => o[0] === q.bonne)) erreurs.push(`question ${q.id} : la bonne réponse n'est pas proposée`);
+    for (const p of q.preuves || []) if (!ch.indices[p] && !ch.deductions[p]) erreurs.push(`question ${q.id} : preuve inconnue ${p}`);
+  }
   return erreurs;
+}
+
+// un plan est jouable : cases cohérentes, meubles et personnages sur le sol, tout accessible depuis l'entrée
+export function grillePlan(plan) {
+  const H = plan.carte.length, W = plan.carte[0].length;
+  const libre = Array.from({ length: H }, (_, y) => Array.from({ length: W }, (_, x) => !'# '.includes(plan.carte[y][x])));
+  for (const o of plan.objets) for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < o.x + o.l; x++) if (libre[y]?.[x] !== undefined) libre[y][x] = false;
+  for (const [x, y] of Object.values(plan.pnj || {})) if (libre[y]?.[x] !== undefined) libre[y][x] = false;
+  return { W, H, libre };
+}
+export function verifierPlan(ch, id, l) {
+  const err = [], p = l.plan, { W, H, libre } = grillePlan(p);
+  const sol = (x, y) => y >= 0 && y < H && x >= 0 && x < W && !'# '.includes(p.carte[y][x]);
+  p.carte.forEach((r, y) => { if (r.length !== W) err.push(`${id} : rangée ${y} de longueur ${r.length} au lieu de ${W}`); for (const c of r) if (!'# +'.includes(c) && !p.pieces[c]) err.push(`${id} : sol « ${c} » sans pièce`); });
+  for (const o of p.objets) {
+    for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < o.x + o.l; x++) if (!sol(x, y)) err.push(`${id}/${o.id} : hors du sol en ${x},${y}`);
+    if (o.zone && !(l.zones || []).some((z) => z.id === o.zone)) err.push(`${id}/${o.id} : zone inconnue ${o.zone}`);
+  }
+  for (const z of l.zones || []) if (!p.objets.some((o) => o.zone === z.id)) err.push(`${id} : la zone ${z.id} n'a pas de meuble`);
+  // accessibilité depuis l'entrée
+  const [ex, ey] = p.entree; if (!libre[ey]?.[ex]) err.push(`${id} : entrée bloquée`);
+  const vu = new Set([`${ex},${ey}`]), file = [[ex, ey]];
+  while (file.length) { const [x, y] = file.shift(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = `${x + dx},${y + dy}`; if (!vu.has(k) && libre[y + dy]?.[x + dx]) { vu.add(k); file.push([x + dx, y + dy]); } } }
+  const atteint = (x0, y0, w, h) => { for (let y = y0 - 1; y <= y0 + h; y++) for (let x = x0 - 1; x <= x0 + w; x++) if (vu.has(`${x},${y}`) && (x === x0 - 1 || x === x0 + w || y === y0 - 1 || y === y0 + h) && !((x === x0 - 1 || x === x0 + w) && (y === y0 - 1 || y === y0 + h))) return true; return false; };
+  for (const o of p.objets) if (!atteint(o.x, o.y, o.l, o.h)) err.push(`${id}/${o.id} : impossible à atteindre`);
+  for (const [pnj, [x, y]] of Object.entries(p.pnj || {})) { if (!sol(x, y)) err.push(`${id} : ${pnj} hors du sol`); else if (!atteint(x, y, 1, 1)) err.push(`${id} : ${pnj} impossible à atteindre`); }
+  return err;
 }

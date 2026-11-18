@@ -307,3 +307,22 @@ Quatrième jeu du site, page `/enquete/` : enquête en 2D dans le Londres de 189
 - Écran titre : « Chapitre 2 » repart de la dernière fin du chapitre 1 sauvegardée (sinon « Justice rendue »). Le rapport du chapitre 1 propose « Chapitre suivant ».
 - Rencontres conditionnelles (`cond` sur une rencontre) ; option d'accusation propre à chaque chapitre (`ch.option`).
 - Tests : `tests/enquete2.test.mjs` (héritage + chaque fin jouée).
+
+## Les Ombres de Baker Street : plans vus de dessus et tableau Cluedo (v34)
+
+Le chapitre 1 se joue maintenant comme un Cluedo :
+
+- **Plans vus de dessus** (`shared/enquete/plans1.js`, rendu dans `client/src/enquete/plan.js`). Chaque lieu a plusieurs pièces décrites en ASCII (`#` mur, `+` porte, une lettre par pièce). On dirige son détective avec ZQSD, WASD, les flèches ou un clic (chemin le plus court), et E ou Espace examine le meuble ou parle au personnage le plus proche. La nuit, seule la lumière autour du détective éclaire le plan.
+- **Indices cachés** : plus aucun cadre. Les meubles reliés à une zone donnent l'indice ; les autres sont des leurres (3 minutes perdues). Certains indices restent invisibles tant qu'on ne sait pas quoi chercher (`avant`), par exemple la serrure de l'atelier avant d'avoir vu le verrou.
+- **Tableau du détective** (onglet « Tableau » du carnet, `ch.questions`) : Qui ? Avec quoi ? Comment ? Pourquoi ? On barre les hypothèses. Pour accuser, il faut répondre aux quatre ; une réponse ne compte que si elle est juste ET appuyée par un indice ou une déduction de sa liste `preuves`. Il en faut 3 sur 4 (`M.accuserTableau`). Le rapport de fin détaille le raisonnement.
+- `M.verifierChapitre` contrôle aussi chaque plan : rangées de même longueur, meubles sur le sol, chaque zone reliée à un meuble, tout accessible depuis l'entrée.
+- Le chapitre 2 garde pour l'instant l'ancienne vue (décor peint + zones) ; ses plans arrivent ensuite.
+
+## Les Ombres de Baker Street : enquêteur seulement, chapitres débloqués, plans redessinés (v35)
+
+Remplace les sections v33 et v34 sur l'héritage et les voies criminelles :
+
+- **On est seulement enquêteur.** Plus de pots-de-vin, de Chandelle à rejoindre, de jauges ni de titres. Chaque chapitre a 5 fins : `resolu` (le vrai coupable, avec au moins 3 réponses du tableau justes ET prouvées), `relache` (bon suspect, raisonnement insuffisant), `erreur` (mauvais suspect), `delai` et `mort` (on reprend au matin).
+- **1 chapitre = 1 enquête.** Aucun choix ne passe d'un chapitre à l'autre. Résoudre un chapitre le marque dans la sauvegarde (`ombresBS` = `{ v: 2, resolus: [...], partie }`) et débloque le suivant sur l'écran titre.
+- **Chapitre 2** réécrit en enquête indépendante, avec ses plans (`shared/enquete/plans2.js`, dont l'hôtel Crale de Mayfair) et son tableau Qui / Avec quoi / Comment la chambre forte a été ouverte / Pourquoi.
+- **Plans dessinés en code** (`client/src/enquete/plan.js`) : parquet, damier, dalles, planches, marbre, tapis persans ; murs en relief (papier peint, briques, boiseries) ; une quarantaine de meubles dessinés ; feu animé et fumée ; lumière des lampes, du feu et des fenêtres, obscurité selon l'heure, lanterne du détective la nuit ; poussière, brume, vignettage ; personnages animés avec leur tenue (haut-de-forme de Vane, melon de Gribble, plume de Margot…) qui se tournent vers toi ; caméra qui suit le détective ; nom de la pièce à l'entrée ; portrait au-dessus du personnage dont on s'approche.

@@ -17,12 +17,10 @@
   <div class="titreCarte">
     <p class="surtitre">Londres · automne 1891</p>
     <h1>Les Ombres<br><span>de Baker Street</span></h1>
-    <p class="accroche">Un mort dans un atelier fermé de l'intérieur. Un neveu qu'on veut pendre. Et toi, qui viens d'arriver au 7 Baker Street.<br>Détective ou criminel : ce sont tes choix qui le diront.</p>
+    <p class="accroche">Londres, 1891. Des crimes que Scotland Yard veut boucler trop vite, et toi, l'assistant du détective Cornelius Vane.<br>Fouille, interroge, relie les indices… et démasque le vrai coupable. Chaque affaire résolue débloque la suivante.</p>
     <label>Ton nom <input id="nomJoueur" maxlength="20" placeholder="Ton nom"></label>
     <button id="btContinuer" class="principal cache">Continuer l'enquête</button>
-    <button id="btNouvelle" class="principal">Chapitre 1 — L'Horloger de Clerkenwell</button>
-    <button id="btChap2">Chapitre 2 — La Chambre forte de la City</button>
-    <p class="note" id="noteChap2">Le chapitre 2 reprend les choix de ta dernière fin du chapitre 1. Sans partie terminée, il part de la fin « Justice rendue ».</p>
+    <div id="listeChapitres"></div>
     <a href="/" class="lienRetour">← Retour à l'accueil</a>
   </div>
 </section>
@@ -48,8 +46,8 @@
 
   <!-- Lieu -->
   <div id="vueLieu" class="vue cache">
-    <div id="decor"><div id="scene"><img data-img="" id="imgDecor" alt=""><div id="silhouette"></div><div id="zones"></div></div></div>
-    <div id="infoLieu"><h2 id="nomLieu"></h2><p id="introLieu"></p><p id="texteFouille"></p></div>
+    <div id="decor"><canvas id="plan"></canvas><div id="scene"><img data-img="" id="imgDecor" alt=""><div id="silhouette"></div><div id="zones"></div></div></div>
+    <div id="infoLieu"><img id="vignette" alt=""><div><h2 id="nomLieu"></h2><p id="introLieu"></p><p id="texteFouille"></p></div></div>
     <div id="presents"></div>
   </div>
 </section>
@@ -71,7 +69,7 @@
   <div class="feuille">
     <button class="fermer" data-fermer="carnet">✕</button>
     <h2>📓 Carnet</h2>
-    <nav id="ongletsCarnet"><button data-o="indices" class="on">Indices</button><button data-o="deductions">Déductions</button><button data-o="personnes">Personnes</button><button data-o="journal">Journal</button></nav>
+    <nav id="ongletsCarnet"><button data-o="indices" class="on">Indices</button><button data-o="tableau" id="ongletTableau">Tableau</button><button data-o="deductions">Déductions</button><button data-o="personnes">Personnes</button><button data-o="journal">Journal</button></nav>
     <div id="contenuCarnet"></div>
   </div>
 </div>
@@ -90,10 +88,11 @@
   <div class="feuille">
     <button class="fermer" data-fermer="accusation">✕</button>
     <h2>⚖ Désigner le coupable</h2>
-    <p class="note">Choisis le suspect, puis les preuves que tu présentes à Gribble. Une accusation sans preuve n'est qu'une opinion.</p>
+    <p class="note" id="noteAccusation">Choisis le suspect, puis les preuves que tu présentes à Gribble. Une accusation sans preuve n'est qu'une opinion.</p>
     <div id="acSuspects"></div>
-    <h3>Tes preuves</h3>
+    <h3 id="hPreuves">Tes preuves</h3>
     <div id="acPreuves"></div>
+    <div id="acTableau"></div>
     <div id="acPlans" class="cache"></div>
     <button id="btAccuser" class="principal" disabled>Accuser</button>
   </div>
@@ -104,17 +103,16 @@
   <div class="feuille rapport">
     <p class="surtitre" id="rpChapitre"></p>
     <h2 id="rpFin"></h2>
+    <p id="rpBilan" class="bilan"></p>
     <p id="rpVerdict" class="verdict"></p>
+    <div id="rpRaison" class="cache"><h3>Ton raisonnement</h3><ul id="rpTableau"></ul></div>
     <p id="rpTexte"></p>
     <h3>Ce qui s'est vraiment passé</h3>
     <p id="rpVerite"></p>
     <div class="deuxCol">
       <div><h3>Indices <span id="rpScore"></span></h3><ul id="rpTrouves"></ul><p class="note" id="rpRates"></p></div>
-      <div><h3>Tes décisions</h3><ul id="rpDecisions"></ul></div>
+      <div><h3>Ton enquête</h3><ul id="rpDecisions"></ul></div>
     </div>
-    <h3>Ce que Londres pense de toi</h3>
-    <p id="rpTitre" class="titreJoueur"></p>
-    <div class="jauges"><div><span>Corruption</span><i><b id="jgJustice"></b></i><span>Justice</span></div><div><span>Pègre</span><i><b id="jgYard"></b></i><span>Yard</span></div></div>
     <p id="rpSuite" class="suite"></p>
     <p id="rpXp" class="note"></p>
     <div class="boutons"><button id="btReprendre" class="principal cache">Reprendre au dernier matin</button><button id="btSuivant" class="principal cache">Chapitre suivant →</button><button id="btRejouer">Rejouer le chapitre</button><a href="/" class="lienRetour">Retour à l'accueil</a></div>

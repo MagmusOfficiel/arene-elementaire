@@ -4,7 +4,10 @@
 //  Temps en minutes depuis le jour 1 à minuit ; argent en shillings.
 // =====================================================================
 
+import { PLANS1 } from './plans1.js';
+
 const J = 1440;
+const NOMS = { arthur: 'Arthur Fenwick', hannah: 'Hannah Bright', crale: 'Oswin Crale', margot: 'Margot Linnet' };
 
 export const chapitre1 = {
   id: 'ch1',
@@ -52,7 +55,7 @@ export const chapitre1 = {
       intro: "Le cabinet de Cornelius Vane : des piles de journaux, une odeur de tabac fort, un violon sur le fauteuil.",
       zones: [
         { id: 'journaux', nom: 'Journaux du matin', x: 0, y: 57, l: 20, h: 16, texte: "Le Penny Gazette titre : « MYSTÈRE À CLERKENWELL — l'horloger Fenwick retrouvé mort dans un atelier clos ! Le Yard tient le neveu. »", temps: 5 },
-        { id: 'tiroir', nom: 'Tiroir du bureau', x: 68, y: 70, l: 19, h: 15, texte: "Quelques pièces traînent dans le tiroir de Vane. Tu en glisses cinq dans ta poche. Il ne s'en apercevra sans doute pas.", deja: "Le tiroir est vide, maintenant.", effets: { argent: 5, justice: -2, drapeau: { vane_vole: true }, journal: "Tu as pris cinq shillings dans le tiroir de Vane." } },
+        { id: 'tiroir', nom: 'Tiroir du bureau', x: 68, y: 70, l: 19, h: 15, texte: "Le tiroir de Vane : du tabac, des factures impayées et un revolver de poche. Rien pour l'enquête.", temps: 2 },
         { id: 'fenetre', nom: 'Fenêtre', x: 29, y: 2, l: 20, h: 50, texte: "Baker Street sous le brouillard. Un fiacre attend au coin, le cocher somnole.", temps: 2 },
       ],
     },
@@ -128,7 +131,6 @@ export const chapitre1 = {
     pip: { nom: 'Pip', role: 'Chef des Moineaux', couleur: '#6a6a4a', lieux: [{ lieu: 'pub', cond: { heures: [12, 23] } }] },
     bill: { nom: 'Gros Bill', role: 'Patron du Lion Rouge', couleur: '#4a2a1a', lieux: [{ lieu: 'pub' }] },
     gardien: { nom: 'Le gardien', role: 'Docker de la Chandelle', couleur: '#2a2a2a', lieux: [{ lieu: 'entrepot', cond: { pasDrapeau: 'gardien_ecarte' } }] },
-    doyen: { nom: 'Le Doyen', role: '???', couleur: '#111111', lieux: [{ lieu: 'entrepot', cond: [{ drapeau: 'offre_acceptee' }, { indice: 'plans' }, { pasDrapeau: 'trahi_doyen' }] }] },
   },
 
   // ---------------------------------------------------------------- dialogues
@@ -146,7 +148,7 @@ export const chapitre1 = {
       pasvenir: { texte: "« J'ai un violon à accorder et un orgueil à ménager. Si tu échoues, ce sera ta faute ; si tu réussis, ce sera mon enseignement. »", choix: [{ texte: 'Charmant.', effets: { journal: "Vane t'a confié l'affaire Fenwick." } }] },
       aide: {
         texte: (e) => {
-          const a = e.jauges.justice <= -20 ? `« Je sens sur toi une odeur que je n'aime pas, ${e.nom} : celle de l'argent facile. » ` : '';
+          const a = '';
           if (!e.indices.includes('ressort')) return `${a}« Une pièce fermée de l'intérieur n'est qu'une pièce dont on n'a pas encore compris la serrure. Regarde-la de près. »`;
           if (!e.deductions.includes('porte_auto')) return `${a}« Relie ce que tu as vu, dans ton carnet. Un verrou et un ressort, ça raconte une histoire. »`;
           if (!e.lieux.includes('boutique')) return `${a}« Qui, à Londres, sait fabriquer un tel mécanisme ? L'apprentie le sait sûrement. Les registres du Yard aussi. »`;
@@ -187,7 +189,6 @@ export const chapitre1 = {
         choix: [
           { texte: 'Qu’a trouvé le légiste ?', cond: { pasIndice: 'legiste' }, suite: 'legiste' },
           { texte: 'Vos registres : quel serrurier signe « V.L. » ?', cond: { indice: 'page', pasDrapeau: 'registre' }, suite: 'registre' },
-          { texte: 'Comment puis-je vous aider, inspecteur ?', cond: { pasDrapeau: 'offre_gribble' }, suite: 'marche' },
           { texte: 'J’ai trouvé où sont cachés les plans volés.', cond: { indice: 'aveu_margot', pasDrapeau: 'gribble_entrepot', pasIndice: 'plans' }, suite: 'entrepot' },
           { texte: 'Je sais qui a tué Elias Fenwick.', action: 'accuser' },
           { texte: 'Rien. Au revoir.' },
@@ -195,15 +196,7 @@ export const chapitre1 = {
       },
       legiste: { texte: "« Mort vers 21 h. Crâne enfoncé par un petit marteau, genre marteau d'horloger. On ne l'a pas retrouvé. Le neveu a dû le jeter dans la Tamise. »", effets: { indice: 'legiste' }, choix: [{ texte: 'Merci.', suite: 'menu' }] },
       registre: { texte: (e) => `${e.drapeaux.soutien ? '« Pour un ami du Yard, tout de suite. » ' : "Gribble soupire, puis ouvre un gros registre. "}« V.L.… Victor Lusk, serrurier à Hatton Garden. Un concurrent de Fenwick. Pas de casier. »`, effets: { drapeau: { registre: true }, lieu: 'boutique', journal: 'Les registres du Yard mènent à Victor Lusk, serrurier à Hatton Garden.' }, choix: [{ texte: 'Intéressant.', suite: 'menu' }] },
-      marche: {
-        texte: "« Simple. Signez ce papier : le cabinet Vane soutient l'inculpation d'Arthur Fenwick. Mes chefs seront contents, la presse aussi, et je saurai m'en souvenir. »",
-        effets: { drapeau: { offre_gribble: true } },
-        choix: [
-          { texte: 'Je signe.', effets: { drapeau: { soutien: true }, yard: 15, justice: -15, journal: "Tu as signé le soutien à l'inculpation d'Arthur Fenwick pour plaire au Yard." }, suite: 'menu' },
-          { texte: 'Pas sans preuve.', effets: { justice: 5, yard: -5, journal: "Tu as refusé d'appuyer l'inculpation d'Arthur sans preuve." }, suite: 'menu' },
-        ],
-      },
-      entrepot: { texte: "« Limehouse, entrepôt 7 ? Si c'est vrai, j'y serai la nuit prochaine avec quatre constables. Si c'est faux, vous me devrez une bouteille. »", effets: { drapeau: { gribble_entrepot: true }, yard: 10, justice: 5, journal: "Tu as prévenu Gribble pour l'entrepôt de Limehouse." }, choix: [{ texte: 'Marché conclu.', suite: 'menu' }] },
+      entrepot: { texte: "« Limehouse, entrepôt 7 ? Si c'est vrai, j'y serai la nuit prochaine avec quatre constables. Si c'est faux, vous me devrez une bouteille. »", effets: { drapeau: { gribble_entrepot: true }, journal: "Tu as prévenu Gribble pour l'entrepôt de Limehouse." }, choix: [{ texte: 'Marché conclu.', suite: 'menu' }] },
     },
 
     arthur: {
@@ -212,7 +205,7 @@ export const chapitre1 = {
         choix: [
           { texte: 'Qui peut le confirmer ?', unique: true, suite: 'temoin' },
           { texte: 'Combien devez-vous, et à qui ?', unique: true, suite: 'dette' },
-          { texte: 'Avouez, ce sera plus simple.', unique: true, effets: { justice: -3 }, suite: 'nie' },
+          { texte: 'Avouez, ce sera plus simple.', unique: true, effets: {}, suite: 'nie' },
           { texte: 'Je reviendrai.' },
         ],
       },
@@ -236,8 +229,8 @@ export const chapitre1 = {
       cle: {
         texte: "« Oui… mais je ne l'ai pas utilisée ! J'avais trop peur pour entrer ce matin. C'est le laitier qui a appelé la police. »",
         choix: [
-          { texte: 'Je vous crois.', effets: { justice: 2 }, suite: 'debut' },
-          { texte: 'C’est ce que dirait une coupable.', effets: { justice: -2 }, suite: 'debut' },
+          { texte: 'Je vous crois.', effets: {}, suite: 'debut' },
+          { texte: 'C’est ce que dirait une coupable.', effets: {}, suite: 'debut' },
         ],
       },
     },
@@ -252,12 +245,9 @@ export const chapitre1 = {
         ],
       },
       plans: {
-        texte: "Crale blêmit. « C'est une catastrophe. Si ces plans circulent, ma banque est à la merci du premier cambrioleur venu. » Il ouvre un tiroir. « Dix livres pour que le nom de ma banque n'apparaisse dans aucun journal ni aucun rapport. Et vingt de plus si vous me rapportez ces plans. »",
-        effets: { drapeau: { offre_crale: true } },
-        choix: [
-          { texte: 'J’accepte les dix livres.', effets: { argent: 200, justice: -12, drapeau: { crale_paye: true }, journal: 'Tu as accepté dix livres de Crale pour taire le nom de sa banque.' } },
-          { texte: 'Gardez votre argent. Je chercherai vos plans.', effets: { justice: 5, journal: "Tu as refusé l'argent de Crale." } },
-        ],
+        texte: "Crale blêmit. « C'est une catastrophe. Si ces plans circulent, ma banque est à la merci du premier cambrioleur venu. Retrouvez-les, je vous en prie. Et trouvez qui a fait ça. »",
+        effets: { drapeau: { offre_crale: true }, journal: 'Crale t’a demandé de retrouver les plans de la Sentinelle.' },
+        choix: [{ texte: 'Je les retrouverai.' }],
       },
       alibi: { texte: "« Au Reform Club, avec trois membres du Parlement. Demandez-leur, si vous osez. »", choix: [{ texte: 'Je n’oserai pas.', suite: 'debut' }] },
     },
@@ -270,31 +260,17 @@ export const chapitre1 = {
           { texte: 'Vous connaissiez Elias Fenwick ?', unique: true, suite: 'fenwick' },
           { texte: 'La limaille trouvée chez Fenwick vient de votre creuset.', cond: { deduction: 'lusk_atelier' }, unique: true, suite: 'limaille' },
           { texte: 'Votre sœur d’Islington ? « V.L. — 21 h » : le client de Fenwick, c’était vous.', cond: [{ deduction: 'client_21h' }, { drapeau: 'alibi_lusk' }], unique: true, suite: 'confronte' },
-          { texte: 'Bill te fait dire que tu lui dois sa part.', cond: { drapeau: 'travail_bill' }, unique: true, suite: 'bill' },
           { texte: 'Au revoir.' },
         ],
       },
       alibi: { texte: "« Chez ma sœur, à Islington. Toute la soirée. Elle vous le confirmera. »", effets: { drapeau: { alibi_lusk: true } }, choix: [{ texte: 'Bien sûr.', suite: 'debut' }] },
       fenwick: { texte: "« Un vieux fou qui se croyait le seul à savoir tourner une clé. Paix à son âme. »", choix: [{ texte: 'Charmant.', suite: 'debut' }] },
       limaille: { texte: "« Du laiton argenté ? Beaucoup de gens en utilisent… » Ses mains tremblent légèrement sur l'établi.", choix: [{ texte: 'Vraiment ?', suite: 'debut' }] },
-      bill: { texte: "Lusk devient livide. « Dites à Bill… dites-lui qu'il aura sa part quand le Doyen aura payé. » Il se mord la langue, trop tard.", effets: { argent: 20, journal: 'Lusk a laissé échapper le nom du Doyen.' }, choix: [{ texte: 'Je transmettrai.', suite: 'debut' }] },
       confronte: {
         texte: "Lusk pâlit. « Vous… vous ne pouvez rien prouver. » Son regard file vers la porte. « Ma sœur… je n'ai pas de sœur, voilà. Écoutez-moi. »",
         effets: { indice: 'faux_alibi' },
-        choix: [
-          { texte: 'Je vous écoute.', suite: 'marche' },
-          { texte: 'Vous direz tout ça à l’inspecteur Gribble.', effets: { justice: 3 } },
-        ],
+        choix: [{ texte: 'Vous direz tout ça à l’inspecteur Gribble.' }],
       },
-      marche: {
-        texte: "« Je n'ai fait qu'exécuter. On m'a payé pour les plans, c'est tout. Laissez-moi quitter Londres, et je vous donne le nom de celui qui tire les ficelles. »",
-        choix: [
-          { texte: 'Le nom. Et disparaissez.', effets: { drapeau: { lusk_parti: true, nom_doyen: true }, justice: -10, journal: 'Tu as laissé filer Victor Lusk contre un nom.' }, suite: 'nom' },
-          { texte: 'Cinq livres, et je n’ai rien vu.', effets: { argent: 100, justice: -15, yard: -5, drapeau: { lusk_paye: true }, journal: 'Tu as fait chanter Victor Lusk : cinq livres pour ton silence.' } },
-          { texte: 'Non. Vous paierez pour Fenwick.', effets: { justice: 5 } },
-        ],
-      },
-      nom: { texte: "« Silas Crane. On l'appelle le Doyen. Que Dieu vous garde s'il apprend que c'est moi qui vous l'ai dit. » Lusk attrape son manteau et s'enfonce dans le brouillard.", choix: [{ texte: '…' }] },
     },
 
     margot: {
@@ -309,23 +285,17 @@ export const chapitre1 = {
       parle: { texte: "« Du champagne… vous savez parler aux dames. » Elle sourit enfin. « Que voulez-vous savoir ? »", choix: [{ texte: 'Parlez-moi de Victor Lusk.', cond: { indice: 'billet' }, suite: 'lusk' }, { texte: 'Rien. Je voulais vous entendre chanter.' }] },
       lusk: {
         texte: "Elle pose sa houppette. « Victor… Ce pauvre Victor m'a confié un paquet, ce soir-là, et quelqu'un est venu le prendre. Je ne pose pas de questions. Vous non plus, si vous tenez à vos dents. »",
-        choix: [{ texte: 'Où est ce paquet, maintenant ?', suite: 'ou' }, { texte: 'Je travaille avec Cornelius Vane.', effets: { yard: 3 }, suite: 'menace' }],
+        choix: [{ texte: 'Où est ce paquet, maintenant ?', suite: 'ou' }, { texte: 'Je travaille avec Cornelius Vane.', effets: {}, suite: 'menace' }],
       },
       ou: {
-        texte: "Elle vous jauge longuement. « Il y a deux façons de sortir de cette loge, mon joli : en ami de la Chandelle, ou en ennemi. »",
+        texte: "Elle vous jauge longuement. « Vous posez beaucoup de questions, mon joli. Les curieux finissent souvent dans la Tamise. »",
         choix: [
-          { texte: 'En ami. Que dois-je faire ?', suite: 'offre' },
           { texte: 'Dites-le-moi, ou je vous fais arrêter pour recel.', suite: 'menace' },
-          { texte: '(Lui glisser deux livres)', cond: { argent: 40 }, effets: { argent: -40, justice: -3 }, suite: 'aveu' },
+          { texte: '(Lui glisser deux livres)', cond: { argent: 40 }, effets: { argent: -40 }, suite: 'aveu' },
         ],
       },
       menace: { texte: "« M'arrêter ? Mon pauvre ami… » Elle soupire. « Très bien. Je préfère encore les policiers aux cadavres. »", choix: [{ texte: 'Je vous écoute.', suite: 'aveu' }] },
       aveu: { texte: "« Entrepôt 7, à Limehouse. Le paquet y attend le Doyen, la nuit prochaine. Et ne dites jamais que ça vient de moi. »", effets: { indice: 'aveu_margot', lieu: 'entrepot', journal: "La Fauvette t'a révélé la cachette de Limehouse." }, choix: [{ texte: 'Merci, Margot.' }] },
-      offre: {
-        texte: "« Le Doyen aime les gens utiles. Allez à l'entrepôt 7 de Limehouse, de nuit. Prenez le paquet avant que la police ne le trouve, et remettez-le-lui en main propre. Après ça, vous serez des nôtres. »",
-        effets: { indice: 'aveu_margot', lieu: 'entrepot', drapeau: { offre_acceptee: true }, yard: -15, journal: 'Tu as accepté de travailler pour la Chandelle.' },
-        choix: [{ texte: 'Marché conclu.' }],
-      },
     },
 
     pip: {
@@ -333,7 +303,7 @@ export const chapitre1 = {
         texte: "Un gamin aux genoux écorchés vous barre la route. « M'sieur ! Une info, c'est un penny. Deux si elle est bonne. »",
         choix: [
           { texte: '(Lui donner un shilling) Arthur Fenwick était ici avant-hier soir ?', cond: [{ argent: 1 }, { pasIndice: 'temoin_pip' }], effets: { argent: -1 }, suite: 'arthur' },
-          { texte: 'Dégage, gamin.', effets: { justice: -2 } },
+          { texte: 'Dégage, gamin.', effets: {} },
           { texte: 'Pas maintenant, Pip.' },
         ],
       },
@@ -344,27 +314,18 @@ export const chapitre1 = {
       debut: {
         texte: "Un colosse au nez cassé essuie un verre. « Si t'es là pour la dette du petit Fenwick, c'est quarante livres, et ça court toujours. »",
         choix: [
-          { texte: 'Tu as du travail pour moi ?', cond: { pasDrapeau: 'travail_bill' }, suite: 'travail' },
-          { texte: 'Le Yard s’intéresse beaucoup à ton établissement.', cond: { yard: 10 }, unique: true, suite: 'menace' },
+          { texte: 'Le Yard s’intéresse beaucoup à ton établissement.', cond: { drapeau: 'vu_gribble' }, unique: true, suite: 'menace' },
           { texte: 'Je ne suis pas là pour ça.' },
         ],
       },
-      travail: {
-        texte: "« Un malin, hein ? Y a un gars à Hatton Garden, un serrurier, qui a de l'or plein les poches depuis deux jours. Il me doit ma part. Va lui rappeler. Une livre pour toi, et la Chandelle se souviendra de ton nom. »",
-        choix: [
-          { texte: 'C’est d’accord.', effets: { drapeau: { travail_bill: true }, lieu: 'boutique', yard: -10, justice: -5, argent: 20, journal: 'Tu as accepté une course pour Gros Bill, de la pègre de Whitechapel.' } },
-          { texte: 'Sans moi.' },
-        ],
-      },
-      menace: { texte: "« Le Yard ? Ici ? » Il crache par terre. « Va-t'en, l'ami du Yard, avant que mes clients te reconnaissent. »", effets: { yard: 2 }, choix: [{ texte: 'Je m’en vais.' }] },
+      menace: { texte: "« Le Yard ? Ici ? » Il crache par terre. « Va-t'en, l'ami du Yard, avant que mes clients te reconnaissent. »", effets: {}, choix: [{ texte: 'Je m’en vais.' }] },
     },
 
     gardien: {
       debut: {
         texte: "Un docker trapu se lève d'une caisse, une barre de fer à la main. « T'as rien à faire ici. »",
         choix: [
-          { texte: 'Le Doyen m’envoie.', cond: { drapeau: 'offre_acceptee' }, effets: { drapeau: { gardien_ecarte: true } }, suite: 'passe' },
-          { texte: '(Lui offrir une livre)', cond: { argent: 20 }, effets: { argent: -20, justice: -2, drapeau: { gardien_ecarte: true } }, suite: 'passe' },
+          { texte: '(Lui offrir une livre)', cond: { argent: 20 }, effets: { argent: -20, drapeau: { gardien_ecarte: true } }, suite: 'passe' },
           { texte: '(L’attaquer)', suite: 'combat' },
           { texte: '(Reculer lentement)' },
         ],
@@ -377,16 +338,6 @@ export const chapitre1 = {
       },
     },
 
-    doyen: {
-      debut: {
-        texte: "Une silhouette en manteau long sort de l'ombre. Vous ne voyez pas son visage. « Le nouvel ami de Margot. Vous avez quelque chose pour moi. »",
-        choix: [
-          { texte: '(Lui remettre les plans)', effets: { drapeau: { plans_doyen: true }, yard: -20, justice: -15, argent: 100, journal: 'Tu as remis les plans de la Sentinelle au Doyen.', fin: 'recrue' } },
-          { texte: 'Les plans restent avec moi.', effets: { yard: 5, justice: 5, drapeau: { trahi_doyen: true }, journal: 'Tu as refusé de remettre les plans au Doyen.' }, suite: 'menace' },
-        ],
-      },
-      menace: { texte: "« Dommage. Les ingrats vivent rarement vieux, à Londres. » La silhouette se fond dans le brouillard. Vous sentez des regards dans votre dos.", choix: [{ texte: '…' }] },
-    },
   },
 
   // ---------------------------------------------------------------- ruelles la nuit
@@ -397,8 +348,7 @@ export const chapitre1 = {
       choix: [
         { texte: 'Fuir', issues: [{ chance: 0.6, texte: 'Tu cours à perdre haleine et le perds dans le brouillard.', effets: { temps: 10 } }, { chance: 0.4, texte: 'La lame t’entaille le bras pendant que tu fuis.', effets: { blesse: true, temps: 10 } }] },
         { texte: 'Donner ta bourse', issues: [{ chance: 1, texte: 'Il prend l’argent et disparaît.', effets: { argent: -15 } }] },
-        { texte: 'Te battre', issues: [{ chance: 0.45, texte: 'Tu le désarmes ; il s’enfuit en jurant.', effets: { justice: 1 } }, { chance: 0.35, texte: 'Tu le repousses, mais la lame t’a touché.', effets: { blesse: true } }, { chance: 0.2, texte: 'La lame trouve ton ventre. Le pavé est froid…', effets: { mort: 'Poignardé dans une ruelle de Londres.' } }] },
-        { texte: 'Parler l’argot de la Chandelle', cond: { yard: -15 }, issues: [{ chance: 1, texte: '« Désolé, l’ami, je t’avais pas reconnu. »', effets: {} }] },
+        { texte: 'Te battre', issues: [{ chance: 0.45, texte: 'Tu le désarmes ; il s’enfuit en jurant.', effets: {} }, { chance: 0.35, texte: 'Tu le repousses, mais la lame t’a touché.', effets: { blesse: true } }, { chance: 0.2, texte: 'La lame trouve ton ventre. Le pavé est froid…', effets: { mort: 'Poignardé dans une ruelle de Londres.' } }] },
       ],
     },
     {
@@ -407,42 +357,44 @@ export const chapitre1 = {
       choix: [
         { texte: 'Fuir', issues: [{ chance: 0.5, texte: 'Tu glisses entre eux et tu détales.', effets: { temps: 10 } }, { chance: 0.5, texte: 'Un coup de gourdin t’atteint à l’épaule avant que tu ne leur échappes.', effets: { blesse: true, temps: 10 } }] },
         { texte: 'Payer (10 shillings)', cond: { argent: 10 }, issues: [{ chance: 1, texte: 'Ils empochent l’argent en ricanant.', effets: { argent: -10 } }] },
-        { texte: 'Te réclamer de l’inspecteur Gribble', cond: { yard: 15 }, issues: [{ chance: 0.7, texte: '« Un ami des cognes… » Ils s’écartent en grommelant.', effets: {} }, { chance: 0.3, texte: '« Raison de plus ! » Les coups pleuvent.', effets: { blesse: true } }] },
-        { texte: 'Parler l’argot de la Chandelle', cond: { yard: -15 }, issues: [{ chance: 1, texte: '« Un gars du Doyen ? Passe ton chemin, l’ami. »', effets: {} }] },
+        { texte: 'Te réclamer de l’inspecteur Gribble', cond: { drapeau: 'vu_gribble' }, issues: [{ chance: 0.7, texte: '« Un ami des cognes… » Ils s’écartent en grommelant.', effets: {} }, { chance: 0.3, texte: '« Raison de plus ! » Les coups pleuvent.', effets: { blesse: true } }] },
       ],
     },
   ],
 
   // ---------------------------------------------------------------- accusation
-  suspects: ['arthur', 'hannah', 'crale', 'lusk'],
-  option: { indice: 'plans', cle: 'plans', nom: 'Les plans de la Sentinelle', cache: ['plans_doyen'], choix: [['rendre', 'Les rendre à la banque Crale (récompense)'], ['vendre', 'Les vendre en douce à un receleur'], ['garder', 'Les garder pour toi']] },
-  // options.plans : 'rendre' | 'vendre' | 'garder' (si l'on a les plans)
+  suspects: ['arthur', 'hannah', 'crale', 'lusk', 'margot'],
+  // le tableau façon Cluedo : il faut des réponses justes ET fondées sur un indice ou une déduction
+  questions: [
+    { id: 'qui', titre: 'Qui a tué Elias Fenwick ?', bonne: 'lusk', preuves: ['client_21h', 'lusk_atelier', 'faux_alibi'],
+      options: [['arthur', 'Arthur Fenwick, le neveu'], ['hannah', "Hannah Bright, l'apprentie"], ['crale', 'Oswin Crale, le banquier'], ['lusk', 'Victor Lusk, le serrurier'], ['margot', 'Margot, la Fauvette']] },
+    { id: 'arme', titre: 'Avec quoi ?', bonne: 'marteau_lusk', preuves: ['arme'],
+      options: [['marteau_fenwick', "Un marteau pris sur l'établi de Fenwick"], ['marteau_lusk', "Le marteau d'horloger de la trousse de Lusk"], ['poison', 'Du poison dans le thé'], ['canne', "Le pommeau d'une canne"]] },
+    { id: 'porte', titre: 'Comment la porte s’est-elle fermée de l’intérieur ?', bonne: 'ressort', preuves: ['porte_auto'],
+      options: [['victime', 'Fenwick a tiré le verrou lui-même, après le départ du visiteur'], ['cle', "Quelqu'un l'a refermée avec la clé de Hannah"], ['ressort', 'Un ressort caché a fait tomber le verrou après coup'], ['fenetre', "L'assassin est ressorti par une fenêtre"]] },
+    { id: 'mobile', titre: 'Pourquoi ?', bonne: 'sentinelle', preuves: ['crale_lettre', 'plans', 'aveu_margot'],
+      options: [['heritage', "L'héritage de l'oncle"], ['dettes', "Payer les dettes d'Arthur"], ['rivalite', 'La rivalité entre serruriers'], ['sentinelle', 'Voler les plans de la Sentinelle']] },
+  ],
+  // options.force : nombre de réponses du tableau justes ET appuyées par une preuve
   accusation(e, suspect, preuves, options = {}) {
     const has = (x) => preuves.includes(x);
-    if (suspect === 'lusk') {
-      if (e.drapeaux.lusk_parti) return { fin: e.drapeaux.nom_doyen ? 'marche' : 'relache', verdict: 'Victor Lusk a quitté Londres : on ne peut plus l’arrêter.' };
-      const force = ['lusk_atelier', 'client_21h', 'arme', 'outils_lusk', 'faux_alibi', 'temoin_hannah', 'page', 'limaille', 'alliage', 'porte_auto'].filter(has).length;
-      if (force < 3) return { fin: 'relache', verdict: `Trop peu de preuves (${force}/3) : Lusk est relâché, Arthur reste en cellule.`, effets: { yard: -10, journal: 'Tu as accusé Victor Lusk sans assez de preuves.' } };
-      const plans = e.indices.includes('plans') && !e.drapeaux.plans_doyen ? options.plans || 'rendre' : null;
-      if (plans === 'vendre') return { fin: 'double_jeu', verdict: 'Lusk est arrêté. Les plans de la Sentinelle, eux, finissent chez un receleur de Wapping.', effets: { argent: 1000, justice: -25, yard: -10, drapeau: { plans_vendus: true }, journal: 'Tu as vendu les plans de la Sentinelle à un receleur.' } };
-      if (plans === 'garder') return { fin: 'double_jeu', verdict: 'Lusk est arrêté. Personne ne sait que les plans dorment dans ta malle.', effets: { justice: -15, drapeau: { plans_gardes: true }, journal: 'Tu as gardé les plans de la Sentinelle pour toi.' } };
-      return { fin: 'justice', verdict: plans ? 'Lusk est arrêté et les plans sont rendus à la banque Crale.' : 'Lusk est arrêté. Mais les plans de la Sentinelle restent introuvables.', effets: { justice: 20, yard: 15, argent: plans ? 400 : 0, drapeau: plans ? { plans_rendus: true } : {}, journal: plans ? 'Tu as rendu les plans à la banque Crale (vingt livres de récompense).' : 'Les plans de la Sentinelle sont restés dans la nature.' } };
-    }
-    if (suspect === 'personne') return e.drapeaux.nom_doyen ? { fin: 'marche', verdict: 'Tu n’accuses personne. Mais tu connais désormais le nom du Doyen.' } : { fin: 'delai', verdict: 'Sans autre suspect, Gribble fait inculper Arthur.', effets: { journal: 'Tu as renoncé à accuser qui que ce soit.' } };
-    const nom = { arthur: 'Arthur Fenwick', hannah: 'Hannah Bright', crale: 'Oswin Crale' }[suspect] || suspect;
-    const savait = e.deductions.includes('arthur_innocent') && suspect === 'arthur';
-    return { fin: 'erreur', verdict: `${nom} est inculpé pour le meurtre d'Elias Fenwick.`, effets: { yard: 10, justice: savait ? -30 : -15, drapeau: { innocent: suspect }, journal: `Tu as fait inculper ${nom}${savait ? ', en le sachant innocent' : ''}.` } };
+    if (suspect === 'personne') return { fin: 'delai', verdict: 'Sans autre suspect, Gribble fait inculper Arthur Fenwick.', effets: { journal: 'Tu as renoncé à accuser qui que ce soit.' } };
+    if (suspect !== 'lusk') return { fin: 'erreur', verdict: `${NOMS[suspect] || suspect} est inculpé à tort pour le meurtre d'Elias Fenwick.`, effets: { drapeau: { innocent: suspect }, journal: `Tu as fait inculper ${NOMS[suspect] || suspect}.` } };
+    const force = options.force ?? ['lusk_atelier', 'client_21h', 'arme', 'outils_lusk', 'faux_alibi', 'temoin_hannah', 'page', 'limaille', 'alliage', 'porte_auto'].filter(has).length;
+    if (force < 3) return { fin: 'relache', verdict: options.tableau ? `Ton raisonnement ne tient pas (${force}/4 réponses justes et prouvées, il en faut 3) : Lusk est relâché.` : `Trop peu de preuves (${force}/3) : Lusk est relâché.`, effets: { journal: 'Tu as accusé Victor Lusk sans assez de preuves.' } };
+    const plans = e.indices.includes('plans');
+    return { fin: 'resolu', verdict: plans ? 'Victor Lusk est arrêté, et les plans de la Sentinelle sont rendus à la banque Crale.' : 'Victor Lusk est arrêté pour le meurtre d’Elias Fenwick.', effets: { journal: 'Tu as résolu l’affaire Fenwick.' } };
   },
 
   // ---------------------------------------------------------------- fins
   fins: {
-    justice: { titre: 'Justice rendue', bonne: true, texte: (e) => `Victor Lusk est conduit à Newgate sous les flashs de magnésium du Penny Gazette. Arthur Fenwick sort de cellule en pleurant. ${e.drapeaux.plans_rendus ? 'Oswin Crale serre ta main un peu trop longtemps et glisse vingt livres dans ta poche.' : 'Mais quelque part, les plans de la Sentinelle changent de mains.'} Ce soir-là, Vane lève son verre : « Pas mal, pour un débutant. »`, suite: (e) => (e.drapeaux.plans_rendus ? 'Au chapitre 2, le Doyen sait désormais qui a contrarié ses plans.' : 'Au chapitre 2, une chambre forte de la City est vidée sans un bruit…') },
-    double_jeu: { titre: 'Le double jeu', texte: (e) => `Lusk est arrêté, le Yard te félicite, et personne ne remarque ${e.drapeaux.plans_vendus ? 'les cinquante livres qui gonflent ta bourse' : 'la toile cirée cachée au fond de ta malle'}. Vane, lui, te regarde un peu trop longtemps.`, suite: 'Au chapitre 2, quelqu’un dans la pègre a remarqué ton nom. Et ce n’est peut-être pas une mauvaise chose.' },
-    erreur: { titre: 'L’erreur', texte: (e) => `Le juge est rapide, la foule satisfaite. ${e.accusation?.suspect === 'arthur' ? 'Arthur Fenwick' : e.accusation?.suspect === 'hannah' ? 'Hannah Bright' : 'Oswin Crale'} clame son innocence jusqu'au bout. Victor Lusk, lui, rentre tranquillement chez lui.`, suite: 'Au chapitre 2, le vrai tueur frappe de nouveau. Et cette fois, il sait que tu ne l’as pas vu venir.' },
-    delai: { titre: 'Trop tard', texte: "Trois jours ont passé. Gribble a obtenu ce que voulaient ses chefs : Arthur Fenwick est inculpé. Les journaux parlent d'une affaire rondement menée. Toi, tu sais que non.", suite: 'Au chapitre 2, le vrai tueur court toujours.' },
-    relache: { titre: 'Faute de preuves', texte: "Lusk ressort du Yard en ajustant son chapeau melon. Gribble te fusille du regard : « La prochaine fois, apportez-moi des preuves, pas des intuitions. » Arthur reste en cellule.", suite: 'Au chapitre 2, Lusk se sait surveillé. La Chandelle aussi.' },
-    marche: { titre: 'Le marché', texte: "Lusk a quitté Londres par le premier train. Tu n'as livré personne, mais tu connais un nom que peu de gens osent prononcer : Silas Crane, le Doyen.", suite: 'Au chapitre 2, tu pars à la recherche du Doyen… à moins que ce ne soit lui qui te trouve.' },
-    recrue: { titre: 'La recrue', texte: "Le Doyen glisse les plans sous son manteau et cinq livres dans ta main. « Bienvenue dans la famille. » Au matin, le Yard inculpe Arthur Fenwick, et Lusk disparaît. Personne ne saura jamais ce que tu as fait cette nuit-là.", suite: 'Au chapitre 2, la Chandelle a une première mission pour toi.' },
+    resolu: { titre: 'Affaire résolue', bonne: true, texte: (e) => `Victor Lusk est conduit à Newgate sous les flashs de magnésium du Penny Gazette. Arthur Fenwick sort de cellule en pleurant. ${e.indices.includes('plans') ? 'Oswin Crale récupère ses plans de la Sentinelle et te serre la main un peu trop longtemps.' : 'Les plans de la Sentinelle, eux, restent introuvables : la Chandelle les a sans doute déjà.'} Ce soir-là, Vane lève son verre : « Pas mal, pour un débutant. »`, suite: 'Chapitre 2 débloqué : La Chambre forte de la City.' },
+    relache: { titre: 'Faute de preuves', texte: "Lusk ressort du Yard en ajustant son chapeau melon. Gribble te fusille du regard : « La prochaine fois, apportez-moi des preuves, pas des intuitions. » Arthur reste en cellule.", suite: 'Tu avais le bon suspect, mais pas le raisonnement. Rejoue le chapitre pour le confondre.' },
+    erreur: { titre: 'L’erreur', texte: (e) => `Le juge est rapide, la foule satisfaite. ${NOMS[e.accusation?.suspect] || 'L’accusé'} clame son innocence jusqu'au bout. Victor Lusk, lui, rentre tranquillement chez lui.`, suite: 'Le vrai coupable court toujours. Rejoue le chapitre pour le démasquer.' },
+    delai: { titre: 'Trop tard', texte: "Trois jours ont passé. Gribble a obtenu ce que voulaient ses chefs : Arthur Fenwick est inculpé. Les journaux parlent d'une affaire rondement menée. Toi, tu sais que non.", suite: 'Le vrai coupable court toujours. Rejoue le chapitre pour le démasquer.' },
     mort: { titre: 'Mort à Londres', texte: (e) => `${e.mort || 'Ton enquête s’arrête là.'} Le brouillard recouvre tout.`, suite: 'Tu reprends au dernier matin.' },
   },
 };
+
+// les plans vus de dessus de chaque lieu
+for (const [id, plan] of Object.entries(PLANS1)) chapitre1.lieux[id].plan = plan;

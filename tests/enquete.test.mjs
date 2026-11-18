@@ -45,15 +45,15 @@ test('heure, argent, nuit et plages horaires', () => {
   assert.ok(M.dansPlage(M.JOUR + 60, [18, 26]) && !M.dansPlage(M.JOUR + 3 * 60, [18, 26]));
 });
 
-test('fin « Justice rendue » : la bonne enquête, les bonnes preuves', () => {
+test('fin « Affaire résolue » : la bonne enquête, les bonnes preuves', () => {
   const e = enquete();
   dire(e, 'lusk', 'Votre sœur', 'Vous direz tout ça');
   assert.ok(e.indices.includes('faux_alibi'));
   va(e, 'yard'); dire(e, 'gribble', 'Bien, inspecteur', 'légiste', 'Merci');
   const r = M.accuser(ch, e, 'lusk', ['lusk_atelier', 'client_21h', 'faux_alibi', 'outils_lusk']);
-  assert.equal(r.fin, 'justice'); assert.equal(e.fin, 'justice');
+  assert.equal(r.fin, 'resolu'); assert.equal(e.fin, 'resolu');
   const rap = M.rapport(ch, e);
-  assert.equal(rap.fin, 'Justice rendue'); assert.ok(rap.trouves.length >= 12 && rap.xp > 150 && rap.jauges.justice > 0);
+  assert.equal(rap.fin, 'Affaire résolue'); assert.ok(rap.reussi && rap.trouves.length >= 12 && rap.xp > 150);
   assert.match(rap.verite, /Victor Lusk/);
 });
 
@@ -62,16 +62,15 @@ test('fin « Faute de preuves » : accuser le bon suspect sans assez de preuves'
   assert.equal(M.accuser(ch, e, 'lusk', ['limaille']).fin, 'relache');
 });
 
-test('fin « L’erreur » : faire inculper Arthur, en le sachant innocent', () => {
+test('fin « L’erreur » : faire inculper Arthur, pourtant innocent', () => {
   const e = M.nouvelEtat(ch);
-  va(e, 'yard'); dire(e, 'gribble', 'Bien, inspecteur', 'Comment puis-je vous aider', 'Je signe', 'légiste', 'Merci');
-  assert.equal(e.jauges.yard, 15);
+  va(e, 'yard'); dire(e, 'gribble', 'Bien, inspecteur', 'légiste', 'Merci');
   dire(e, 'arthur', 'Qui peut le confirmer', 'Je vais vérifier', 'Je reviendrai');
   va(e, 'pub', 13); dire(e, 'pip', 'Arthur Fenwick');
   assert.ok(M.deduire(ch, e, 'legiste', 'temoin_pip').ok);
   M.accuser(ch, e, 'arthur', []);
-  assert.equal(e.fin, 'erreur'); assert.ok(e.jauges.justice <= -40);
-  assert.match(M.rapport(ch, e).suite, /vrai tueur/);
+  assert.equal(e.fin, 'erreur'); assert.ok(!M.rapport(ch, e).reussi);
+  assert.match(M.rapport(ch, e).suite, /vrai coupable/);
 });
 
 test('fin « Trop tard » : le délai de trois jours expire', () => {
@@ -79,42 +78,6 @@ test('fin « Trop tard » : le délai de trois jours expire', () => {
   e.temps = 2 * M.JOUR + 19 * 60 + 50;
   M.aller(ch, e, 'atelier', 'fiacre');
   assert.equal(e.fin, 'delai');
-});
-
-test('fin « La recrue » : passer du côté de la Chandelle et livrer les plans au Doyen', () => {
-  const e = enquete();
-  va(e, 'music', 21); dire(e, 'margot', 'Victor Lusk était', 'Où est ce paquet', 'En ami', 'Marché conclu');
-  assert.ok(e.lieux.includes('entrepot') && e.drapeaux.offre_acceptee && e.jauges.yard < 0);
-  // l'entrepôt n'ouvre que la nuit, à partir du jour 2
-  e.temps = M.JOUR + 23 * 60; va(e, 'entrepot');
-  assert.ok(M.lieuOuvert(ch, e, 'entrepot'));
-  assert.equal(M.fouiller(ch, e, 'caisses'), null, 'le gardien protège la caisse');
-  dire(e, 'gardien', 'Le Doyen m’envoie', '…');
-  fouille(e, 'caisses');
-  assert.ok(M.presents(ch, e).includes('doyen'));
-  dire(e, 'doyen', 'Lui remettre les plans');
-  assert.equal(e.fin, 'recrue');
-  assert.equal(M.titre(ch, e), 'Indic de la Chandelle');
-});
-
-test('fin « Le double jeu » : Gribble à l’entrepôt, puis vendre les plans', () => {
-  const e = enquete();
-  va(e, 'music', 21); dire(e, 'margot', 'Victor Lusk était', 'Où est ce paquet', 'arrêter pour recel', 'Je vous écoute', 'Merci, Margot');
-  e.temps = M.JOUR + 10 * 60; va(e, 'yard'); dire(e, 'gribble', 'Bien, inspecteur', 'plans volés', 'Marché conclu');
-  e.temps = M.JOUR + 23 * 60; va(e, 'entrepot'); fouille(e, 'caisses');
-  assert.ok(e.indices.includes('plans'));
-  e.temps = 2 * M.JOUR + 10 * 60; va(e, 'yard');
-  const avant = e.argent;
-  M.accuser(ch, e, 'lusk', ['lusk_atelier', 'client_21h', 'outils_lusk'], { plans: 'vendre' });
-  assert.equal(e.fin, 'double_jeu'); assert.equal(e.argent, avant + 1000);
-});
-
-test('fin « Le marché » : laisser filer Lusk contre le nom du Doyen', () => {
-  const e = enquete();
-  dire(e, 'lusk', 'Votre sœur', 'Je vous écoute', 'Le nom', '…');
-  assert.ok(e.drapeaux.lusk_parti && !M.presents(ch, e).includes('lusk'));
-  M.accuser(ch, e, 'personne', []);
-  assert.equal(e.fin, 'marche');
 });
 
 test('la nuit, une ruelle peut tuer ; on reprend au dernier matin', () => {
@@ -159,12 +122,40 @@ test('une mauvaise déduction coûte du temps, une bonne ne se fait qu’une foi
   assert.ok(M.deduire(ch, e, 'verrou', 'ressort').deja);
 });
 
-test('Crale achète le silence ; le titre suit les jauges', () => {
+test('plus de voie criminelle : ni pot-de-vin, ni Chandelle, ni jauges', () => {
   const e = M.nouvelEtat(ch);
   va(e, 'atelier'); fouille(e, 'coffre'); va(e, 'banque', 11);
-  dire(e, 'crale', 'ont disparu', 'J’accepte');
-  assert.equal(e.argent, 30 - 2 + 200); assert.ok(e.drapeaux.crale_paye);
-  e.jauges = { justice: 50, yard: 30 }; assert.equal(M.titre(ch, e), 'Bras droit de Vane');
-  e.jauges = { justice: 20, yard: -20 }; assert.equal(M.titre(ch, e), "Justicier de l'ombre");
-  e.jauges = { justice: -20, yard: 20 }; assert.equal(M.titre(ch, e), 'Flic véreux');
+  dire(e, 'crale', 'ont disparu', 'Je les retrouverai');
+  assert.equal(e.argent, 30 - 2); assert.deepEqual(e.jauges, { justice: 0, yard: 0 });
+  const tout = JSON.stringify(ch.dialogues, (k, v) => (typeof v === 'function' ? String(v) : v));
+  assert.ok(!/J’accepte les dix livres|En ami|Le Doyen m’envoie|Je signe/.test(tout));
+  assert.deepEqual(Object.keys(ch.fins).sort(), ['delai', 'erreur', 'mort', 'relache', 'resolu']);
+});
+
+test('plan vu de dessus : un leurre coûte du temps, un indice caché attend qu’on sache quoi chercher', () => {
+  const e = M.nouvelEtat(ch, 'Testeur');
+  dire(e, 'vane', 'Je m’en occupe');
+  va(e, 'atelier');
+  const t0 = e.temps;
+  const l = M.examiner(ch, e, 'vitrine1'); assert.ok(l.texte && !l.nouv.length && e.temps === t0 + 3);
+  const avant = M.examiner(ch, e, 'serrure'); assert.ok(avant.rien && !e.indices.includes('ressort'));
+  M.examiner(ch, e, 'porte'); assert.ok(e.indices.includes('verrou'));
+  M.examiner(ch, e, 'serrure'); assert.ok(e.indices.includes('ressort'));
+  assert.ok(M.examine(e, 'atelier', ch.lieux.atelier.plan.objets.find((o) => o.id === 'serrure')));
+});
+
+test('tableau façon Cluedo : des réponses justes et prouvées font tomber Lusk, deviner ne suffit pas', () => {
+  const devin = M.nouvelEtat(ch, 'Testeur');
+  const r0 = M.accuserTableau(ch, devin, { qui: 'lusk', arme: 'marteau_lusk', porte: 'ressort', mobile: 'sentinelle' });
+  assert.equal(r0.fin, 'relache'); assert.equal(devin.accusation.force, 0);
+  assert.ok(devin.accusation.tableau.every((d) => d.juste && !d.fondee));
+  const e = enquete();
+  va(e, 'yard'); dire(e, 'gribble', 'Bien, inspecteur', 'légiste', 'Merci');
+  assert.ok(M.deduire(ch, e, 'legiste', 'outils_lusk').ok);
+  const r = M.accuserTableau(ch, e, { qui: 'lusk', arme: 'marteau_lusk', porte: 'ressort', mobile: 'rivalite' });
+  assert.equal(r.fin, 'resolu'); assert.equal(e.accusation.force, 3);
+  const rap = M.rapport(ch, e);
+  assert.equal(rap.tableau.length, 4); assert.ok(!rap.tableau[3].juste);
+  const faux = enquete();
+  assert.equal(M.accuserTableau(ch, faux, { qui: 'arthur' }).fin, 'erreur');
 });

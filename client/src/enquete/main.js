@@ -11,6 +11,7 @@ import { chapitre1 } from '../../../shared/enquete/chapitre1.js';
 import { chapitre2 } from '../../../shared/enquete/chapitre2.js';
 import { progress } from '../progress.js';
 import { creerCompte } from '../compte.js';
+import { creerVuePlan } from './plan.js';
 
 const $ = (id) => document.getElementById(id);
 const CHAPITRES = { ch1: chapitre1, ch2: chapitre2 };
@@ -48,13 +49,20 @@ function portrait(pnj, grand = false) {
 }
 
 // ---------- sauvegarde (navigateur + compte) ----------
+// la sauvegarde : les chapitres résolus (ce qui débloque les suivants) et la partie en cours
+let resolus = [];
 function sauver() {
-  if (!e) return;
-  try { localStorage.setItem(CLE, JSON.stringify(e)); } catch { /* plein */ }
+  if (e?.fin && !e.mort && CHAPITRES[e.chapitre]?.fins[e.fin]?.bonne && !resolus.includes(e.chapitre)) resolus.push(e.chapitre);
+  try { localStorage.setItem(CLE, JSON.stringify({ v: 2, resolus, partie: e })); } catch { /* plein */ }
 }
 let tCompte = 0;
 function sauverCompte() { clearTimeout(tCompte); tCompte = setTimeout(() => compte.sauvegarder?.(), 3000); }
-const charger = () => { try { return JSON.parse(localStorage.getItem(CLE) || 'null'); } catch { return null; } };
+function charger() {
+  let s = null; try { s = JSON.parse(localStorage.getItem(CLE) || 'null'); } catch { /* abîmée */ }
+  if (!s) return { resolus: [], partie: null };
+  if (s.v !== 2) return { resolus: s.fin === 'justice' || s.fin === 'double_jeu' ? ['ch1'] : [], partie: null };   // ancienne sauvegarde
+  return { resolus: s.resolus || [], partie: s.partie || null };
+}
 
 // ---------- messages ----------
 function toast(txt, rouge = false) {
@@ -84,7 +92,7 @@ function majCarnetCompteur() { if (e) $('nbCarnet').textContent = `${e.indices.l
 
 // ---------- carte ----------
 function afficherCarte() {
-  vue = 'carte'; $('vueCarte').classList.remove('cache'); $('vueLieu').classList.add('cache'); $('popLieu').classList.add('cache');
+  vue = 'carte'; vuePlan.fermer(); $('vueCarte').classList.remove('cache'); $('vueLieu').classList.add('cache'); $('popLieu').classList.add('cache');
   const pins = $('pins'); pins.innerHTML = '';
   for (const id of e.lieux) {
     const l = ch.lieux[id], b = document.createElement('button');
@@ -145,12 +153,36 @@ function afficherLieu() {
   $('silhouette').textContent = SIL_LIEU[e.lieu] || '🏚️';
   if (!M.lieuOuvert(ch, e, e.lieu)) {
     $('introLieu').textContent = `Porte close (${horaires(l)}). Il faudra revenir.`;
-    $('texteFouille').textContent = ''; $('zones').innerHTML = ''; $('presents').innerHTML = '<span class="vide">Personne.</span>';
+    sansPlan(); $('texteFouille').textContent = ''; $('zones').innerHTML = ''; $('presents').innerHTML = '<span class="vide">Personne.</span>';
     majBarre(); requestAnimationFrame(ajusterScene); return;
   }
   $('introLieu').textContent = l.intro;
+  if (l.plan) {
+    $('decor').classList.add('modePlan'); $('vueLieu').classList.add('modePlan'); $('zones').innerHTML = '';
+    brancherImage($('vignette'), `decor_${l.decor}`);
+    if (vuePlan.lieu === e.lieu && vuePlan.actif) vuePlan.majPresents(M.presents(ch, e));
+    else { vuePlan.ouvrir(ch, e, e.lieu, M.presents(ch, e)); $('texteFouille').innerHTML = '<span class="aideTouches">Déplace-toi avec ZQSD, les flèches ou un clic. Approche-toi de quelque chose et appuie sur E pour l’examiner.</span>'; }
+    majBarre(); requestAnimationFrame(() => vuePlan.redimensionner()); return;
+  }
+  sansPlan();
   dessinerZones(); dessinerPresents(); majBarre(); requestAnimationFrame(ajusterScene);
 }
+function sansPlan() { $('decor').classList.remove('modePlan'); $('vueLieu').classList.remove('modePlan'); vuePlan.fermer(); }
+// ---------- le plan vu de dessus ----------
+const OVERLAYS = ['dialogue', 'carnet', 'accusation', 'rencontre', 'rapport', 'popLieu'];
+const vuePlan = creerVuePlan($('plan'), {
+  libre: () => vue === 'lieu' && OVERLAYS.every((id) => $(id).classList.contains('cache')),
+  dejaVu: (o) => M.examine(e, e.lieu, o),
+  message: (t) => toast(esc(t), true),
+  parler: (pnj) => ouvrirDialogue(pnj),
+  examiner: (id) => {
+    const r = M.examiner(ch, e, id); if (!r) return;
+    $('texteFouille').textContent = r.texte;
+    annoncer(r.nouv); sauver(); majBarre();
+    if (e.mort || e.fin) return finChapitre();
+    vuePlan.majPresents(M.presents(ch, e));
+  },
+});
 function dessinerZones() {
   const z = $('zones'); z.innerHTML = '';
   for (const zone of M.zonesVisibles(ch, e)) {
@@ -212,7 +244,9 @@ function afficherNoeud(n) {
 // ---------- carnet ----------
 let ongletCarnet = 'indices', choixDeduire = [];
 function ouvrirCarnet(onglet = ongletCarnet) {
+  if (onglet === 'tableau' && !ch.questions) onglet = 'indices';
   ongletCarnet = onglet; choixDeduire = [];
+  $('ongletTableau').classList.toggle('cache', !ch.questions);
   document.querySelectorAll('#ongletsCarnet button').forEach((b) => b.classList.toggle('on', b.dataset.o === onglet));
   $('carnet').classList.remove('cache');
   const c = $('contenuCarnet');
@@ -236,6 +270,15 @@ function ouvrirCarnet(onglet = ongletCarnet) {
       sauver(); majBarre(); ouvrirCarnet(r.ok ? 'deductions' : 'indices');
       if (e.fin) { $('carnet').classList.add('cache'); finChapitre(); }
     };
+  } else if (onglet === 'tableau') {
+    const barres = (e.drapeaux._barres ||= {});
+    c.innerHTML = `<p class="note">Le tableau du détective : clique sur une hypothèse pour la barrer quand tes indices l'écartent. Pour accuser, il faudra des réponses justes ET appuyées par un indice ou une déduction.</p>` +
+      (ch.questions || []).map((q) => `<div class="tabQ"><h4>${esc(q.titre)}</h4><div class="opts">${q.options.map(([v, t]) => `<button class="opt${(barres[q.id] || []).includes(v) ? ' barre' : ''}" data-q="${q.id}" data-v="${v}">${esc(t)}</button>`).join('')}</div></div>`).join('');
+    c.querySelectorAll('.opt').forEach((b) => b.onclick = () => {
+      const l = (barres[b.dataset.q] ||= []), i = l.indexOf(b.dataset.v);
+      if (i >= 0) l.splice(i, 1); else l.push(b.dataset.v);
+      b.classList.toggle('barre'); sauver();
+    });
   } else if (onglet === 'deductions') {
     c.innerHTML = e.deductions.length ? `<div class="fiches">${e.deductions.map((d) => `<div class="fiche"><b>💡 ${esc(ch.deductions[d].nom)}</b>${esc(ch.deductions[d].texte)}</div>`).join('')}</div>` : '<p class="note">Aucune déduction. Relie deux indices dans l’onglet Indices.</p>';
   } else if (onglet === 'personnes') {
@@ -275,6 +318,14 @@ let acSuspect = null;
 function ouvrirAccusation() {
   acSuspect = null;
   $('accusation').classList.remove('cache');
+  const tab = !!ch.questions;
+  $('accusation').classList.toggle('modeTableau', tab);
+  $('noteAccusation').textContent = tab ? 'Réponds aux quatre questions devant Gribble. Une réponse ne compte que si elle est juste ET appuyée par un indice ou une déduction de ton carnet. Il en faut au moins trois.' : 'Choisis le suspect, puis les preuves que tu présentes à Gribble. Une accusation sans preuve n’est qu’une opinion.';
+  if (tab) {
+    const barres = e.drapeaux._barres || {};
+    $('acTableau').innerHTML = ch.questions.map((q) => `<div class="tabQ"><h4>${esc(q.titre)}</h4><div class="opts">${[...q.options, ...(q.id === 'qui' ? [['personne', 'Personne : je renonce']] : [])].map(([v, t]) => `<label class="opt${(barres[q.id] || []).includes(v) ? ' barre' : ''}"><input type="radio" name="q_${q.id}" value="${v}"> ${esc(t)}</label>`).join('')}</div></div>`).join('');
+    $('acTableau').querySelectorAll('input[name="q_qui"]').forEach((i) => i.onchange = () => { $('btAccuser').disabled = false; });
+  } else $('acTableau').innerHTML = '';
   const s = $('acSuspects'); s.innerHTML = '';
   for (const id of [...ch.suspects, 'personne']) {
     const b = document.createElement('button'); b.className = 'perso';
@@ -293,6 +344,13 @@ function ouvrirAccusation() {
   $('btAccuser').disabled = true;
 }
 $('btAccuser').onclick = () => {
+  if (ch.questions) {
+    const rep = Object.fromEntries(ch.questions.map((q) => [q.id, document.querySelector(`input[name="q_${q.id}"]:checked`)?.value || null]));
+    if (!rep.qui) return;
+    const val = document.querySelector('input[name="optAcc"]:checked')?.value;
+    M.accuserTableau(ch, e, rep, ch.option && val ? { [ch.option.cle]: val } : {});
+    $('accusation').classList.add('cache'); sauver(); finChapitre(); return;
+  }
   if (!acSuspect) return;
   const preuves = [...$('acPreuves').querySelectorAll('input:checked')].map((x) => x.value);
   const val = document.querySelector('input[name="optAcc"]:checked')?.value;
@@ -307,17 +365,20 @@ function finChapitre() {
   $('rpChapitre').textContent = r.titreChapitre;
   $('rpFin').textContent = r.fin;
   $('rpVerdict').textContent = e.accusation?.verdict || '';
+  $('rpRaison').classList.toggle('cache', !r.tableau.length);
+  $('rpTableau').innerHTML = r.tableau.map((d) => `<li><b>${esc(d.question)}</b> ${esc(d.reponse)} — ${d.fondee ? '<span class="ok">✓ juste et prouvé</span>' : d.juste ? '<span class="moyen">juste, mais sans preuve</span>' : `<span class="ko">✗ faux</span>`}</li>`).join('');
   $('rpTexte').textContent = r.texteFin;
   $('rpVerite').textContent = e.mort ? 'Tu n’as pas vécu assez longtemps pour le savoir.' : r.verite;
   $('rpScore').textContent = r.score;
   $('rpTrouves').innerHTML = r.trouves.map((t) => `<li>${esc(t)}</li>`).join('') || '<li>Aucun</li>';
   $('rpRates').textContent = r.rates.length && !e.mort ? `Manqués : ${r.rates.join(', ')}.` : '';
   $('rpDecisions').innerHTML = r.decisions.map((t) => `<li>${esc(t)}</li>`).join('') || '<li>Aucune décision marquante.</li>';
-  $('rpTitre').textContent = r.titre;
-  $('jgJustice').style.left = `${50 + r.jauges.justice / 2}%`; $('jgYard').style.left = `${50 + r.jauges.yard / 2}%`;
+  $('rpBilan').className = `bilan ${r.reussi ? 'ok' : 'ko'}`;
+  $('rpBilan').textContent = e.mort ? '' : r.reussi ? '✔ Enquête réussie : tu as démasqué le vrai coupable.' : '✘ Enquête échouée : le vrai coupable court toujours.';
+  if (r.reussi && !resolus.includes(ch.id)) { resolus.push(ch.id); sauver(); if (CHAPITRES[ch.suivant]) toast(`🔓 ${esc(CHAPITRES[ch.suivant].titre)} débloqué !`); }
   $('rpSuite').textContent = r.suite;
   $('btReprendre').classList.toggle('cache', !e.mort);
-  $('btSuivant').classList.toggle('cache', !!e.mort || !CHAPITRES[ch.suivant]);
+  $('btSuivant').classList.toggle('cache', !r.reussi || !CHAPITRES[ch.suivant]);
   if (!e.mort && !e.xpDonne) {
     e.xpDonne = true;
     try { progress.gagnerXp(r.xp); progress.save(); } catch { /* rien */ }
@@ -327,12 +388,8 @@ function finChapitre() {
   $('rapport').classList.remove('cache');
 }
 $('btReprendre').onclick = () => { M.reprendreMatin(ch, e); $('rapport').classList.add('cache'); sauver(); toast('Tu te réveilles au 7 Baker Street, le souffle court.'); afficherCarte(); };
-$('btRejouer').onclick = () => { $('rapport').classList.add('cache'); nouvellePartie(ch.id, e.heritage); };
-$('btSuivant').onclick = () => {
-  const h = M.heritage(ch, e);
-  $('rapport').classList.add('cache');
-  nouvellePartie(ch.suivant, h);
-};
+$('btRejouer').onclick = () => { $('rapport').classList.add('cache'); nouvellePartie(ch.id); };
+$('btSuivant').onclick = () => { $('rapport').classList.add('cache'); nouvellePartie(ch.suivant); };
 
 // ---------- boutons de la barre ----------
 $('btCarte').onclick = () => { $('dialogue').classList.add('cache'); if (e.dialogue) M.quitterDialogue(e); afficherCarte(); };
@@ -358,31 +415,35 @@ function lancer() {
   afficherLieu();
   if (!e.drapeaux.briefing) setTimeout(() => ouvrirDialogue('vane'), 400);
 }
-function nouvellePartie(id = 'ch1', h = null) {
+function nouvellePartie(id = 'ch1') {
   const nom = e?.nom || $('nomJoueur').value.trim() || localStorage.getItem('pseudo') || 'Toi';
   ch = CHAPITRES[id] || chapitre1;
-  e = M.nouvelEtat(ch, nom, h); e.sauvegardeMatin = JSON.stringify({ ...e, sauvegardeMatin: null });
+  e = M.nouvelEtat(ch, nom); e.sauvegardeMatin = JSON.stringify({ ...e, sauvegardeMatin: null });
   sauver(); lancer();
 }
-// l'héritage pour le chapitre 2 : la dernière fin du chapitre 1 sauvegardée, sinon celle par défaut
-function heritageSauve() {
-  const s = charger(); if (!s) return null;
-  if (s.chapitre === 'ch1' && s.fin && !s.mort) return M.heritage(chapitre1, s);
-  return s.heritage || null;
+// l'écran titre : un bouton par chapitre, verrouillé tant que le précédent n'est pas résolu
+const ORDRE = ['ch1', 'ch2'];
+function dessinerChapitres() {
+  const box = $('listeChapitres'); box.innerHTML = '';
+  ORDRE.forEach((id, k) => {
+    const c = CHAPITRES[id], ouvert = k === 0 || resolus.includes(ORDRE[k - 1]);
+    const b = document.createElement('button'); b.className = 'chap'; b.disabled = !ouvert;
+    b.innerHTML = `<span><b>${esc(c.titre)}</b><small>${ouvert ? esc(c.resume.slice(0, 110)) + '…' : `🔒 Résous le chapitre ${k} pour débloquer cette enquête.`}</small></span><span class="etat">${resolus.includes(id) ? '✔' : ouvert ? '▶' : '🔒'}</span>`;
+    b.onclick = () => {
+      const s = charger();
+      if (s.partie && !s.partie.fin && !s.partie.mort && !confirm(`Commencer « ${c.titre} » ? L’enquête en cours sera perdue.`)) return;
+      e = null; nouvellePartie(id);
+    };
+    box.append(b);
+  });
 }
-const enCours = () => { const s = charger(); return s && !s.fin && !s.mort; };
-$('btNouvelle').onclick = () => {
-  if (enCours() && !confirm('Commencer le chapitre 1 ? L’enquête en cours sera perdue.')) return;
-  e = null; nouvellePartie('ch1');
-};
-$('btChap2').onclick = () => {
-  if (enCours() && !confirm('Commencer le chapitre 2 ? L’enquête en cours sera perdue.')) return;
-  const h = heritageSauve(); e = null; nouvellePartie('ch2', h);
-};
-$('btContinuer').onclick = () => { e = charger(); if (!e) return; ch = CHAPITRES[e.chapitre] || chapitre1; lancer(); };
+$('btContinuer').onclick = () => { e = charger().partie; if (!e) return; ch = CHAPITRES[e.chapitre] || chapitre1; lancer(); };
 $('nomJoueur').value = localStorage.getItem('pseudo') || '';
-const s0 = charger();
-if (s0) { $('btContinuer').classList.remove('cache'); $('btContinuer').textContent = `Continuer · ${s0.chapitre === 'ch2' ? 'Chapitre 2' : 'Chapitre 1'} · ${M.texteHeure(s0.temps)}`; }
-{ const h0 = heritageSauve(); if (h0?.finTitre) $('noteChap2').textContent = `Le chapitre 2 reprendra ta fin du chapitre 1 : « ${h0.finTitre} » (${h0.titre}).`; }
+{
+  const s0 = charger(); resolus = s0.resolus;
+  const p0 = s0.partie;
+  if (p0 && !p0.fin && !p0.mort) { $('btContinuer').classList.remove('cache'); $('btContinuer').textContent = `Continuer · ${CHAPITRES[p0.chapitre]?.titre.split(' — ')[0] || 'Chapitre 1'} · ${M.texteHeure(p0.temps)}`; }
+  dessinerChapitres();
+}
 window.__ombres = { get e() { return e; }, M, get ch() { return ch; } };   // pour les tests
 addEventListener('pagehide', sauver);

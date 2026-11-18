@@ -161,3 +161,37 @@ button.fiche { background: #f3e9d2; color: var(--texte); }
   .deuxCol { grid-template-columns: 1fr; }
   #barre { gap: 8px; font-size: 14px; }
 }
+
+/* ---------- plan vu de dessus ---------- */
+#plan { position: absolute; inset: 0; width: 100%; height: 100%; display: none; touch-action: none; cursor: pointer; }
+#decor.modePlan #plan { display: block; }
+#decor.modePlan #scene { display: none; }
+#vueLieu.modePlan #presents { display: none; }
+#infoLieu { display: flex; gap: 12px; align-items: flex-start; }
+#vignette { width: 96px; height: 64px; object-fit: cover; border: 1px solid #4a3a24; border-radius: 3px; flex: none; display: none; }
+#vueLieu.modePlan #vignette.ok { display: block; }
+#texteFouille { min-height: 1.2em; }
+.aideTouches { color: #8a7a5e; font-size: 12px; margin: 2px 0 0; }
+/* ---------- tableau façon Cluedo ---------- */
+.tabQ { margin: 10px 0 14px; }
+.tabQ h4 { margin: 0 0 6px; color: #3a2614; font-weight: 700; font-size: 16px; }
+.tabQ .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabQ .opt { background: rgba(255,250,235,.45); border: 1px solid #a08458; color: #2a1e12; padding: 5px 10px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 14px; }
+.tabQ .opt.barre { text-decoration: line-through; opacity: .45; }
+.tabQ label.opt { display: inline-flex; gap: 6px; align-items: center; }
+.tabQ label.opt:has(input:checked) { border-color: #6a3a14; background: rgba(201,163,90,.45); font-weight: 700; }
+#accusation.modeTableau #acSuspects, #accusation.modeTableau #acPreuves, #accusation.modeTableau #hPreuves { display: none; }
+#rpTableau { list-style: none; padding: 0; margin: 4px 0 10px; }
+#rpTableau li { margin: 3px 0; }
+#rpTableau .ok { color: #3f7a2e; } #rpTableau .ko { color: #a03a22; } #rpTableau .moyen { color: #8a6a10; }
+
+/* ---------- chapitres et bilan ---------- */
+#listeChapitres { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.chap { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 14px; border: 1px solid #6a5232; background: rgba(20,14,9,.75); color: #e8d7b4; border-radius: 4px; cursor: pointer; font: inherit; }
+.chap:hover:not(:disabled) { border-color: #c9a35a; background: rgba(40,28,16,.85); }
+.chap b { display: block; font-size: 17px; font-weight: 400; }
+.chap small { color: #a8956f; }
+.chap .etat { margin-left: auto; font-size: 20px; }
+.chap:disabled { opacity: .5; cursor: not-allowed; }
+.bilan { font-size: 18px; margin: 0 0 8px; }
+.bilan.ok { color: #3f7a2e; } .bilan.ko { color: #a03a22; }
