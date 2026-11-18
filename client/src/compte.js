@@ -4,7 +4,7 @@
 //  pour la retrouver sur un autre appareil ou après avoir vidé le navigateur.
 //  Le compte est créé tout seul dès que le serveur est joignable.
 // =====================================================================
-const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo', zm: 'zoneMorteCompte', zmRecord: 'zoneMorteRecord', enquete: 'ombresBS' };
+const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo', zm: 'zoneMorteCompte', zmRecord: 'zoneMorteRecord', enquete: 'ombresBS', clans: 'clansProfil' };
 const lireLocal = () => { try { return JSON.parse(localStorage.getItem('compte')) || {}; } catch { return {}; } };
 const etat = lireLocal();
 const garder = () => localStorage.setItem('compte', JSON.stringify(etat));
@@ -12,7 +12,7 @@ const garder = () => localStorage.setItem('compte', JSON.stringify(etat));
 function collecter() {
   const j = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
   return { progression: j(CLES.progression), classe: j(CLES.classe), grimoire: j(CLES.grimoire), survie: +(localStorage.getItem(CLES.survie) || 0), pseudo: localStorage.getItem(CLES.pseudo) || '',
-    zm: localStorage.getItem(CLES.zm) || '', zmRecord: j(CLES.zmRecord), enquete: localStorage.getItem(CLES.enquete) || '' };
+    zm: localStorage.getItem(CLES.zm) || '', zmRecord: j(CLES.zmRecord), enquete: localStorage.getItem(CLES.enquete) || '', clans: localStorage.getItem(CLES.clans) || '' };
 }
 
 export function creerCompte(http) {

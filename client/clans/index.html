@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Les Clans Élémentaires</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚜️</text></svg>">
+</head>
+<body>
+  <!-- Choix du clan -->
+  <section id="ecranClan" class="ecran cache">
+    <div class="titreJeu"><small>Feu · Eau · Plante</small><h1>Les Clans Élémentaires</h1><p>Choisis ton clan. Il décide de ton territoire, de ta parcelle et des sorts que tu tireras le plus souvent. <b>Ce choix est définitif.</b></p></div>
+    <label class="champNom">Ton nom <input id="nomJoueur" maxlength="16" placeholder="Ton nom"></label>
+    <p id="etapeClan" class="etape">1. Choisis ton clan</p>
+    <div id="choixClans"></div>
+    <p id="etapeClasse" class="etape cache">2. Choisis ta classe</p>
+    <div id="choixClasses" class="cache"></div>
+    <a class="retour" href="/">← Retour à l'accueil</a>
+  </section>
+
+  <!-- Le monde -->
+  <section id="ecranMonde" class="ecran cache">
+    <canvas id="monde"></canvas>
+    <header id="barre">
+      <a class="retour" href="/" title="Accueil">←</a>
+      <span id="moi"></span>
+      <span id="ressources"></span>
+      <span class="espace"></span>
+      <button id="btParcelle">🏠 Parcelle</button>
+      <button id="btDeck">🃏 Deck</button>
+    </header>
+    <div id="bandeau" class="cache"></div>
+    <aside id="enLigne"><h3>En ligne <span id="nbEnLigne"></span></h3><div id="listeClans"></div></aside>
+    <div id="chat"><div id="chatOnglets"><button data-c="tous" class="actif">Tous</button><button data-c="clan">Mon clan</button></div><div id="chatMsgs"></div><input id="chatTexte" maxlength="140" placeholder="Écrire… (Entrée)"></div>
+    <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir</div>
+  </section>
+
+  <!-- Fenêtres -->
+  <div id="fenetre" class="cache"><div id="fenetreBoite"><button id="btFermer" title="Fermer">✕</button><div id="fenetreCorps"></div></div></div>
+
+  <!-- Combat -->
+  <section id="combat" class="cache">
+    <div id="cbFond"></div>
+    <div id="cbHaut"><span id="cbTitre"></span><span id="cbInfo"></span></div>
+    <div id="cbEnnemis"></div>
+    <div id="cbJoueur">
+      <div id="cbPortrait"></div><div id="cbTalent"></div>
+      <div id="cbVie"><div class="barre"><i id="cbPv"></i><b id="cbPvTxt"></b></div><div id="cbStatuts"></div></div>
+      <div id="cbEnergie"><b id="cbEnergieTxt"></b><small>énergie</small></div>
+    </div>
+    <div id="cbMain"></div>
+    <div id="cbPiles"><span id="cbPioche" title="Pioche"></span><span id="cbDefausse" title="Défausse"></span><span id="cbEpuisees" title="Épuisées"></span></div>
+    <button id="btFinTour">Fin du tour</button>
+    <div id="cbAide"></div>
+  </section>
+
+  <div id="toasts"></div>
+  <script type="module" src="../src/clans/main.js"></script>
+</body>
+</html>

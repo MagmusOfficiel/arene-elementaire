@@ -326,3 +326,35 @@ Remplace les sections v33 et v34 sur l'héritage et les voies criminelles :
 - **1 chapitre = 1 enquête.** Aucun choix ne passe d'un chapitre à l'autre. Résoudre un chapitre le marque dans la sauvegarde (`ombresBS` = `{ v: 2, resolus: [...], partie }`) et débloque le suivant sur l'écran titre.
 - **Chapitre 2** réécrit en enquête indépendante, avec ses plans (`shared/enquete/plans2.js`, dont l'hôtel Crale de Mayfair) et son tableau Qui / Avec quoi / Comment la chambre forte a été ouverte / Pourquoi.
 - **Plans dessinés en code** (`client/src/enquete/plan.js`) : parquet, damier, dalles, planches, marbre, tapis persans ; murs en relief (papier peint, briques, boiseries) ; une quarantaine de meubles dessinés ; feu animé et fumée ; lumière des lampes, du feu et des fenêtres, obscurité selon l'heure, lanterne du détective la nuit ; poussière, brume, vignettage ; personnages animés avec leur tenue (haut-de-forme de Vane, melon de Gribble, plume de Margot…) qui se tournent vers toi ; caméra qui suit le détective ; nom de la pièce à l'entrée ; portrait au-dessus du personnage dont on s'approche.
+
+## Les Clans Élémentaires, phase 1 (v36)
+
+5e jeu du site, page `/clans/`. Un jeu en ligne où l'on rejoint un clan (Feu, Eau ou Plante), fait prospérer sa parcelle, tire des sorts et affronte des monstres en combat de cartes façon Slay the Spire.
+
+- **Moteur partagé** (`shared/clans/`), pur et testé :
+  - `cartes.js` : 42 cartes (neutres, feu, eau, plante ; commune à légendaire), effets décrits en données (dégâts, bouclier, soin, brûlure, trempé, affaibli, épines, régénération, force, pioche, énergie…), amélioration au niveau 2 puis 3.
+  - `combat.js` : combat au tour par tour (3 énergie, 5 cartes, intentions des monstres affichées à l'avance).
+  - `monstres.js` : 4 monstres, 1 élite et 1 boss par territoire ; 3 paliers de difficulté.
+  - `profil.js` : profil du joueur, tirages (taux 62/27/9/2 %, une épique garantie par ×10, une légendaire au plus tard en 60 tirages, doublons en éclats), deck (10 à 25 cartes, 4 exemplaires au plus), parcelle (Maison, Autel d'essence, Atelier élémentaire ; production hors ligne plafonnée).
+  - `expedition.js` : carte de 6 étages façon Slay the Spire (combat, élite, feu de camp, trésor) puis le boss ; PV conservés ; mourir coûte la moitié du butin ; battre le boss débloque le palier suivant.
+- **Monde partagé** : salle Colyseus `clans` (`server/src/ClansRoom.js`), publique, 80 joueurs ; positions 8 fois par seconde, liste des membres de chaque clan, chat général et chat de clan. Sans serveur, on joue seul.
+- **Client** (`client/src/clans/`) : la carte du monde dessinée en code (`monde.js` : les trois territoires, le Carrefour et l'Autel des tirages, les villages, les portails d'expédition, une mini-carte), et l'interface (`main.js`) : choix du clan, parcelle, deck, tirages, expéditions, combat.
+- Le profil est gardé dans le navigateur (`clansProfil`) et sur le compte du site (champ `clans`).
+- Tests : `tests/clans.test.mjs` (combat, tirages, deck, parcelle, expéditions, et un équilibrage joué par un bot).
+- **Phase 2** : les duels de cartes entre joueurs dans les territoires ennemis, et les monstres et ressources rares propres à chaque territoire.
+
+## Les Clans Élémentaires : les classes (v37)
+
+Au départ, on choisit son clan puis sa **classe** (12 combinaisons). Un profil créé avant les classes en choisit une à sa prochaine connexion (`P.choisirClasse`), et reçoit ses deux cartes de classe.
+
+| Classe | PV | Talent (géré par `combat.js`) |
+|---|---|---|
+| Combattant | +15 | **Endurci** : 6 de bouclier au début de chaque combat |
+| Mage | −10 | **Arcanes** : le premier sort élémentaire de chaque tour coûte 1 de moins (`coutDe`) |
+| Tireur | 0 | **Visée** : une attaque sur trois fait double dégâts (`viseeProchaine`) |
+| Escrimeur | 0 | **Enchaînement** : +2 dégâts par coup pour chaque attaque jouée après une autre dans le tour |
+
+- 40 cartes de classe (10 par classe, de commune à légendaire), soit 82 cartes en tout. Elles portent `classe` ; aux tirages, celles de sa classe sortent bien plus souvent que celles des autres.
+- Deck de départ : 3 Frappe, 3 Garde, 2 cartes de classe, 4 cartes d'élément (`deckDepart`).
+- Paliers rééquilibrés (PV ×1,3 / ×1,7 / ×2,2, dégâts ×1,2 / ×1,45 / ×1,75) : un bot gagne le palier I environ 2 fois sur 3, selon la combinaison.
+- La classe s'affiche dans la barre, dans la liste des joueurs en ligne et sur les cartes ; en combat, une bulle montre le talent et son état.

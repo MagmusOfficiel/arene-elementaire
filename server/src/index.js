@@ -10,6 +10,7 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { ArenaRoom } from './ArenaRoom.js';
 import { ConclaveRoom } from './ConclaveRoom.js';
 import { ZoneMorteRoom } from './ZoneMorteRoom.js';
+import { ClansRoom } from './ClansRoom.js';
 import { noterErreur, listeErreurs } from './journal.js';
 import { noterMesure, resumeMesures } from './mesures.js';
 import { statsConclave, partieZoneMorte, classementZoneMorte } from './stats.js';
@@ -66,7 +67,8 @@ app.get('/api/mesures', (req, res) => {
 const zmRecordValide = (r) => (r && typeof r === 'object' ? { jours: Math.min(365, Number(r.jours) || 0), tues: Math.floor(Number(r.tues) || 0) } : undefined);
 const contenuCompte = (b) => (b && typeof b === 'object' ? { progression: b.progression, classe: b.classe, grimoire: b.grimoire, survie: b.survie, pseudo: String(b.pseudo || '').slice(0, 16),
   zm: typeof b.zm === 'string' && b.zm.length <= 48000 ? b.zm : undefined, zmRecord: zmRecordValide(b.zmRecord),
-  enquete: typeof b.enquete === 'string' && b.enquete.length <= 30000 ? b.enquete : undefined } : {});   // enquete : la partie des Ombres de Baker Street
+  enquete: typeof b.enquete === 'string' && b.enquete.length <= 30000 ? b.enquete : undefined,
+  clans: typeof b.clans === 'string' && b.clans.length <= 30000 ? b.clans : undefined } : {});   // clans : le profil des Clans Élémentaires   // enquete : la partie des Ombres de Baker Street
 const anti = new Map();   // limite simple : 1 création toutes les 20 s par adresse
 app.post('/api/compte', async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress, t = anti.get(ip) || 0;
@@ -177,6 +179,7 @@ gameServer.define('survie', ArenaRoom, { mode: 'survie' });
 gameServer.define('duo', ArenaRoom, { mode: 'duo' });
 gameServer.define('conclave', ConclaveRoom);   // Le Conclave des éléments (page /conclave)
 gameServer.define('zonemorte', ZoneMorteRoom);   // Zone Morte en coop (page /zone-morte)
+gameServer.define('clans', ClansRoom);   // Les Clans Élémentaires : le monde partagé (page /clans)
 
 gameServer.listen(PORT).then(() => {
   console.log(`⚔️  Arène Élémentaire — serveur sur http://localhost:${PORT}`);

@@ -555,3 +555,6 @@ body.touch #choix .ch-b { display: none; } body.touch #choix .touche { display: 
 .hub-carte.enquete { background: linear-gradient(160deg, #3a2a1a, #120c08); border: 2px solid #c9a35a; box-shadow: 0 0 30px rgba(201, 163, 90, .2); font-family: Georgia, 'Times New Roman', serif; }
 .hub-carte.enquete i { color: #c9a35a; font-style: normal; }
 .hub-pied { color: #9a94a6; }
+
+.hub-carte.clans { background: linear-gradient(135deg, #5a1a0a 0%, #0a2a5a 50%, #0e3a14 100%); border: 2px solid #e8c060; box-shadow: 0 0 30px rgba(232, 192, 96, .25); }
+.hub-carte.clans i { color: #ffd870; font-style: normal; }
