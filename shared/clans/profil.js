@@ -168,3 +168,29 @@ export function construire(p, bat, maintenant = Date.now()) {
 export function profilValide(p) {
   return !!p && typeof p === 'object' && CLANS.includes(p.clan) && (!p.classe || !!CLASSES[p.classe]) && p.ress && p.collection && Array.isArray(p.deck) && p.parcelle;
 }
+
+// niveau de compte (affiché à côté du nom)
+export const niveau = (p) => 1 + Math.floor((p?.stats?.victoires || 0) / 6) + (p?.stats?.boss || 0) * 2;
+
+// ---------- migration : un ancien profil gardé dans le navigateur ----------
+// On l'accepte une seule fois, en le nettoyant (valeurs bornées, cartes connues).
+export function assainir(x) {
+  if (!profilValide(x)) return null;
+  const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v || 0)));
+  const p = nouveauProfil(x.clan, String(x.nom || 'Joueur').replace(/[<>]/g, '').slice(0, 16), +x.creeLe || Date.now(), CLASSES[x.classe] ? x.classe : 'combattant');
+  if (!x.classe) p.classe = '';
+  for (const k of Object.keys(p.ress)) p.ress[k] = num(x.ress?.[k], 100000);
+  p.collection = {};
+  for (const [id, c] of Object.entries(x.collection || {})) if (CARTES[id]) p.collection[id] = { n: Math.max(1, num(c?.n, 40)), niv: Math.max(1, Math.min(NIV_MAX, num(c?.niv, NIV_MAX))) };
+  const deck = [], compte = {};
+  for (const id of Array.isArray(x.deck) ? x.deck : []) { if (!p.collection[id] || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(COPIES_MAX, p.collection[id].n)) deck.push(id); }
+  if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: COPIES_MAX, niv: 1 }; }
+  for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(5, num(x.parcelle?.[k], 5)));
+  p.parcelle.recolte = Math.min(Date.now(), +x.parcelle?.recolte || Date.now());
+  for (const k of CLANS) p.paliers[k] = Math.max(1, Math.min(3, num(x.paliers?.[k], 3)));
+  for (const k of Object.keys(p.stats)) p.stats[k] = num(x.stats?.[k], 1e6);
+  p.tirages = { total: num(x.tirages?.total, 1e6), depuisLegendaire: Math.min(59, num(x.tirages?.depuisLegendaire, 59)) };
+  p.duels = { gagnes: num(x.duels?.gagnes, 1e6), perdus: num(x.duels?.perdus, 1e6) };
+  p.expedition = null;   // une expédition en cours n'est pas reprise
+  return p;
+}

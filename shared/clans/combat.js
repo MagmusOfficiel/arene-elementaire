@@ -153,3 +153,19 @@ export function decrireIntention(c, e) {
   if (it.b || it.t || it.w) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`].filter(Boolean).join(' ') });
   return t;
 }
+
+// ---------- rejouer un combat à partir de ses coups ----------
+// Le moteur est déterministe (même graine, mêmes coups → même combat) : le
+// serveur rejoue ce que le client a joué et n'accepte que ce résultat-là.
+// coups : [['j', indexCarte, uidCible], ['f'], …]
+export const COUPS_MAX = 3000;
+export function rejouer(def, coups) {
+  const c = nouveauCombat(def);
+  if (!Array.isArray(coups)) return c;
+  for (const k of coups.slice(0, COUPS_MAX)) {
+    if (c.fini || !Array.isArray(k)) break;
+    if (k[0] === 'j') jouerCarte(c, k[1] | 0, typeof k[2] === 'string' ? k[2].slice(0, 8) : undefined);
+    else if (k[0] === 'f') finTour(c);
+  }
+  return c;
+}

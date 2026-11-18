@@ -373,3 +373,42 @@ Au départ, on choisit son clan puis sa **classe** (12 combinaisons). Un profil 
 - Décor, maisons, autel, portails, bannières, filons et personnages sont des sprites dessinés pixel par pixel en code, triés par profondeur. Chaque classe a sa silhouette (épaulières, chapeau de mage, capuche, cape).
 - Affichage avec zoom entier, sans lissage. Mini-carte à un pixel par tuile, avec le champ de vision.
 - Fichiers : `shared/clans/geo.js` (grille, sols, collisions partagées avec le serveur) et `client/src/clans/monde.js` (rendu). Un test vérifie que maisons, portails et autel se rejoignent à pied.
+
+## Les Clans Élémentaires, phase 3 : boss mondiaux et rivalité des clans (v40)
+- **Boss mondial** : toutes les 15 minutes, un boss apparaît dans un territoire (à tour de rôle : Titan de magma, Léviathan abyssal, Ancien sylvain) et reste 8 minutes. Ses PV sont communs à tout le serveur (700 + 300 par joueur connecté, 5000 max). Chacun l'affronte par manches (un combat de cartes normal, 15 s de pause entre deux) et les dégâts de tout le monde s'additionnent. Le serveur rabote les dégâts impossibles.
+- **Récompenses** quand il tombe : essence selon ta part des dégâts, éclats, ressource rare du territoire ; bonus pour le meilleur.
+- **Rivalité des clans** : classement de la semaine (lundi → lundi) avec des points gagnés par les actions vérifiées par le serveur : duel gagné 10, filon 3, boss d'expédition 8 (un toutes les 3 min au plus), boss mondial 1 pt / 10 dégâts + 20 s'il tombe + 30 pour le meilleur. Le clan en tête devient champion 👑 la semaine suivante. Bouton 🏆 Clans, scores affichés dans la liste des joueurs en ligne. Sauvegardé avec les autres statistiques (Upstash si configuré).
+- Variables de test : `CLANS_BOSS_DELAI` (ms avant le premier boss) et `CLANS_BOSS_PV` (PV forcés).
+- Fichiers : `shared/clans/mondial.js`, `server/src/ClansRoom.js`, `server/src/stats.js`.
+
+## Les Clans Élémentaires : la parcelle visible (v41)
+- La maison de chaque joueur en ligne montre ses bâtiments sur la carte, pour tout le monde : lanternes (maison niv. 2), drapeau du clan (niv. 3), toit doré (niv. 4), étoile (niv. 5) ; obélisque d'essence qui grandit avec l'autel ; atelier du clan (forge, puits ou potager) à partir de l'atelier niv. 2.
+- Les niveaux passent par le serveur (un code à 3 chiffres dans la liste du monde). « Maison de X » s'affiche quand on passe devant.
+
+## Les Clans Élémentaires : le son (v42)
+- Réutilise le moteur audio du site (`client/src/sfx.js`, Web Audio) : musique `monde` dans le monde, `combat` en combat, `boss` pour les boss, élites, boss mondiaux et duels, avec fondu enchaîné.
+- Ambiances synthétisées par territoire : grondement et crépitements de braises (Feu), vagues et mouettes (Eau), vent et oiseaux (Plante), brise et carillons (Carrefour).
+- Bruitages : carte jouée (selon son élément et son type), coup, bouclier, soin, mélange en fin de tour, victoire / défaite, tirages selon la rareté (fanfare pour une légendaire), améliorations, récolte, filon, gong de duel, rugissement et cor du boss mondial.
+- Bouton 🔊 dans la barre ou touche **M** pour couper le son. Le son démarre au premier clic (règle des navigateurs).
+
+## Les Clans Élémentaires : profil gardé par le serveur (v43, anti-triche)
+- **Le serveur fait foi.** Le profil (ressources, collection, deck, parcelle, expédition) est gardé par le serveur, rattaché à un jeton secret. Le navigateur n'a plus qu'une copie en lecture : modifier le `localStorage` ne sert à rien.
+- Chaque action passe par le message `act` (`server/src/clansProfils.js`, table `ACTIONS`) : création, classe, tirages (graine tirée par le serveur), amélioration, forge, deck, récolte, construction, expédition (début, salle, combat, abandon). Les règles sont exactement celles de `shared/clans/*.js`. Le client attend la réponse `r` (`{ ok, raison, res, profil }`).
+- **Combats rejoués.** Le client note ses coups (`['j', i, cible]` / `['f']`). Le serveur rejoue le combat depuis la même graine (`rejouer()` dans `shared/clans/combat.js`) et garde *son* résultat. Même chose pour les manches contre le boss mondial : seuls les dégâts vraiment infligés comptent.
+- Filons, butin des duels et récompenses du boss mondial sont crédités directement par le serveur. Le nom, le clan, le niveau, le deck et les PV de duel sont lus dans le profil serveur, jamais envoyés par le client.
+- Copie signée (HMAC) gardée dans `clansProfil` et synchronisée avec le compte du site : elle porte le jeton (on retrouve son profil sur un autre appareil) et permet de restaurer un profil si la base du serveur est perdue, sans pouvoir le falsifier.
+- Migration : un profil d'avant la v43 est repris une fois, nettoyé par `assainir()` (valeurs plafonnées).
+- Un même profil ouvert dans deux onglets : l'ancien onglet est déconnecté (« Jouer ici » pour le reprendre). Anti-spam : 15 actions d'avance, 10 par seconde.
+- Plus de jeu hors ligne : l'écran de connexion attend le serveur et réessaie tout seul.
+- **Variables Render :**
+  - `CLANS_SECRET` (obligatoire) : une longue chaîne aléatoire qui signe les copies. Ne la change plus ensuite, sinon les copies existantes ne sont plus reconnues.
+  - Upstash (`UPSTASH_REDIS_REST_URL` / `_TOKEN`) fortement conseillé. Sans base, un redémarrage de Render vide le fichier, et les joueurs repartent de leur copie signée, ce qui permet de rejouer une partie déjà jouée.
+- Tests : `tests/clansserveur.test.mjs` (rejeu, actions, ids piégés, faux combats, signatures, migration).
+
+## Les Clans Élémentaires : quêtes, guide et mobile (v44)
+- **Quêtes** (`shared/clans/quetes.js`) : 3 quêtes du jour (tirées parmi 10) + un bonus quand les 3 sont réclamées, et 2 quêtes de la semaine (parmi 6). Changement à minuit UTC (1 h à Paris) ; mêmes quêtes toute la journée pour un même joueur.
+  - Le **serveur** les fait avancer en voyant les événements : combat d'expédition gagné (avec territoire et type de salle), tirage, amélioration, récolte, filon, duel gagné, dégâts au boss mondial. Le client ne fait qu'afficher.
+  - Réclamer : action `quete` (`j0`…`j2`, `s0`, `s1`, `bonus`), essence + éclats, et des points pour le clan (`POINTS.quete` = 4, `POINTS.queteSemaine` = 15).
+  - Bouton 📜 (touche **J**) avec une pastille quand une récompense attend ; un toast quand une quête est terminée.
+- **Guide des nouveaux joueurs** en 6 étapes (tirage → deck → expédition → premier combat → parcelle → quêtes), avec une flèche sur la carte (au-dessus du lieu, ou au bord de l'écran avec la distance) et le lieu qui clignote sur la mini-carte. Étapes vérifiées sur le profil ; « Passer » le masque ; un joueur qui a déjà joué ne le voit pas. État dans `localStorage` (`clansGuide`).
+- **Mobile** : sur écran tactile, joystick (vitesse selon la poussée), bouton ✋ pour agir (il s'allume près d'un lieu), bouton 💬 pour le chat. Toucher la carte pour y aller marche toujours. Mise en page adaptée aux téléphones en portrait et couchés (barre en icônes, mini-carte en haut, combat et duel compacts).

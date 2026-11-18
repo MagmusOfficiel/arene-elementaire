@@ -221,3 +221,24 @@ test('ressources rares : monstres rares, cartes exclusives, géographie', () => 
   for (const l of LIEUX) assert.ok(accessible(l.x, l.y + 50), l.id);
   assert.ok(Object.values(RARES).every((r) => r.id && r.ico));
 });
+
+import { BOSS_MONDIAUX, PALIER_MONDIAL, MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial, semaineDe } from '../shared/clans/mondial.js';
+test('boss mondial : PV communs, manches, anti-triche et récompenses', () => {
+  assert.equal(pvMondial(1), 1000); assert.equal(pvMondial(100), 5000);
+  assert.equal(pvManche('feu', 50), 50); assert.equal(pvManche('feu', 9999), BOSS_MONDIAUX.feu.pv);
+  // des dégâts impossibles sont rabotés : pas plus que le boss de la manche, ni qu'en jouant vraiment
+  assert.equal(degatsValides(1e6, 0, 600e3, 'eau'), BOSS_MONDIAUX.eau.pv);
+  assert.ok(degatsValides(200, 0, 2000, 'eau') <= 2 * MONDIAL.degParSeconde + 10);
+  assert.equal(degatsValides(-5, 0, 1e5, 'eau'), 0); assert.equal(degatsValides('x', 0, 1e5, 'eau'), 0);
+  const a = recompenseMondial('plante', 300, 1000, 1), b = recompenseMondial('plante', 100, 1000, 4);
+  assert.ok(a.essence > b.essence && a.rare.n > b.rare.n && a.rare.id === 'graine_or');
+  // chaque boss mondial se joue avec le moteur de combat normal
+  for (const k of Object.keys(BOSS_MONDIAUX)) {
+    const deck = P.deckCombat(P.nouveauProfil(k, 'T', 0, 'combattant'));
+    const c = C.nouveauCombat({ deck, joueur: { pv: 75, pvMax: 75 }, ennemis: [{ ...BOSS_MONDIAUX[k], pv: 120 }], palier: PALIER_MONDIAL, graine: 5, classe: 'combattant' });
+    for (let t = 0; t < 40 && !c.fini; t++) { for (let i = 0; i < 6; i++) { const j = c.main.findIndex((_, q) => C.jouable(c, q)); if (j < 0) break; C.jouerCarte(c, j, c.ennemis[0].uid); } if (!c.fini) C.finTour(c); }
+    assert.ok(c.fini, k); assert.ok(c.ennemis[0].pv < 120, k);
+  }
+  // la saison : du lundi au lundi suivant
+  const s = semaineDe(Date.UTC(2026, 10, 18, 12)); assert.equal(s.id, '2026-11-16'); assert.equal(s.fin, Date.UTC(2026, 10, 23));
+});

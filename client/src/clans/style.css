@@ -228,3 +228,124 @@ button { font: inherit; cursor: pointer; }
 @media (max-width: 760px) { #cbMain .carte.aIllus .ci.illus, #duMain .carte.aIllus .ci.illus { height: 58px; } }
 .corpsE.illus { background-size: cover; background-position: center 25%; } .ennemi.boss .corpsE.illus { width: 190px; height: 190px; }
 @media (max-width: 760px) { .ennemi.boss .corpsE.illus { width: 110px; height: 110px; } }
+/* ---------- phase 3 : boss mondial et rivalité des clans ---------- */
+#bandeauMondial { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 6px; background: rgba(30,6,6,.88); border: 2px solid #e8402a; color: #ffd0c0; z-index: 4; font-size: 14px; white-space: nowrap; box-shadow: 0 0 16px rgba(232,64,42,.4); }
+#bandeauMondial .pvM { display: inline-block; width: 110px; height: 8px; background: #3a0e0a; border: 1px solid #140606; vertical-align: middle; margin: 0 4px; }
+#bandeauMondial .pvM i { display: block; height: 100%; background: linear-gradient(#ff8a6a, #e8402a); }
+#listeClans .pts { font-style: normal; font-weight: 400; opacity: .85; font-size: 12px; margin-left: 4px; }
+.classClans { display: grid; gap: 8px; margin: 12px 0 18px; }
+.ligneClan { display: grid; grid-template-columns: 32px 190px 1fr 90px; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,.05); }
+.ligneClan .rangC { font-size: 22px; }
+.ligneClan .jauge { height: 12px; background: rgba(0,0,0,.4); border-radius: 6px; overflow: hidden; }
+.ligneClan .jauge i { display: block; height: 100%; }
+.ligneClan.feu .jauge i { background: #e0552a; } .ligneClan.eau .jauge i { background: #2a8ae0; } .ligneClan.plante .jauge i { background: #3aa84a; }
+.ligneClan em, .topJoueurs em { font-style: normal; text-align: right; color: var(--or); }
+.topJoueurs { margin: 6px 0 16px; padding-left: 24px; columns: 2; column-gap: 28px; }
+.topJoueurs li { display: flex; justify-content: space-between; padding: 3px 0; break-inside: avoid; }
+.topJoueurs li.moi span { font-weight: 700; color: #fff4c8; }
+.commentPts { margin: 6px 0 14px; padding-left: 20px; line-height: 1.7; }
+@media (max-width: 760px) { .ligneClan { grid-template-columns: 26px 1fr 70px; } .ligneClan .jauge { display: none; } .topJoueurs { columns: 1; } #bandeauMondial { font-size: 12px; top: 96px; } }
+
+/* ---------- connexion au serveur (le profil vient de lui) ---------- */
+#chargement { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #1d2340, #090b16); color: #e8dcc0; font-family: 'Pixelify Sans', system-ui, sans-serif; text-align: center; }
+#chargement.cache { display: none; }
+#chargement .orbeC { font-size: 64px; display: inline-block; animation: orbeC 1.6s ease-in-out infinite; }
+#chargement p { font-size: 20px; margin-top: 12px; }
+#chargement .bouton { margin-left: 10px; }
+@keyframes orbeC { 50% { transform: translateY(-10px) scale(1.08); filter: drop-shadow(0 0 14px #8a7cff); } }
+
+/* ---------- quêtes ---------- */
+#barre button { position: relative; }
+#pastilleQ { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #e8402a; color: #fff; font: bold 11px/18px system-ui, sans-serif; font-style: normal; text-align: center; box-shadow: 0 0 8px #e8402a; animation: pastille 1.4s ease-in-out infinite; }
+#pastilleQ.cache { display: none; }
+@keyframes pastille { 50% { transform: scale(1.15); } }
+.quetes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.quete { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); }
+.quete.prete { border-color: var(--or); background: rgba(232,192,96,.12); box-shadow: 0 0 14px rgba(232,192,96,.25); }
+.quete.faite { opacity: .55; }
+.quete.bonus { margin: 4px 0 14px; border-style: dashed; }
+.qIco { font-size: 28px; text-align: center; }
+.qCorps b { display: block; margin-bottom: 6px; }
+.qBarre { position: relative; height: 16px; border-radius: 8px; background: rgba(0,0,0,.45); overflow: hidden; }
+.qBarre i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #b88a2a, var(--or)); }
+.qBarre em { position: relative; display: block; text-align: center; font: bold 11px/16px system-ui, sans-serif; font-style: normal; text-shadow: 0 1px 2px #000; }
+.qRec { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.qRec small { color: #d8c8a0; white-space: nowrap; }
+.qOk { color: #8fd88a; font-weight: bold; }
+.qTemps { font-weight: normal; font-size: 12px; color: #a89e8a; margin-left: 8px; }
+
+/* ---------- guide des nouveaux joueurs ---------- */
+#guide { position: absolute; left: 10px; top: 64px; width: min(290px, calc(100vw - 20px)); z-index: 6; background: rgba(12,9,20,.9); border: 2px solid var(--or); border-radius: 12px; padding: 10px 12px 10px 14px; box-shadow: 0 0 22px rgba(232,192,96,.3); font-size: 14px; line-height: 1.4; }
+#guide.cache { display: none; }
+#guideEtape { color: var(--or); font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 13px; margin-bottom: 4px; }
+#guidePasser { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #8a8070; font-size: 12px; text-decoration: underline; }
+
+/* ---------- contrôles tactiles ---------- */
+#tactile.cache { display: none; }
+#joy { position: absolute; left: 22px; bottom: 26px; width: 128px; height: 128px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.08), rgba(255,255,255,.03)); border: 2px solid rgba(232,192,96,.45); z-index: 7; touch-action: none; }
+#joyBouton { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #f8e0a0, #b88a2a); box-shadow: 0 3px 10px rgba(0,0,0,.5); pointer-events: none; transition: transform .05s; }
+#btAgir { position: absolute; right: 24px; bottom: 34px; width: 84px; height: 84px; border-radius: 50%; font-size: 38px; background: rgba(40,30,20,.75); border: 3px solid rgba(232,192,96,.35); color: #fff; z-index: 7; opacity: .55; touch-action: manipulation; }
+#btAgir.pret { opacity: 1; border-color: var(--or); box-shadow: 0 0 20px rgba(232,192,96,.6); animation: pastille 1.2s ease-in-out infinite; }
+#btChatMobile { position: absolute; right: 124px; bottom: 44px; width: 52px; height: 52px; border-radius: 50%; font-size: 22px; background: rgba(8,6,12,.75); border: 2px solid rgba(255,255,255,.2); z-index: 7; }
+body.tactile #aideMonde { bottom: auto; top: 100px; right: auto; left: 50%; transform: translateX(-50%); white-space: nowrap; animation: disparaitre 1s 8s forwards; }
+@keyframes disparaitre { to { opacity: 0; visibility: hidden; } }
+body.tactile #chat { display: none; bottom: 150px; }
+body.tactile #chat.ouvert { display: block; }
+body.tactile #guide { top: auto; bottom: 170px; }
+
+/* ---------- petits écrans (téléphones) ---------- */
+@media (max-width: 760px) {
+  #barre { gap: 6px; padding: 6px 8px; }
+  #barre button { padding: 6px 9px; }
+  #barre button span { display: none; }
+  #moi small, #moi .badge + span { display: none; }
+  #ressources { gap: 4px; font-size: 12px; flex-wrap: wrap; order: 10; width: 100%; }
+  #ressources span { padding: 2px 6px; }
+  #guide { font-size: 13px; }
+  #fenetreBoite { padding: 16px 12px; max-height: 94vh; width: 98vw; }
+  .quete { grid-template-columns: 30px 1fr; }
+  .qRec { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+  .batiments, .reliques { grid-template-columns: 1fr 1fr !important; }
+  .parcelleScene span { font-size: 40px !important; }
+  .paliers { flex-direction: column; }
+  #chat { width: calc(100vw - 20px); }
+  #chatMsgs { max-height: 22vh; }
+}
+@media (max-height: 500px) and (pointer: coarse) {
+  #joy { width: 104px; height: 104px; bottom: 14px; }
+  #btAgir { width: 70px; height: 70px; bottom: 20px; font-size: 32px; }
+  #btChatMobile { bottom: 28px; right: 104px; }
+  body.tactile #guide { bottom: auto; top: 60px; width: 270px; font-size: 12px; }
+}
+/* téléphone en portrait : la main de cartes ne cache plus « Fin du tour » */
+@media (max-width: 760px) {
+  #btFinTour, #btDuelFin { bottom: 244px; right: 8px; padding: 9px 16px; font-size: 15px; }
+  #cbPiles { bottom: 296px; right: 8px; }
+  #cbTalent { width: 210px; font-size: 11px; }
+  body.tactile #aideMonde { top: 150px; }
+}
+/* téléphone couché (écran bas) : tout plus compact */
+@media (max-height: 500px) {
+  #barre { gap: 6px; padding: 5px 8px; }
+  #barre button { padding: 5px 9px; }
+  #barre button span, #moi small { display: none; }
+  #ressources { gap: 4px; font-size: 12px; }
+  #enLigne { display: none; }
+  body.tactile #aideMonde { top: auto; bottom: 8px; font-size: 11px; }
+  #cbTitre { font-size: 15px; } #cbInfo { display: none; }
+  #cbEnnemis { top: 30px; gap: 16px; }
+  .ennemi { width: 110px; font-size: 12px; }
+  .corpsE, .ennemi.boss .corpsE.illus { width: 66px; height: 66px; font-size: 38px; }
+  #cbMain .carte, #duMain .carte { width: 94px; height: 134px; margin: 0 -10px; }
+  #cbMain .carte .ci, #duMain .carte .ci, #cbMain .carte.aIllus .ci.illus, #duMain .carte.aIllus .ci.illus { height: 40px; font-size: 26px; }
+  #cbMain .carte .cd, #duMain .carte .cd { font-size: 8.5px; } #cbMain .carte .cn, #duMain .carte .cn { font-size: 11px; }
+  #cbMain .carte:hover { transform: translateY(-18px) scale(1.05) !important; }
+  #cbJoueur, #duMoi { bottom: 150px; left: 8px; gap: 8px; }
+  #cbVie, #duVie { width: 130px; }
+  #cbEnergie { width: 50px; height: 50px; } #cbEnergie b { font-size: 18px; }
+  #cbTalent { display: none; }
+  #cbPiles { top: 8px; bottom: auto; right: 8px; }
+  #btFinTour, #btDuelFin { bottom: 150px; right: 8px; padding: 8px 14px; font-size: 14px; }
+  #duJournal { display: none; }
+}
+@media (max-height: 500px) { #duAdv { top: 34px; } #duAdv .corpsE { width: 66px; height: 66px; font-size: 38px; } #duAdv .mainAdv { font-size: 16px; } }

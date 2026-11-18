@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { saisonDe, resetDoux, rangDe } from '../../shared/classe.js';
 import { FUSIONS } from '../../shared/data.js';
+import { semaineDe } from '../../shared/clans/mondial.js';
 
 const FILE = path.resolve(process.env.STATS_FILE || 'data/stats.json');
 const DB_URL = process.env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, '');
@@ -225,4 +226,46 @@ export async function ecrireCompte(code, contenu) {
 export async function creerCompte(contenu) {
   for (let i = 0; i < 6; i++) { const code = nouveauCode(); if (!(await lireCompte(code))) { await ecrireCompte(code, contenu); return code; } }
   throw new Error('création impossible');
+}
+
+// ---------- Les Clans Élémentaires : rivalité des clans (saison d'une semaine) ----------
+function saisonClans() {
+  const s = semaineDe();
+  let c = data.clansSaison;
+  if (!c || c.id !== s.id) {
+    const ancien = c && Object.values(c.clans || {}).some((v) => v > 0) ? c : null;
+    const champion = ancien ? Object.entries(ancien.clans).sort((a, b) => b[1] - a[1])[0][0] : (c?.champion || null);
+    if (ancien) { (data.clansPalmares ||= []).unshift({ semaine: ancien.id, champion, clans: ancien.clans }); data.clansPalmares.length = Math.min(data.clansPalmares.length, 12); }
+    c = data.clansSaison = { id: s.id, fin: s.fin, clans: { feu: 0, eau: 0, plante: 0 }, joueurs: {}, champion };
+    dirty = true;
+  }
+  return c;
+}
+export function pointsClan(clan, nom, pts) {
+  if (!['feu', 'eau', 'plante'].includes(clan) || !(pts > 0)) return;
+  const c = saisonClans();
+  c.clans[clan] += pts;
+  if (nom) { const j = (c.joueurs[`${clan}:${nom}`] ||= { nom, clan, pts: 0 }); j.pts += pts; }
+  const e = Object.entries(c.joueurs); if (e.length > 600) c.joueurs = Object.fromEntries(e.sort((a, b) => b[1].pts - a[1].pts).slice(0, 400));
+  dirty = true;
+}
+export function classementClans() {
+  const c = saisonClans();
+  return { semaine: c.id, fin: c.fin, clans: c.clans, champion: c.champion, joueurs: Object.values(c.joueurs).sort((a, b) => b.pts - a.pts).slice(0, 15), palmares: (data.clansPalmares || []).slice(0, 5) };
+}
+
+// ---------- Les Clans Élémentaires : profils des joueurs (gardés par le serveur) ----------
+// En base : une clé par joueur. Sinon : dans le fichier de stats (5000 profils au plus).
+export const jetonValide = (j) => /^[A-Za-z0-9_-]{20,40}$/.test(String(j || ''));
+export async function lireProfilClans(jeton) {
+  if (!jetonValide(jeton)) return null;
+  if (persistance === 'base') { const brut = await redis(['GET', `${DB_CLE}:clans:${jeton}`]); return brut ? JSON.parse(brut) : null; }
+  return data.clansProfils?.[jeton]?.p || null;
+}
+export async function ecrireProfilClans(jeton, p) {
+  if (!jetonValide(jeton) || !p) return;
+  if (persistance === 'base') { await redis(['SET', `${DB_CLE}:clans:${jeton}`, JSON.stringify(p)]); return; }
+  data.clansProfils ||= {}; data.clansProfils[jeton] = { p, maj: Date.now() }; dirty = true;
+  const k = Object.keys(data.clansProfils);
+  if (k.length > 5000) k.sort((a, b) => data.clansProfils[a].maj - data.clansProfils[b].maj).slice(0, k.length - 5000).forEach((x) => delete data.clansProfils[x]);
 }

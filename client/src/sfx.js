@@ -55,7 +55,23 @@ export function setAmbiance(nom) {
   } else if (nom === 'vent') {      // monde ouvert : vent léger
     bruit('bandpass', 500, 0.6, 0.08, 0.09, 0.05); bruit('highpass', 3000, 0.5, 0.015, 0.17, 0.01);
   }
-  ambNodes = { g, stop: () => srcs.forEach((n) => { try { n.stop(); } catch { /* déjà arrêté */ } }) };
+  // Clans Élémentaires : un fond par territoire, avec des petits bruits ponctuels
+  let minuterie = null;
+  const ponctuel = (f, min, max) => { const go = () => { if (ambNom !== nom) return; f(); minuterie = setTimeout(go, min + Math.random() * (max - min)); }; minuterie = setTimeout(go, min); };
+  if (nom === 'braise') {         // grondement du volcan + crépitements de braises
+    bruit('lowpass', 90, 1, 0.45, 0.05, 0.15); bruit('bandpass', 260, 2, 0.05, 0.23, 0.03);
+    ponctuel(() => noise(0.03 + Math.random() * 0.04, 0.12 + Math.random() * 0.15, g, 'highpass', 2500 + Math.random() * 3000), 60, 420);
+  } else if (nom === 'lagon') {   // vagues qui vont et viennent + mouettes au loin
+    bruit('lowpass', 700, 0.7, 0.16, 0.11, 0.14); bruit('highpass', 2500, 0.5, 0.02, 0.11, 0.018);
+    ponctuel(() => { const t = ctx.currentTime, f = 1300 + Math.random() * 400; osc('sine', f, f * 0.7, 0.18, 0.05, g, t, 0.03); osc('sine', f * 1.05, f * 0.72, 0.2, 0.04, g, t + 0.22, 0.03); }, 5000, 14000);
+  } else if (nom === 'sylve') {   // vent dans les arbres + oiseaux
+    bruit('bandpass', 700, 0.6, 0.07, 0.07, 0.04); bruit('highpass', 4000, 0.5, 0.012, 0.19, 0.008);
+    ponctuel(() => { const t = ctx.currentTime, f = 2400 + Math.random() * 1600; for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) osc('sine', f, f * (1.2 + Math.random() * 0.3), 0.07, 0.06, g, t + k * 0.1, 0.01); }, 1500, 6000);
+  } else if (nom === 'carrefour') { // vent doux et clapotis de l'autel
+    bruit('bandpass', 500, 0.6, 0.06, 0.09, 0.04);
+    ponctuel(() => { const f = 1200 + Math.random() * 800; osc('sine', f, f * 1.5, 0.12, 0.03, g); }, 2500, 7000);
+  }
+  ambNodes = { g, stop: () => { clearTimeout(minuterie); srcs.forEach((n) => { try { n.stop(); } catch { /* déjà arrêté */ } }); } };
 }
 // La foule réagit : 0..1 (acclamation)
 export function foule(intensite = 1, duree = 1.5) {
@@ -179,5 +195,12 @@ export const sfx = {
   relique() { if (!ctx) return; const o = out(0.6); [523, 784, 1047, 1568, 2093].forEach((f, i) => osc('sine', f, f * 1.01, 0.7, 0.25, o, ctx.currentTime + i * 0.06)); noise(0.8, 0.12, o, 'highpass', 7000, 10000, 1, ctx.currentTime, 0.05); },
   pop(vol = 1, pan = 0) { if (!ctx || !throttle('pop', 120)) return; const o = out(0.35 * vol, pan); osc('sine', 600, 1100, 0.08, 0.5, o); osc('sine', 1300, 1500, 0.06, 0.2, o, ctx.currentTime + 0.05); },
   niveau() { if (!ctx) return; const o = out(0.45); [523, 659, 784, 1047].forEach((f, i) => osc('triangle', f, f, 0.25, 0.3, o, ctx.currentTime + i * 0.06)); },
+  // --- Clans Élémentaires : cartes ---
+  carte(el = 'feu') { if (!ctx || !throttle('carte', 60)) return; const o = out(0.45); noise(0.12, 0.35, o, 'bandpass', 900, 2600, 1.5); (CAST[{ feu: 'feu', eau: 'eau', plante: 'nature' }[el]] || CAST.metal)(out(0.35)); },
+  bouclier() { if (!ctx || !throttle('bouclier', 80)) return; const o = out(0.45); [330, 660, 990].forEach((f, i) => osc('triangle', f, f * 1.02, 0.35, 0.2 / (i + 1), o)); noise(0.12, 0.25, o, 'bandpass', 2000, 1200, 2); },
+  pouvoir() { if (!ctx || !throttle('pouvoir', 80)) return; const o = out(0.45); [440, 554, 659, 880].forEach((f, i) => osc('sine', f, f * 1.01, 0.4, 0.22, o, ctx.currentTime + i * 0.05)); },
+  coup() { if (!ctx || !throttle('coup', 50)) return; const o = out(0.55); osc('sine', 170, 45, 0.16, 0.9, o); noise(0.1, 0.55, o, 'lowpass', 2600, 300); },
+  melange() { if (!ctx || !throttle('melange', 200)) return; const o = out(0.3); for (let i = 0; i < 6; i++) noise(0.03, 0.25, o, 'bandpass', 2500, 1800, 2, ctx.currentTime + i * 0.035); },
+  tirage(rarete) { if (!ctx) return; if (rarete === 'legendaire') { this.relique(); setTimeout(() => this.fanfare(), 350); } else if (rarete === 'epique') this.reveal(true); else if (rarete === 'rare') this.reveal(false); else this.pop(); },
   victory() { if (!ctx) return; const o = out(0.7); [523, 659, 784, 1047, 784, 1047].forEach((f, i) => osc('triangle', f, f, 0.35, 0.4, o, ctx.currentTime + i * 0.14)); },
 };
