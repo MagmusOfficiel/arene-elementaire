@@ -9,6 +9,8 @@
 import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
+import { dessinerMonture, selleDe, decalageFlot } from './montureArt.js';
+import { vitesse as vitesseMonture } from '../../../shared/clans/montures.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import { marchandDe, PORTEE as PORTEE_MARCHAND } from '../../../shared/clans/marchand.js';
 import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
@@ -325,7 +327,7 @@ export function creerMonde(canvas, rappels) {
   let fond = null, mini = null, joueur = { x: 0, y: 0, dir: 'bas', marche: false }, cam = { x: 0, y: 0 }, z = 3, temps = 0, dernier = 0, but = null, actif = false;
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
-  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '', monTitre = '';
+  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '', monTitre = '', maCle = '', maMonture = '';
   let marchand = marchandDe();   // recalculé chaque seconde (sa place se déduit de l'heure)
   setInterval(() => { const m = marchandDe(); if (m.slot !== marchand.slot) rappels.marchandBouge?.(m); marchand = m; }, 1000);
   const suiveurs = new Map();   // les familiers qui suivent chaque joueur : clé → { x, y, gauche, bouge }
@@ -346,9 +348,9 @@ export function creerMonde(canvas, rappels) {
 
   // à appeler (et attendre) avant demarrer : prépare le sol
   async function preparer(progres) { if (!fond) { mini = peindreMini(obs); fond = await chargerSol(obs, progres); } }
-  function demarrer(clan, nom, classe) {
-    monClan = clan; monNom = nom; maClasse = classe || 'combattant';
-    const m = maisonDe(clan, nom); joueur.x = m.x; joueur.y = m.y + 40; cam = { x: joueur.x, y: joueur.y }; actif = true; redim();
+  function demarrer(clan, nom, classe, cle) {
+    monClan = clan; monNom = nom; maClasse = classe || 'combattant'; maCle = cle || nom;
+    const m = maisonDe(clan, maCle); joueur.x = m.x; joueur.y = m.y + 40; cam = { x: joueur.x, y: joueur.y }; actif = true; redim();
   }
   function redim() { canvas.width = innerWidth * dpr(); canvas.height = innerHeight * dpr(); z = Math.max(2, Math.round(canvas.height / 400)); }
   addEventListener('resize', redim);
@@ -358,7 +360,7 @@ export function creerMonde(canvas, rappels) {
   function lieuProche() {
     let best = null, d0 = Infinity;
     for (const p of LIEUX) { const d = Math.hypot(joueur.x - p.x, joueur.y - p.y); if (d < p.r + 30 && d < d0) { d0 = d; best = p; } }
-    const m = maisonDe(monClan, monNom);
+    const m = maisonDe(monClan, maCle);
     if (Math.hypot(joueur.x - m.x, joueur.y - (m.y + 16)) < 50) best = { id: 'maison', nom: 'Ta maison', action: 'parcelle' };
     { const o = OUVRAGES[monClan]; if (Math.hypot(joueur.x - o.x, joueur.y - (o.y + 12)) < 52) best = { id: 'projet', nom: PROJETS[monClan].nom, action: 'projet', x: o.x, y: o.y }; }
     if (Math.hypot(joueur.x - marchand.x, joueur.y - marchand.y) < PORTEE_MARCHAND) best = { id: 'marchand', nom: 'le marchand ambulant', action: 'marchand', x: marchand.x, y: marchand.y };
@@ -384,7 +386,7 @@ export function creerMonde(canvas, rappels) {
     const x = ((e.clientX - r.left) * k - ox) / z, y = ((e.clientY - r.top) * k - oy) / z;
     // un clic sur un autre joueur : sa fiche (v60)
     for (const [id, a] of autres) if (Math.abs(x - a.x) < 10 && y > a.y - 30 && y < a.y + 4) { rappels.fiche?.(id); return; }
-    const m = maisonDe(monClan, monNom);
+    const m = maisonDe(monClan, maCle);
     const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, { x: marchand.x, y: marchand.y - 12, r: 26, id: 'marchand', nom: 'le marchand ambulant', action: 'marchand' }, ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
     but = { x, y, lieu: l || null };
   });
@@ -481,11 +483,11 @@ export function creerMonde(canvas, rappels) {
   function majMaParcelle(pc) { if (pc) maParcelle = pc.maison * 100 + pc.autel * 10 + pc.atelier; }
   function majAutres(liste, monId) {
     const vus = new Set();
-    for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle, app, fam, titre] of liste) {
+    for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle, app, fam, titre, maison, mont] of liste) {
       if (id === monId) continue; vus.add(id);
       const a = autres.get(id);
-      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre) });
-      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre) });
+      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre), maison: maison || nom, mont });
+      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre), maison: maison || nom, mont });
     }
     for (const id of [...autres.keys()]) if (!vus.has(id)) { autres.delete(id); suiveurs.delete(id); }
   }
@@ -499,7 +501,13 @@ export function creerMonde(canvas, rappels) {
     if (p.moi) { ctx.fillStyle = 'rgba(255,230,140,.85)'; for (let a = 0; a < 16; a++) { const an = (a / 16) * Math.PI * 2 + temps; ctx.fillRect(R(p.x + Math.cos(an) * 9), R(p.y + Math.sin(an) * 4), 1, 1); } }
     const ap = p.app ? lireCode(p.app) : null;
     if (ap?.aura === 'a_ombre') dessinerAura(ctx, p.x, p.y, ap.aura, t);
-    ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), f * 16, row * 26, 16, 26, R(p.x) - 8, R(p.y) - 24, 16, 26);
+    if (p.mont) {
+      // à cheval : le cavalier est assis (image de repos), la monture cache ses jambes
+      const gauche = p.dir === 'gauche' || (p.dir !== 'droite' && p.versGauche), pose = p.marche ? Math.floor(t * 8) % 2 : 0;
+      const dy = selleDe(p.mont) - decalageFlot(p.mont, t) + (p.marche && pose ? 1 : 0);
+      ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), 0, (LIGNE_DIR[gauche ? 'gauche' : 'droite'] ?? 0) * 26, 16, 26, R(p.x) - 8, R(p.y) - 24 - dy, 16, 26);
+      dessinerMonture(ctx, p.mont, p.x, p.y, gauche, pose, t);
+    } else ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), f * 16, row * 26, 16, 26, R(p.x) - 8, R(p.y) - 24, 16, 26);
     if (ap && ap.aura !== 'a_aucune' && ap.aura !== 'a_ombre') dessinerAura(ctx, p.x, p.y, ap.aura, t);
   }
   function dessinerLiquides(t0x, t0y, t1x, t1y) {
@@ -595,10 +603,11 @@ export function creerMonde(canvas, rappels) {
     }
     joueur.marche = !!(dx || dy);
     if (joueur.marche) {
-      const n = Math.hypot(dx, dy), v = 150 * dt * (touches.size || but ? 1 : Math.min(1, 0.45 + n * 0.6));
+      const n = Math.hypot(dx, dy), v = 150 * vitesseMonture(maMonture) * dt * (touches.size || but ? 1 : Math.min(1, 0.45 + n * 0.6));
       const nx = joueur.x + (dx / n) * v, ny = joueur.y + (dy / n) * v;
       const avX = !bloque(nx, joueur.y); if (avX) joueur.x = nx; const avY = !bloque(joueur.x, ny); if (avY) joueur.y = ny;
       if (but && !avX && !avY) but = null;
+      if (Math.abs(dx) > 0.2) joueur.versGauche = dx < 0;
       joueur.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'droite' : 'gauche') : dy > 0 ? 'bas' : 'haut';
     }
     rappels.position?.(joueur);
@@ -621,8 +630,8 @@ export function creerMonde(canvas, rappels) {
     for (const o of obs) if (o.tx >= t0x - 2 && o.tx <= t1x + 2 && o.ty >= t0y - 1 && o.ty <= t1y + 4) objets.push({ y: o.y + 6, f: () => { const [ax, ay] = ancreDecor[o.type]; ombre(o.x, o.y + 6, 14); ctx.drawImage(DECOR[o.type], o.x - ax, o.y + 7 - ay); } });
     // qui habite où : les joueurs en ligne (et toi) ; leurs bâtiments améliorés se voient
     const proprios = new Map();
-    for (const a of autres.values()) { const m = maisonDe(a.clan, a.nom); proprios.set(m, { nom: a.nom, pc: a.parcelle || 111, clan: a.clan }); }
-    proprios.set(maisonDe(monClan, monNom), { nom: monNom, pc: maParcelle, clan: monClan, moi: true });
+    for (const a of autres.values()) { const m = maisonDe(a.clan, a.maison || a.nom); proprios.set(m, { nom: a.nom, pc: a.parcelle || 111, clan: a.clan }); }
+    proprios.set(maisonDe(monClan, maCle), { nom: monNom, pc: maParcelle, clan: monClan, moi: true });
     for (const k in MAISONS) for (const m of MAISONS[k]) if (m.x > x0 - 70 && m.x < x1 + 70 && m.y > y0 - 20 && m.y < y1 + 70) {
       const pr = proprios.get(m);
       objets.push({ y: m.y + 8, f: () => { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(m.x - 26, m.y + 8, 52, 3); ctx.drawImage(MAISON_SPR[k], m.x - 28, m.y + 8 - 57); if (pr) embellir(m, k, pr.pc); } });
@@ -636,7 +645,7 @@ export function creerMonde(canvas, rappels) {
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
     const gens = [...autres.values()].map((a) => { a.x += (a.tx - a.x) * Math.min(1, dt * 10); a.y += (a.ty - a.y) * Math.min(1, dt * 10); return { ...a, dir: ['bas', 'haut', 'gauche', 'droite'][a.dir] || a.dir, marche: Math.hypot(a.tx - a.x, a.ty - a.y) > 1 }; });
-    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, titre: monTitre, moi: true, id: 'moi' });
+    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, titre: monTitre, mont: maMonture, moi: true, id: 'moi' });
     for (const p of gens) if (p.fam && p.statut !== 'expedition') {
       const f = suivre(p.id, p, dt), saut = f.bouge ? Math.floor(temps * 8) % 2 : Math.floor(temps * 1.5) % 2;
       objets.push({ y: f.y, f: () => dessinerFamilier(ctx, p.fam, f.x, f.y, f.gauche, saut) });
@@ -705,9 +714,9 @@ export function creerMonde(canvas, rappels) {
       const pr = projets.clans[k], fini = pr.pts >= pr.objectif, pc = Math.min(100, Math.floor((pr.pts / pr.objectif) * 100));
       etiquette(`${PROJETS[k].ico} ${PROJETS[k].nom} · ${fini ? 'terminé ✓' : `${pc} %`}`, ex(o.x), ey(o.y - 84), fini ? '#ffe070' : '#f0e6d0', COUL[k], fini);
     }
-    for (const a of autres.values()) { const m = maisonDe(a.clan, a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan], false, 0); }
+    for (const a of autres.values()) { const m = maisonDe(a.clan, a.maison || a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan], false, 0); }
     if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true, 4);
-    const ma = maisonDe(monClan, monNom); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true, 3);
+    const ma = maisonDe(monClan, maCle); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true, 3);
     for (const p of gens) {
       const txt = `${p.nom}${p.niv ? ` · ${p.niv}` : ''}${p.statut === 'expedition' ? ' ⚔' : p.statut === 'duel' ? ' ⚔⚔' : ''}`;
       etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi, p.moi ? 6 : 5, p.titre ? `« ${p.titre} »` : null);
@@ -777,5 +786,5 @@ export function creerMonde(canvas, rappels) {
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t) => { monTitre = t || ''; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t) => { monTitre = t || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

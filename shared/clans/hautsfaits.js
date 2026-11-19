@@ -5,7 +5,7 @@
 //  réclamer. Chaque palier atteint débloque un titre que le joueur peut
 //  afficher sous son nom (p.titre = 'victoires:2').
 // =====================================================================
-import { NIV_MAX } from './cartes.js';
+import { BRANCHES, NIV_MAX } from './cartes.js';
 import { possedes as familiers } from './familiers.js';
 
 const v = (p) => p.stats || {};
@@ -20,7 +20,7 @@ export const HAUTS_FAITS = {
   duels: { nom: 'Duelliste', ico: '🤺', txt: 'duels gagnés', n: [1, 25, 100], titres: ['Duelliste', 'Fine lame', 'Maître duelliste'], val: (p) => p.duels?.gagnes || 0 },
   arene: { nom: 'Gladiateur', ico: '🏟️', txt: 'meilleur classement d’arène (Elo)', n: [1100, 1400, 1700], titres: ['Gladiateur', 'Champion de l’arène', 'Maître de l’arène'], val: (p) => Math.max(v(p).areneMax || 0, p.arene?.meilleur || 0), seuils: ['Argent', 'Platine', 'Maître'] },
   tirages: { nom: 'Invocateur de cartes', ico: '🎴', txt: 'tirages à l’autel', n: [10, 100, 500], titres: ['Curieux', 'Collectionneur compulsif', 'Favori de l’autel'], val: (p) => p.tirages?.total || 0 },
-  collection: { nom: 'Collectionneur', ico: '📚', txt: 'cartes différentes possédées', n: [20, 50, 80], titres: ['Collectionneur', 'Archiviste', 'Gardien du grimoire'], val: (p) => Object.values(p.collection || {}).filter((c) => c.n > 0).length },
+  collection: { nom: 'Collectionneur', ico: '📚', txt: 'cartes différentes possédées', n: [20, 40, 55], titres: ['Collectionneur', 'Archiviste', 'Gardien du grimoire'], val: (p) => Object.values(p.collection || {}).filter((c) => c.n > 0).length },
   maitrise: { nom: 'Forgeron', ico: '🔨', txt: `cartes au niveau ${NIV_MAX}`, n: [1, 10, 30], titres: ['Apprenti forgeron', 'Forgeron', 'Maître forgeron'], val: (p) => Object.values(p.collection || {}).filter((c) => c.n > 0 && c.niv >= NIV_MAX).length },
   projet: { nom: 'Bâtisseur', ico: '🏗️', txt: 'points donnés aux projets du clan', n: [100, 1500, 8000], titres: ['Bâtisseur', 'Architecte du clan', 'Bienfaiteur légendaire'], val: (p) => v(p).projet || 0 },
   familiers: { nom: 'Ami des bêtes', ico: '🐾', txt: 'familiers', n: [1, 3, 6], titres: ['Ami des bêtes', 'Dresseur', 'Gardien de la ménagerie'], val: (p) => familiers(p).length },
@@ -33,8 +33,9 @@ export const etat = (p) => IDS.map((id) => ({ id, ...HAUTS_FAITS[id], v: HAUTS_F
 export const total = (p) => IDS.reduce((s, id) => s + palierDe(p, id), 0);   // sur 3 × 13
 export const MAX = IDS.length * 3;
 // les titres : 'id:palier'
-export const titreValide = (p, t) => { if (typeof t !== 'string') return false; const [id, n] = t.split(':'); return !!HAUTS_FAITS[id] && +n >= 1 && +n <= 3 && palierDe(p, id) >= +n; };
-export const nomTitre = (t) => { const [id, n] = String(t || '').split(':'); return HAUTS_FAITS[id]?.titres[+n - 1] || ''; };
+// le titre de sa branche (v69) : 'br:<branche>'
+export const titreValide = (p, t) => { if (typeof t !== 'string') return false; const [id, n] = t.split(':'); if (id === 'br') return !!BRANCHES[n] && p.branche === n; return !!HAUTS_FAITS[id] && +n >= 1 && +n <= 3 && palierDe(p, id) >= +n; };
+export const nomTitre = (t) => { const [id, n] = String(t || '').split(':'); if (id === 'br') return BRANCHES[n]?.titre || ''; return HAUTS_FAITS[id]?.titres[+n - 1] || ''; };
 export const titreDe = (p) => (titreValide(p, p.titre) ? p.titre : '');
 export function choisirTitre(p, t) {
   if (t === null || t === '') { p.titre = ''; return { ok: true }; }

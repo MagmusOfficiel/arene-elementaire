@@ -19,6 +19,7 @@ import { pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lirePr
 import crypto from 'node:crypto';
 import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
+import * as MT from '../../shared/clans/montures.js';
 import * as HF from '../../shared/clans/hautsfaits.js';
 import * as T from '../../shared/clans/territoires.js';
 import * as A from '../../shared/clans/arene.js';
@@ -56,7 +57,7 @@ export class ClansRoom extends Room {
     sur('fiche', (c, m) => {
       const k = this.joueurs.get(String(m.id || '')); if (!k?.p) return;
       const p = k.p, a = p.arene || {};
-      c.send('fiche', { id: String(m.id), nom: k.nom, clan: k.clan, classe: p.classe, niv: k.niv, app: k.app || '', fam: k.fam || '', titre: k.titre || '',
+      c.send('fiche', { id: String(m.id), nom: k.nom, clan: k.clan, classe: p.classe, branche: p.branche || '', niv: k.niv, app: k.app || '', fam: k.fam || '', titre: k.titre || '',
         arene: { elo: a.elo || 1000, meilleur: Math.max(a.meilleur || 0, p.stats.areneMax || 0), v: a.v || 0, d: a.d || 0 }, duels: { g: p.duels?.gagnes || 0, p: p.duels?.perdus || 0 },
         stats: { victoires: p.stats.victoires || 0, boss: p.stats.boss || 0, cauchemar: p.stats.cauchemar || 0, expeditions: p.stats.expeditions || 0 },
         hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0), statut: k.statut || 'libre' });
@@ -92,9 +93,11 @@ export class ClansRoom extends Room {
         if (j.seau < 1) return rep({ ok: false, raison: 'Doucement !' });
         j.seau--;
         const ctx = { points: (k) => this.points(j, POINTS[k]), sanctuaires: j.p ? T.tenus(this.props(), j.p.clan) : 0, projets: this.projetsAJour(), cle: empreinte(j.jeton), projetDon: (d) => this.apresDon(j, d), pos: { x: j.x, y: j.y } };
+        const ancienNom = j.nom;
         const r = f(j.p, m, ctx) || { ok: false };
         if (ctx.p) { j.p = ctx.p; this.arriver(c, j); }
         if (r.ok) { j.sale = true; this.identite(j); }
+        if (r.ok && m.type === 'renommer') this.broadcast('chat', { systeme: true, t: `${ancienNom} s’appelle désormais ${j.nom}.` });
         rep({ ok: !!r.ok, raison: r.raison, res: r.res });
       } catch (e) { noterErreur(`clans · act ${m.type}`, e); rep({ ok: false, raison: 'Erreur du serveur.' }); }
     });
@@ -136,7 +139,7 @@ export class ClansRoom extends Room {
       j.manche = null; j.statut = 'libre'; j.prochaineManche = Date.now() + MONDIAL.pause;
       const b = this.mondial; if (!b || b.id !== mc.id) return;
       // on rejoue la manche du joueur : seuls les dégâts vraiment infligés comptent
-      const pv = P.pvMax(j.p), c2 = rejouer({ deck: P.deckCombat(j.p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[mc.terr], pv: mc.pv }], palier: PALIER_MONDIAL, graine: mc.graine, classe: j.p.classe, familier: F.actif(j.p) }, m.coups);
+      const pv = P.pvMax(j.p), c2 = rejouer({ deck: P.deckCombat(j.p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[mc.terr], pv: mc.pv }], palier: PALIER_MONDIAL, graine: mc.graine, classe: j.p.classe, branche: j.p.branche || null, familier: F.actif(j.p) }, m.coups);
       const reel = c2.ennemis.reduce((t, e) => t + Math.max(0, e.pvMax - Math.max(0, e.pv)), 0);
       const deg = Math.min(mc.pv, degatsValides(reel, mc.debut, Date.now(), b.terr)); if (!deg) return;
       const cle = j.jeton, pa = b.participants.get(cle) || { nom: j.nom, clan: j.clan, jeton: j.jeton, deg: 0 };
@@ -283,7 +286,7 @@ export class ClansRoom extends Room {
   reflet(j) {
     const id = empreinte(j.jeton), elo = j.p.arene?.elo ?? A.ELO_DEPART;
     const l = Object.entries(areneJoueurs()).filter(([k, e]) => k !== id && deckValide(e.deck)).sort((x, y) => Math.abs(x[1].elo - elo) - Math.abs(y[1].elo - elo)).slice(0, 3);
-    if (l.length) { const e = l[Math.floor(Math.random() * l.length)][1]; return { nom: `Reflet de ${e.nom}`, clan: e.clan, classe: e.classe, pvMax: e.pvMax, deck: e.deck, elo: e.elo, app: e.app || '' }; }
+    if (l.length) { const e = l[Math.floor(Math.random() * l.length)][1]; return { nom: `Reflet de ${e.nom}`, clan: e.clan, classe: e.classe, branche: e.branche || null, pvMax: e.pvMax, deck: e.deck, elo: e.elo, app: e.app || '' }; }
     const clan = ['feu', 'eau', 'plante'][Math.floor(Math.random() * 3)], classe = CLASSES[Math.floor(Math.random() * 4)];
     return { nom: 'Gardien de l’Arène', clan, classe, pvMax: PV_DUEL(0, classe), deck: deckDepart(clan, classe).map((id2) => ({ id: id2, niv: elo >= 1250 ? 2 : 1 })), elo };
   }
@@ -321,7 +324,7 @@ export class ClansRoom extends Room {
 
   lancerDuel(ca, a, cb, b, arene = null) {
     this.file = this.file.filter((f) => f.sid !== ca.sessionId && f.sid !== cb.sessionId);
-    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, pvMax: a.pvMax, deck: a.deck, app: a.app }, { nom: b.nom, clan: b.clan, classe: b.classe, pvMax: b.pvMax, deck: b.deck, app: b.app }, (Math.random() * 1e9) >>> 0);
+    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, branche: a.branche, pvMax: a.pvMax, deck: a.deck, app: a.app }, { nom: b.nom, clan: b.clan, classe: b.classe, branche: b.branche, pvMax: b.pvMax, deck: b.deck, app: b.app }, (Math.random() * 1e9) >>> 0);
     const x = { d, decks: [a.deck, b.deck], ids: [ca.sessionId, cb.sessionId], clients: [ca, cb], noms: [a.nom, b.nom], essence: [a.essence || 0, b.essence || 0], tourVu: 0, limite: 0, arene, bot: arene?.bot ?? null };
     a.duel = b.duel = true; a.statut = b.statut = arene ? 'arene' : 'duel';
     this.duels.set(ca.sessionId, x); this.duels.set(cb.sessionId, x);
@@ -383,7 +386,7 @@ export class ClansRoom extends Room {
         ar = A.resultat(j.p, x.arene.elos[1 - q], issue, x.arene.reflet, jour);
         if (issue === 'victoire') { Q.evenement(j.p, 'arene'); this.points(j, x.arene.reflet ? POINTS.areneReflet : POINTS.arene); }
         j.sale = true; this.identite(j);
-        areneEnregistrer(empreinte(j.jeton), { nom: j.nom, clan: j.clan, classe: j.classe, elo: j.p.arene.elo, v: j.p.arene.v, d: j.p.arene.d, deck: j.deck, pvMax: j.pvMax, app: j.app });
+        areneEnregistrer(empreinte(j.jeton), { nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche || null, elo: j.p.arene.elo, v: j.p.arene.v, d: j.p.arene.d, deck: j.deck, pvMax: j.pvMax, app: j.app });
         this.pousserProfil(c, j);
       }
       c.send('duelResultat', { issue, butin: 0, adv: x.noms[1 - q], raison, vue: vueDuel(x.d, q), arene: ar });
@@ -419,8 +422,8 @@ export class ClansRoom extends Room {
   // nom, clan, deck, PV… tirés du profil (jamais du client)
   identite(j) {
     const p = j.p; if (!p) return;
-    j.nom = p.nom; j.clan = p.clan; j.classe = p.classe || ''; j.niv = P.niveau(p);
-    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p);
+    j.nom = p.nom; j.clan = p.clan; j.classe = p.classe || ''; j.branche = p.branche || null; j.niv = P.niveau(p);
+    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p); j.maison = p.maison || p.nom; j.mont = MT.actif(p) || '';
   }
   pousserProfil(client, j) { if (j.p) client.send('profil', { p: j.p, sig: signer(j.p), jeton: j.jeton }); }
 
@@ -497,7 +500,7 @@ export class ClansRoom extends Room {
   // 8 fois par seconde : les joueurs proches de lui (positions, en nombres) ;
   // 1 fois par seconde : tout le monde, pour la mini-carte et la liste des clans ;
   // nom, clan, niveau… : seulement quand ça change.
-  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '']; }
+  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '', j.maison === j.nom ? '' : j.maison || '', j.mont || '']; }
   envoyer() {
     if (!this.clients.length) return;
     this.tick = (this.tick || 0) + 1;

@@ -29,6 +29,8 @@ import './ui-familiers.js';
 import './ui-passe.js';
 import './ui-marchand.js';
 import './ui-fiche.js';
+import './ui-ascension.js';
+import './ui-montures.js';
 import './ui-aide.js';
 import { coups, etatMondial, lancerCombat } from './ui-combat.js';
 import { $, combat, p, room } from './ui-commun.js';

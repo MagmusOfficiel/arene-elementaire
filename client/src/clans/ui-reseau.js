@@ -3,6 +3,7 @@
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
 import * as F from '../../../shared/clans/familiers.js';
+import * as MT from '../../../shared/clans/montures.js';
 import { Client } from 'colyseus.js';
 import { ELEMENTS, CLANS, CLASSES, RARES } from '../../../shared/clans/cartes.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -16,6 +17,7 @@ import { dansMonde, ecranClan, entrerMonde, majBarre, monde } from './ui-monde.j
 import { majProjets } from './ui-projets.js';
 import { suivrePasse } from './ui-passe.js';
 import { fenetreFiche, suivreHautsFaits } from './ui-fiche.js';
+import { suivreAscension } from './ui-ascension.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import { afficherClassement, alerteSanctuaire, classArene, enFile, fenetreArene, majBandeauArene, sanctEtat, setClassArene, setEnFile, setSanctEtat, vueFenetre } from './ui-social.js';
 
@@ -28,15 +30,18 @@ export function lireStockage() {
   return {};
 }
 export let minuteur = null;
+let avisClasseVu = false;
 export function recevoirProfil(m) {
   if (!m) return;
+  // v68 : les cartes d'une autre classe ont été changées en éclats
+  if (m.p?.avisClasse?.n && !avisClasseVu) { avisClasseVu = true; const a = m.p.avisClasse; setTimeout(() => toast(`🎴 Chaque classe ne joue plus que ses propres cartes de classe : tes ${a.n} carte${a.n > 1 ? 's' : ''} d’autres classes ${a.n > 1 ? 'ont été changées' : 'a été changée'} en ${nf(a.eclats)} éclats.`), 1500); }
   const avant = p ? Q.etat(p) : null, gagneesAvant = p ? piecesGagnees() : null;
   if (m.p) { setP(P.completer(m.p)); try { localStorage.setItem(CLE, JSON.stringify({ p: m.p, sig: m.sig, jeton: m.jeton })); } catch { /* plein */ } }
   else try { localStorage.setItem(CLE, JSON.stringify({ jeton: m.jeton, sig: 'aucun', p: null })); } catch { /* plein */ }
   clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 2000);
-  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); if (dansMonde) monde.majMaParcelle(p.parcelle); }
+  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); monde.majNom(p.nom, p.maison || p.nom); monde.majMonture(MT.actif(p)); if (dansMonde) monde.majMaParcelle(p.parcelle); }
   if (p && avant) annoncerQuetes(avant);
-  if (p) { suivrePasse(); suivreHautsFaits(); }
+  if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); }
   if (p && gagneesAvant) for (const id of piecesGagnees()) if (!gagneesAvant.has(id)) { sfx.fanfare(); toast(`🎨 Nouvelle apparence débloquée : <b>${esc(AP.PIECES[id].nom)}</b> ! (bouton 👕)`); }
 }
 export const piecesGagnees = () => new Set(Object.keys(AP.PIECES).filter((id) => AP.PIECES[id].cond && AP.possede(p, id)));
@@ -146,7 +151,7 @@ export const infosJ = new Map(), posJ = new Map();
 export let presents = new Set();
 export function listeJoueurs() {
   const l = [];
-  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '']); }
+  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '', i[10] || '', i[11] || '']); }
   return l;
 }
 export function listeEnLigne(liste) {

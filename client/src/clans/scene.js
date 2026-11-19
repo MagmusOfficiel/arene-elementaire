@@ -135,7 +135,7 @@ export function ambiance(canvas, terr) {
       ctx.globalCompositeOperation = 'source-over';
       // la fumée du volcan
       if ((tf -= dt) < 0) { tf = 0.5 + Math.random() * 0.5; fumees.push({ x: 220 + (Math.random() - 0.5) * 6, y: 20, r: 3, v: 6 + Math.random() * 4, a: 0 }); }
-      for (const f of fumees) { f.a += dt; f.y -= f.v * dt; f.x += (3 + Math.sin(f.a)) * dt; f.r += 3.2 * dt; const [fx, fy] = D(f.x, f.y); ctx.fillStyle = `rgba(40,30,30,${Math.max(0, 0.32 - f.a * 0.045)})`; ctx.beginPath(); ctx.arc(fx, fy, f.r * k, 0, 6.283); ctx.fill(); }
+      for (const f of fumees) { f.a += dt; f.y -= f.v * dt; f.x += (3 + Math.sin(f.a)) * dt; f.r += 3.2 * dt; const [fx, fy] = D(f.x, f.y); ctx.fillStyle = `rgba(40,30,30,${Math.max(0, 0.32 - f.a * 0.045)})`; ctx.beginPath(); ctx.arc(fx, fy, Math.max(0, f.r * k), 0, 6.283); ctx.fill(); }
       while (fumees.length && fumees[0].a > 7) fumees.shift();
     } else if (terr === 'eau') {
       // des reflets qui glissent sur la mer, et le reflet de la lune qui tremble
@@ -164,7 +164,7 @@ export function ambiance(canvas, terr) {
     for (const p of parts) {
       p.a += dt;
       if (terr === 'feu') { p.y -= p.v * 60 * dt; p.x += Math.sin(p.a * 2) * 20 * dt; ctx.fillStyle = `rgba(255,${130 + Math.floor(p.v * 100)},40,${0.5 + Math.sin(p.a * 6) * 0.4})`; }
-      else if (terr === 'eau') { p.y -= p.v * 35 * dt; p.x += Math.sin(p.a * 1.5) * 10 * dt; ctx.strokeStyle = 'rgba(210,240,255,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, p.t * 1.6, 0, 6.28); ctx.stroke(); }
+      else if (terr === 'eau') { p.y -= p.v * 35 * dt; p.x += Math.sin(p.a * 1.5) * 10 * dt; ctx.strokeStyle = 'rgba(210,240,255,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, p.t * 1.6), 0, 6.28); ctx.stroke(); }
       else if (terr === 'plante') {
         if (p.feuille) { p.y += p.v * 30 * dt; p.x += Math.sin(p.a * 1.2) * 30 * dt; ctx.fillStyle = 'rgba(140,200,80,.75)'; }
         else { p.y -= p.v * 10 * dt; p.x += Math.sin(p.a) * 18 * dt; ctx.fillStyle = `rgba(230,255,140,${0.35 + Math.sin(p.a * 3) * 0.35})`; }
@@ -202,7 +202,7 @@ export function creerFx(canvas) {
         it.vx *= 1 - it.frein * dt; it.vy = it.vy * (1 - it.frein * dt) + it.g * dt; it.x += it.vx * dt; it.y += it.vy * dt;
         ctx.globalAlpha = 1 - k * k; ctx.fillStyle = it.c; const z = Math.max(1, it.taille * (1 - k * 0.6)); ctx.fillRect(Math.round(it.x - z / 2), Math.round(it.y - z / 2), Math.ceil(z), Math.ceil(z));
       } else if (it.type === 'anneau') {
-        ctx.globalAlpha = (1 - k) * 0.9; ctx.strokeStyle = it.c; ctx.lineWidth = it.ep * (1 - k) + 1; ctx.beginPath(); ctx.arc(it.x, it.y, it.r0 + (it.r1 - it.r0) * (1 - (1 - k) ** 3), 0, 6.283); ctx.stroke();
+        ctx.globalAlpha = (1 - k) * 0.9; ctx.strokeStyle = it.c; ctx.lineWidth = it.ep * (1 - k) + 1; ctx.beginPath(); ctx.arc(it.x, it.y, Math.max(0, it.r0 + (it.r1 - it.r0) * (1 - (1 - Math.min(1, k)) ** 3)), 0, 6.283); ctx.stroke();
       } else if (it.type === 'entaille') {
         ctx.globalAlpha = 1 - k; ctx.lineCap = 'round';
         for (let i = 0; i < it.n; i++) {
@@ -217,9 +217,9 @@ export function creerFx(canvas) {
         const e = 1 - (1 - k) ** 2, x = it.x0 + (it.x1 - it.x0) * e, y = it.y0 + (it.y1 - it.y0) * e - Math.sin(e * Math.PI) * it.arc;
         it.trace.push([x, y]); if (it.trace.length > 9) it.trace.shift();
         ctx.globalCompositeOperation = 'lighter';
-        it.trace.forEach(([tx, ty], i) => { const f = (i + 1) / it.trace.length; ctx.globalAlpha = f * 0.55; ctx.fillStyle = it.c2; ctx.beginPath(); ctx.arc(tx, ty, it.r * f * 0.9, 0, 6.283); ctx.fill(); });
+        it.trace.forEach(([tx, ty], i) => { const f = (i + 1) / it.trace.length; ctx.globalAlpha = f * 0.55; ctx.fillStyle = it.c2; ctx.beginPath(); ctx.arc(tx, ty, Math.max(0, it.r * f * 0.9), 0, 6.283); ctx.fill(); });
         const gr = ctx.createRadialGradient(x, y, 0, x, y, it.r * 2.2); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.3, it.c1); gr.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.globalAlpha = 1; ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, it.r * 2.2, 0, 6.283); ctx.fill();
+        ctx.globalAlpha = 1; ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, Math.max(0, it.r * 2.2), 0, 6.283); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
       } else if (it.type === 'eclair') {
         ctx.globalAlpha = (1 - k) * 0.85; const g = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, it.r); g.addColorStop(0, it.c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(it.x - it.r, it.y - it.r, it.r * 2, it.r * 2);

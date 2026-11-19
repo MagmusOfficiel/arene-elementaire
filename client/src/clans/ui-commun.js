@@ -3,7 +3,7 @@
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
 import { icone, NOMS_RESS } from './ui-icones.js';
-import { CARTES, ELEMENTS, CLASSES, RARETES, STATUTS, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
+import { BRANCHES, CARTES, ELEMENTS, CLASSES, RARETES, STATUTS, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
 import * as P from '../../../shared/clans/profil.js';
 import { creerCompte } from '../compte.js';
 
@@ -28,7 +28,7 @@ export function toast(t) {
   d.onclick = () => d.remove();
   box.append(d); setTimeout(() => d.remove(), duree);
 }
-export const ILLUS = new Set(['lance_magma', 'dragon', 'coeur_volcan', 'leviathan', 'ocean', 'arbre_monde', 'coeur_phenix', 'perle_abysses', 'trident', 'seve_doree', 'titan', 'archimage', 'fleche_lourde', 'maitre_armes', 'colere', 'couronne',
+export const ILLUS = new Set([...'gd_egide gd_represailles gd_bastion gd_serment gd_mur gd_jugement bs_entaille bs_soif bs_frenesie bs_hurlement bs_carnage am_prisme am_flux am_tempete am_canalisation am_singularite am_grimoire iv_lien iv_morsure iv_meute iv_totem iv_pacte iv_colosse sn_marque sn_precis sn_perforant sn_patience sn_balle sn_pluie af_grenade af_mine af_tourelle af_fumigene af_barrage af_dynamite du_feinte du_riposte du_ballet bs_fureur du_mille du_grace om_poison om_voile om_assassinat om_brume om_execution om_nuee du_elan'.split(' '), 'lance_magma', 'dragon', 'coeur_volcan', 'leviathan', 'ocean', 'arbre_monde', 'coeur_phenix', 'perle_abysses', 'trident', 'seve_doree', 'titan', 'archimage', 'fleche_lourde', 'maitre_armes', 'colere', 'couronne',
   'frappe', 'garde', 'coup_double', 'second_souffle', 'etincelle', 'flamme', 'tison', 'cendres', 'boule_de_feu',
   'incendie', 'combustion', 'phenix', 'meteore', 'jet', 'vague', 'bulle', 'maree', 'tsunami',
   'carapace', 'ressac', 'source', 'geyser', 'brume', 'ronce', 'seve', 'liane', 'graine', 'chene',
@@ -54,8 +54,8 @@ export function carteHTML(id, niv = 1, extra = '') {
   const c = CARTES[id];
   return `<div class="carte ${c.element} r-${c.rarete}${ILLUS.has(id) ? ' aIllus' : ''}${niv > 1 ? ` niv${niv}` : ''}" data-id="${id}" title="${esc(c.nom)} — ${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)} · niveau ${niv}/${NIV_MAX}">
     <span class="cc">${c.cout}</span><div class="cn">${esc(c.nom)}</div>
-    ${ILLUS.has(id) ? `<div class="ci illus" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${id}.webp)"></div>` : `<div class="ci">${c.ico}</div>`}<div class="ct">${{ attaque: 'Attaque', defense: 'Défense', pouvoir: 'Pouvoir' }[c.type] || c.type} · ${RARETES[c.rarete].nom}</div>
-    <div class="cd">${texteCarte(decrire(id, niv))}</div>${niv > 1 ? `<span class="cniv" title="Niveau ${niv} sur ${NIV_MAX}">${etoiles(niv)}</span>` : ''}${c.classe ? `<span class="cclasse" title="Carte de ${esc(CLASSES[c.classe].nom)}">${CLASSES[c.classe].ico}</span>` : ''}${extra}</div>`;
+    ${ILLUS.has(id) ? `<div class="ci illus" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${id}.webp)"></div>` : `<div class="ci">${c.ico}</div>`}<div class="ct"><span class="gemme" title="${RARETES[c.rarete].nom}"></span>${{ attaque: 'Attaque', defense: 'Défense', pouvoir: 'Pouvoir' }[c.type] || c.type} · <b class="rarNom">${RARETES[c.rarete].nom}</b></div>
+    <div class="cd">${texteCarte(decrire(id, niv))}</div>${niv > 1 ? `<span class="cniv" title="Niveau ${niv} sur ${NIV_MAX}">${etoiles(niv)}</span>` : ''}${c.branche ? `<span class="cclasse cbranche" title="Sort de la branche ${esc(BRANCHES[c.branche].nom)} (${esc(CLASSES[c.classe].nom)})">${BRANCHES[c.branche].ico}</span>` : c.classe ? `<span class="cclasse" title="Carte de ${esc(CLASSES[c.classe].nom)}">${CLASSES[c.classe].ico}</span>` : ''}${extra}</div>`;
 }
 export const coutHTML = (cout) => Object.entries(cout).map(([k, v]) => `<span class="${(p.ress[k] || 0) < v ? 'manque' : ''}">${nf(v)} ${ICO_RESS[k]}</span>`).join(' · ');
 // v66 : de vraies icônes (SVG) à la place des émojis, qui prêtaient à confusion (🔥 braises / feu, ✨ essence / pouvoir…)

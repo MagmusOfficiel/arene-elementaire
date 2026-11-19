@@ -5,7 +5,7 @@
 //  puis finit son tour. Les monstres agissent selon leur intention,
 //  affichée à l'avance. Le combat se gagne quand tous sont à 0 PV.
 // =====================================================================
-import { CARTES, effetsDe } from './cartes.js';
+import { BRANCHES, CARTES, effetsDe } from './cartes.js';
 import { FAMILIERS } from './familiers.js';
 import * as RQ from './reliques.js';
 
@@ -14,15 +14,15 @@ export function alea(graine) {
   return () => { a += 0x6D2B79F5; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
-const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0 });
+const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0 });
 
 // deck : [{ id, niv }] ; joueur : { pv, pvMax } ; ennemis : modèles de monstres.js ; palier : { pv, deg }
 // classe : son talent s'applique pendant le combat (Endurci, Arcanes, Visée, Enchaînement)
-export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, mods = null, familier = null, reliques = null }) {
+export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, branche = null, mods = null, familier = null, reliques = null }) {
   const r = alea(graine);
   let n = 0;
   const c = {
-    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, tirs: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, reliques: Array.isArray(reliques) ? reliques.filter(RQ.valide) : [], mods: mods && mods.length ? mods.slice() : null,
+    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, branche: BRANCHES[branche]?.classe === classe ? branche : null, tirs: 0, arcN: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, reliques: Array.isArray(reliques) ? reliques.filter(RQ.valide) : [], mods: mods && mods.length ? mods.slice() : null,
     joueur: { pv: joueur.pv, pvMax: joueur.pvMax, ...statuts() },
     ennemis: ennemis.map((m, i) => ({ uid: `e${i}`, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, maudit: !!m.maudit, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: Math.floor(r() * m.intentions.length), deg: palier.deg, ...statuts() })),
     pioche: melanger(deck.map((x) => ({ uid: `c${n++}`, id: x.id, niv: x.niv || 1 })), r), main: [], defausse: [], epuisees: [],
@@ -32,7 +32,8 @@ export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 
   if (c.mods?.includes('rage')) for (const e of c.ennemis) e.force += 2;
   if (c.mods?.includes('carapace')) for (const e of c.ennemis) e.bloc = Math.round(e.pvMax * 0.15);
   debutTour(c);
-  if (classe === 'combattant') c.joueur.bloc += 6;     // Endurci
+  if (classe === 'combattant') c.joueur.bloc += c.branche === 'gardien' ? 10 : 6;     // Endurci (Égide : 10)
+  if (c.branche === 'invocateur') c.joueur.appel += 3;     // Esprit lié
   // le familier (v53) : un petit coup de pouce au début du combat
   const f = c.familier && FAMILIERS[c.familier].effet;
   if (f) {
@@ -47,6 +48,14 @@ export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 
   RQ.debutCombat(c, c.reliques);
   if (RQ.a(c.reliques, 'besace')) piocher(c, 2);
   return c;
+}
+// les bonus de dégâts des branches (Furie, Poudre noire) et de la rage d'une carte
+export function bonusBranche(branche, j, e) {
+  let b = 0;
+  if (branche === 'berserker') b += Math.floor((j.pvMax - j.pv) / 8);
+  if (e.rage) b += Math.floor((j.pvMax - j.pv) / e.rage);
+  if (branche === 'artificier' && e.tous) b += 3;
+  return b;
 }
 const vivants = (c) => c.ennemis.filter((e) => e.pv > 0);
 // ---------- journal d'événements (pour les animations) ----------
@@ -70,11 +79,16 @@ function debutTour(c) {
   if (j.brulure > 0) { const [d] = blesser(c, j, j.brulure, true); ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv }); c.journal.push(`Tu brûles : −${j.brulure} PV.`); j.brulure--; if (verifierFin(c)) return; }
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
-  c.energie = c.energieMax; c.attaquesTour = 0; c.arcanes = false;
+  c.energie = c.energieMax; c.attaquesTour = 0; c.arcanes = false; c.arcN = 0;
   piocher(c, c.tour === 1 && c.mods?.includes('epuisement') ? 4 : 5);
   if (RQ.a(c.reliques, 'pierre_lune')) j.bloc += 3;
   if (RQ.a(c.reliques, 'sablier') && c.tour % 3 === 0) c.energie += 1;
   ev(c, { t: 'tour', n: c.tour });
+  // Appel : l'allié invoqué frappe l'ennemi le plus faible
+  if (j.appel > 0 && c.tour > 1) {
+    const cible = vivants(c).sort((a, b) => a.pv - b.pv)[0];
+    if (cible) { attaquer(c, { force: 0, affaibli: 0, pv: 1, bloc: 0 }, cible, j.appel); c.journal.push(`Ton allié invoqué frappe ${cible.nom}.`); verifierFin(c); }
+  }
 }
 // dégâts d'une attaque : force, affaibli (−25 %), trempé (+50 %)
 export function calculerDegats(base, attaquant, cible) {
@@ -114,7 +128,8 @@ export function coutDe(c, i) {
 }
 export const jouable = (c, i) => { const k = c.main[i]; return !!k && !c.fini && coutDe(c, i) <= c.energie; };
 // Visée (Tireur) : la prochaine attaque sera-t-elle doublée ?
-export const viseeProchaine = (c) => c.classe === 'tireur' && (c.tirs + 1) % 3 === 0;
+export const periodeVisee = (c) => (c.branche === 'sniper' ? 2 : 3);
+export const viseeProchaine = (c) => c.classe === 'tireur' && (c.tirs + 1) % periodeVisee(c) === 0;
 export const besoinCible = (id) => { const e = CARTES[id].effets; return CARTES[id].type === 'attaque' && !e.tous || ((e.trempe || e.affaibli || e.brulure) && !e.tous && !e.degats && !e.degatsParBrulure && !e.bouclierEnDegats); };
 
 // jouer la carte n° i de la main, sur l'ennemi « cible » (uid) si elle vise quelqu'un
@@ -125,32 +140,39 @@ export function jouerCarte(c, i, cible) {
   let cibles = e.tous ? vis : [vis.find((x) => x.uid === cible) || vis[0]];
   cibles = cibles.filter(Boolean);
   const cout = coutDe(c, i);
-  if (cout < carte.cout) c.arcanes = true;
+  if (cout < carte.cout) { c.arcN++; c.arcanes = c.arcN >= (c.branche === 'archimage' ? 2 : 1); }
   c.energie -= cout;
   c.main.splice(i, 1);
   ev(c, { t: 'carte', id: k.id, cibles: cibles.map((x) => x.uid) });
   // talents des attaques : Enchaînement (+2 par coup après une autre attaque du tour), Visée (une sur trois doublée)
   let bonus = 0, mult = 1;
   if (carte.type === 'attaque') {
-    if (c.classe === 'escrimeur' && c.attaquesTour > 0) bonus = 2;
+    if (c.classe === 'escrimeur' && c.attaquesTour > 0) bonus = c.branche === 'duelliste' ? 2 * c.attaquesTour : 2;
     if (RQ.a(c.reliques, 'pointe')) bonus += 1;
-    if (c.classe === 'tireur') { c.tirs++; if (c.tirs % 3 === 0) mult = 2; }
+    if (c.classe === 'tireur') { c.tirs++; if (c.tirs % periodeVisee(c) === 0) mult = 2; }
+    bonus += bonusBranche(c.branche, j, e);
+    if (c.branche === 'ombre' && c.attaquesTour === 0) for (const t of cibles) { t.affaibli += 1; ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: 1 }); }
     c.attaquesTour++;
   }
+  if (e.sacrifice) { const d = Math.min(e.sacrifice, j.pv - 1); j.pv -= d; ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv, sang: true }); }
   if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) attaquer(c, j, t, e.degats + bonus, mult);
   if (e.degatsParBrulure) for (const t of cibles) attaquer(c, j, t, t.brulure * e.degatsParBrulure + bonus, mult);
   if (e.bouclierEnDegats) for (const t of cibles) attaquer(c, j, t, j.bloc + bonus, mult);
+  if (e.degatsParAffaibli) for (const t of cibles) attaquer(c, j, t, t.affaibli * e.degatsParAffaibli + bonus, mult);
   for (const t of cibles) {
     const vu = t.pv > 0;
     if (e.brulure) { t.brulure += e.brulure; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'brulure', n: e.brulure }); }
     if (e.trempe) { t.trempe += e.trempe; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'trempe', n: e.trempe }); }
     if (e.affaibli) { t.affaibli += e.affaibli; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: e.affaibli }); }
   }
-  if (e.bouclier) { j.bloc += e.bouclier; ev(c, { t: 'bloc', a: 'j', n: e.bouclier, bloc: j.bloc }); }
+  if (e.doubleBouclier && j.bloc > 0) { const n = j.bloc; j.bloc += n; ev(c, { t: 'bloc', a: 'j', n, bloc: j.bloc }); }
+  const blocEn = (e.bouclier || 0) + (c.branche === 'gardien' && carte.type === 'defense' ? 2 : 0);
+  if (blocEn) { j.bloc += blocEn; ev(c, { t: 'bloc', a: 'j', n: blocEn, bloc: j.bloc }); }
   if (e.soin) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + e.soin); ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); }
   if (e.epines) { j.epines += e.epines; ev(c, { t: 'statut', a: 'j', k: 'epines', n: e.epines }); }
   if (e.regen) { j.regen += e.regen; ev(c, { t: 'statut', a: 'j', k: 'regen', n: e.regen }); }
   if (e.force) { j.force += e.force; ev(c, { t: 'statut', a: 'j', k: 'force', n: e.force }); }
+  if (e.appel) { j.appel += e.appel; ev(c, { t: 'statut', a: 'j', k: 'appel', n: e.appel }); }
   if (e.energie) { c.energie += e.energie; ev(c, { t: 'energie', n: e.energie }); }
   (e.epuise ? c.epuisees : c.defausse).push(k);
   if (e.pioche) piocher(c, e.pioche);

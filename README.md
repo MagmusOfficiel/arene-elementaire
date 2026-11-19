@@ -763,3 +763,79 @@ Mesuré avec 40 joueurs simulés et un téléphone moyen (processeur ralenti 4×
 - **Partout** : barre du haut, coûts, récoltes, butins, bilans, marchand, projets, passe, aide, amélioration des cartes. Elles sont posées une fois dans la page (sprite SVG, `client/src/clans/ui-icones.js`) et réutilisées via `ICO_RESS`.
 - La barre du haut tient toujours sur une ligne à partir de 1 280 px de large.
 - **Test stabilisé** : « partie en ligne : on rejoint… » (Arène) échouait environ 1 fois sur 15, quand le joueur apparaissait contre un bâtiment qui bloquait la direction testée. Le test essaie maintenant les quatre directions. 0 échec sur 10 passes complètes.
+
+## Les Clans Élémentaires : cartes par rareté (v67)
+
+La rareté d'une carte se voit au premier coup d'œil, partout où une carte s'affiche (deck, tirages, forge, main de combat, amélioration, duel) :
+
+- **un cadre par rareté** : fer gris pour les communes, bleu argent pour les rares, violet lumineux pour les épiques, or avec un halo pour les légendaires ;
+- **une gemme de rareté** posée sous l'illustration (blanche, bleue, violette ou orange) ; celle des légendaires pulse doucement ;
+- **une couronne dorée** au-dessus des cartes légendaires ;
+- **un reflet** qui passe de temps en temps sur l'illustration des épiques et des légendaires ;
+- le nom est posé sur un bandeau, et le mot de la rareté (« Épique », « Légendaire »…) prend sa couleur ;
+- au tirage, une épique ou une légendaire apparaît avec un éclat.
+
+Tout est en CSS (`style.css`, section v67) : `carteHTML` ajoute seulement la gemme (`.gemme`) et le nom de rareté (`.rarNom`).
+
+## Les Clans Élémentaires : chaque classe a ses cartes (v68)
+
+Un Mage ne joue plus les cartes du Combattant, du Tireur ou de l'Escrimeur (et inversement) :
+
+- **à l'autel**, les cartes des autres classes ne sortent plus jamais ; on tire ses propres cartes de classe, celles de son élément et les neutres ;
+- **dans le deck**, une carte d'une autre classe est refusée (« Cette carte est réservée à la classe … ») ; les decks enregistrés l'oublient aussi ;
+- **les anciens profils** : au chargement, les cartes d'autres classes déjà possédées sont changées en éclats (valeur de rareté × exemplaires × niveau), retirées des 3 decks, et un deck devenu trop petit est complété avec les cartes de base. Un message prévient le joueur une fois ;
+- l'aide (« Comment jouer ») rappelle la règle, et le haut fait « Collectionneur » passe à 20 / 40 / 55 cartes (un joueur ne peut plus en avoir que 57).
+
+Code : `pourClasse` et `convertirAutresClasses` dans `shared/clans/profil.js` ; tests dans `tests/clansclasses.test.mjs`.
+
+## Les Clans Élémentaires : l'Ascension et les branches de classe (v69)
+
+Au **niveau 20** du compte, chaque classe se spécialise :
+
+- **l'Épreuve d'ascension** (menu ☰ → Ascension, touche U) : un combat contre la Chimère de l'ascension (230 PV), rejoué par le serveur comme les expéditions. On peut retenter autant de fois qu'on veut ;
+- **le choix de la branche**, une fois l'épreuve gagnée (définitif pour l'instant ; un objet rare permettra d'en changer plus tard) :
+
+| Classe | Branche | Talent en plus |
+|---|---|---|
+| Combattant | 🛡️ Gardien | Égide : Endurci donne 10 de bouclier, chaque Défense +2 bouclier |
+| Combattant | 🪓 Berserker | Furie : +1 dégât par tranche de 8 PV manquants |
+| Mage | 📖 Archimage | Double arcane : Arcanes sur les 2 premiers sorts élémentaires du tour |
+| Mage | 🐾 Invocateur | Esprit lié : Appel 3 au début du combat |
+| Tireur | 🎯 Sniper | Œil de lynx : Visée une attaque sur deux |
+| Tireur | 💣 Artificier | Poudre noire : +3 dégâts aux attaques sur tous les ennemis |
+| Escrimeur | ⚜️ Duelliste | Crescendo : Enchaînement +2 par attaque déjà jouée (+2, +4, +6…) |
+| Escrimeur | 🌑 Lame d'ombre | Lame sournoise : la 1re attaque du tour applique Affaibli 1 |
+
+- **48 sorts de branche** (6 par branche : 2 rares, 2 épiques, 2 légendaires), plus puissants. On ne les obtient **qu'à l'autel**, et seulement pour **sa** branche ; ils portent un sceau violet sur la carte. Les cartes d'autres branches sont refusées dans le deck ;
+- nouveaux effets : **Appel** (un allié invoqué frappe l'ennemi le plus faible au début de chaque tour), **Perds X PV**, **rage** (+1 dégât par tranche de PV manquants), **dégâts selon l'affaibli**, **double ton bouclier** ;
+- les talents de branche marchent partout : expéditions, boss mondial, duels et arène ;
+- la fiche montre la branche, et son titre peut s'afficher (« Archimage », « Œil de lynx »…).
+
+Code : `BRANCHES` et les cartes dans `shared/clans/cartes.js`, `shared/clans/ascension.js`, `client/src/clans/ui-ascension.js` ; tests dans `tests/clansascension.test.mjs`. Pour les tests, `CLANS_TEST_NIVEAU=21` crée les profils au niveau 21.
+
+Illustrations : les 48 images sont générées sur Anifusion ; en attendant leur intégration, les cartes affichent leur icône.
+
+## Les Clans Élémentaires : montures et changement de pseudo (v70)
+
+**Les montures** (menu ☰ → Écurie, touche N) :
+
+| Monture | Vitesse | Niveau | Prix |
+|---|---|---|---|
+| 🐴 Poney des prés | +25 % | 1 | 1 500 essence |
+| 🔥 Destrier de braise | +40 % | 8 | 3 000 essence + 150 braises |
+| 🌊 Raie des lagons (elle flotte) | +40 % | 8 | 3 000 essence + 150 perles |
+| 🦌 Cerf sylvestre | +40 % | 8 | 3 000 essence + 150 sève |
+| 🐉 Dragon élémentaire | +60 % | 15 | 9 000 essence + 15 de chaque ressource rare |
+
+- la monture se voit sous le joueur sur la carte (pixel art dessiné en code, au pas et au galop), et tous les joueurs la voient ;
+- elle ne change rien en combat ; on peut en avoir plusieurs, en changer ou descendre quand on veut.
+
+**Changer de pseudo** : dans sa fiche (touche H), le crayon ✏️ à côté du nom. Le compte (le jeton), la progression et la maison ne changent pas (la maison garde la place que lui donnait l'ancien nom). Un changement par 24 h ; un message prévient tout le monde dans le chat.
+
+Code : `shared/clans/montures.js`, `client/src/clans/montureArt.js`, `client/src/clans/ui-montures.js`, actions `montureAcheter`, `montureChoisir` et `renommer` ; tests dans `tests/clansmontures.test.mjs`.
+
+Correctif : un effet visuel de combat pouvait demander un cercle de rayon négatif (erreur dans la console sur téléphone).
+
+## Les Clans Élémentaires : les illustrations des sorts de branche (v71)
+
+Les 48 sorts de branche ont leur illustration (générées sur Anifusion, 384 × 384 en WebP dans `client/public/clans/cartes/`). « Élan du duelliste » et « Ballet de lames » ont été régénérées (la première ressemblait trop à une licence existante, la seconde avait un cadrage trop osé).

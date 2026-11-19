@@ -86,7 +86,7 @@ export function ennemisDe(x, id) {
 }
 export function combatDe(p, id) {
   const x = p.expedition;
-  return { deck: deckCombat(p), joueur: { pv: x.pv, pvMax: x.pvMax }, ennemis: ennemisDe(x, id), palier: PALIERS[x.palier - 1], graine: x.graine + Number(String(id).replace(/\D/g, '') || 99), classe: p.classe, mods: x.mods || null, familier: x.familier || null, reliques: x.reliques || [] };
+  return { deck: deckCombat(p), joueur: { pv: x.pv, pvMax: x.pvMax }, ennemis: ennemisDe(x, id), palier: PALIERS[x.palier - 1], graine: x.graine + Number(String(id).replace(/\D/g, '') || 99), classe: p.classe, branche: p.branche || null, mods: x.mods || null, familier: x.familier || null, reliques: x.reliques || [] };
 }
 // entrer dans une salle : renvoie ce qu'il s'y passe (combat à lancer, ou effet immédiat)
 export function entrer(p, id) {

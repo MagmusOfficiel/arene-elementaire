@@ -4,7 +4,7 @@
 //  fait et le choix du titre. La fiche d'un autre : demandée au serveur
 //  (message « fiche »), seulement ce qui est public.
 // =====================================================================
-import { ELEMENTS, CLASSES } from '../../../shared/clans/cartes.js';
+import { BRANCHES, ELEMENTS, CLASSES } from '../../../shared/clans/cartes.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import * as F from '../../../shared/clans/familiers.js';
 import * as AP from '../../../shared/clans/apparence.js';
@@ -30,8 +30,8 @@ export function fenetreFiche(f, moi = false) {
   const titre = HF.nomTitre(f.titre);
   ouvrir(`<div class="fiche ${f.clan}">
       <div class="ficheHaut"><span data-portrait></span>
-        <div><h2>${esc(f.nom)}</h2>${titre ? `<p class="titreFiche">« ${esc(titre)} »</p>` : ''}
-          <p><span class="badge ${f.clan}">${el.ico} ${el.clan}</span> ${cl ? `${cl.ico} ${cl.nom}` : ''} · niv. ${f.niv}${f.statut && f.statut !== 'libre' ? ` · <i>${{ expedition: 'en expédition', duel: 'en duel', arene: 'dans l’arène', combat: 'contre le boss mondial' }[f.statut] || ''}</i>` : ''}</p>
+        <div><h2 id="ficheNom">${esc(f.nom)}${moi ? ' <button class="lien" id="btPseudo" title="Changer de pseudo (ton compte et ta progression ne changent pas)">✏️</button>' : ''}</h2>${titre ? `<p class="titreFiche">« ${esc(titre)} »</p>` : ''}
+          <p><span class="badge ${f.clan}">${el.ico} ${el.clan}</span> ${cl ? `${cl.ico} ${cl.nom}` : ''}${BRANCHES[f.branche] ? ` · ${BRANCHES[f.branche].ico} ${esc(BRANCHES[f.branche].nom)}` : ''} · niv. ${f.niv}${f.statut && f.statut !== 'libre' ? ` · <i>${{ expedition: 'en expédition', duel: 'en duel', arene: 'dans l’arène', combat: 'contre le boss mondial' }[f.statut] || ''}</i>` : ''}</p>
           ${f.fam ? `<p class="famFiche"><span data-fam="${esc(f.fam)}"></span> ${esc(F.FAMILIERS[f.fam]?.nom || '')}</p>` : ''}</div></div>
       <div class="ficheStats">
         <div><b>${rangTxt(f.arene.elo)}</b><small>arène · ${nf(f.arene.elo)} Elo</small></div>
@@ -51,19 +51,31 @@ export function fenetreFiche(f, moi = false) {
           ${moi && n < 3 ? `<i class="hfBarre"><b style="width:${Math.min(100, (vv / seuil) * 100)}%"></b></i>` : ''}</div>
           ${moi && n ? `<select data-hf="${id}"><option value="">Afficher un titre…</option>${h.titres.slice(0, n).map((t, i) => `<option value="${id}:${i + 1}" ${p.titre === `${id}:${i + 1}` ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>`;
       }).join('') || '<p>Pas encore de haut fait.</p>'}</div>
+      ${moi && p.branche ? `<p class="cout">${p.titre === `br:${p.branche}` ? '' : `<button class="lien" id="btTitreBranche">Afficher le titre « ${esc(BRANCHES[p.branche].titre)} »</button>`}</p>` : ''}
       ${moi && p.titre ? '<p class="cout"><button class="lien" id="btSansTitre">Ne plus afficher de titre</button></p>' : ''}
     </div>`, () => {
     $('fenetreCorps').dataset.vue = moi ? 'ficheMoi' : 'fiche';
     $('fenetreCorps').querySelector('[data-portrait]').replaceWith(portrait(f.clan, f.classe, f.app));
     $('fenetreCorps').querySelector('[data-fam]')?.replaceWith(vignetteFamilier(f.fam, 2));
     $('fenetreCorps').querySelectorAll('[data-hf]').forEach((s) => s.onchange = async () => { if (!s.value) return; const r = await faire('titreChoisir', { t: s.value }); if (!r.ok) return toast(esc(r.raison || 'Impossible.')); toast(`🏅 Ton titre : « ${esc(HF.nomTitre(s.value))} »`); maFiche(); });
+    $('btTitreBranche') && ($('btTitreBranche').onclick = async () => { await faire('titreChoisir', { t: `br:${p.branche}` }); maFiche(); });
+    $('btPseudo') && ($('btPseudo').onclick = () => {
+      $('ficheNom').innerHTML = `<input class="champDeck" id="champPseudo" maxlength="16" value="${esc(p.nom)}"> <button class="bouton" id="okPseudo">OK</button>`;
+      const ch = $('champPseudo'); ch.focus(); ch.select();
+      const valider = async () => {
+        const r = await faire('renommer', { nom: ch.value });
+        if (!r.ok) return toast(esc(r.raison || 'Impossible.'));
+        toast(`✏️ Tu t’appelles désormais <b>${esc(r.res.nom)}</b>. Ton compte, ta maison et ta progression ne bougent pas. (Prochain changement possible dans 24 h.)`); setTimeout(maFiche, 200);
+      };
+      $('okPseudo').onclick = valider; ch.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') valider(); if (e.key === 'Escape') maFiche(); };
+    });
     $('btSansTitre') && ($('btSansTitre').onclick = async () => { await faire('titreChoisir', { t: null }); maFiche(); });
   });
 }
 export function maFiche() {
   if (!p) return;
   const a = p.arene || {};
-  fenetreFiche({ nom: p.nom, clan: p.clan, classe: p.classe, niv: niveau(), app: AP.code(p), fam: F.actif(p) || '', titre: HF.titreDe(p),
+  fenetreFiche({ nom: p.nom, clan: p.clan, classe: p.classe, branche: p.branche || '', niv: niveau(), app: AP.code(p), fam: F.actif(p) || '', titre: HF.titreDe(p),
     arene: { elo: a.elo || 1000, meilleur: Math.max(a.meilleur || 0, p.stats.areneMax || 0), v: a.v || 0, d: a.d || 0 }, duels: { g: p.duels?.gagnes || 0, p: p.duels?.perdus || 0 },
     stats: { victoires: p.stats.victoires || 0, boss: p.stats.boss || 0 }, hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0) }, true);
 }

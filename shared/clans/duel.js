@@ -5,11 +5,11 @@
 //  tour, puis passe la main. Le serveur fait tourner ce moteur ; les
 //  joueurs ne lui envoient que « je joue la carte n° i » et « fin du tour ».
 // =====================================================================
-import { CARTES, CLASSES, effetsDe } from './cartes.js';
-import { alea, calculerDegats } from './combat.js';
+import { BRANCHES, CARTES, CLASSES, effetsDe } from './cartes.js';
+import { alea, bonusBranche, calculerDegats } from './combat.js';
 
 export const TOURS_MAX = 30;          // au-delà, le duel s'arrête : le plus de PV (en %) gagne
-const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0 });
+const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0 });
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
 
 // a, b : { nom, clan, classe, pvMax, deck: [{ id, niv }] }
@@ -17,12 +17,12 @@ export function nouveauDuel(a, b, graine = 1) {
   const r = alea(graine);
   let n = 0;
   const joueur = (x) => ({
-    nom: x.nom, clan: x.clan, classe: x.classe, app: typeof x.app === 'string' ? x.app.slice(0, 80) : '', pv: x.pvMax, pvMax: x.pvMax, ...statuts(),
+    nom: x.nom, clan: x.clan, classe: x.classe, branche: BRANCHES[x.branche]?.classe === x.classe ? x.branche : null, app: typeof x.app === 'string' ? x.app.slice(0, 80) : '', pv: x.pvMax, pvMax: x.pvMax, ...statuts(),
     pioche: melanger(x.deck.map((k) => ({ uid: `c${n++}`, id: k.id, niv: k.niv || 1 })), r), main: [], defausse: [], epuisees: [],
-    energie: 0, tirs: 0, attaquesTour: 0, arcanes: false,
+    energie: 0, tirs: 0, attaquesTour: 0, arcanes: false, arcN: 0,
   });
   const d = { j: [joueur(a), joueur(b)], actif: r() < 0.5 ? 0 : 1, tour: 0, fini: false, gagnant: null, journal: [], _r: r };
-  for (const j of d.j) if (j.classe === 'combattant') j.bloc = 6;     // Endurci : le bouclier tient jusqu'à son premier tour
+  for (const j of d.j) { if (j.classe === 'combattant') j.bloc = j.branche === 'gardien' ? 10 : 6; if (j.branche === 'invocateur') j.appel = (j.appel || 0) + 3; }     // Endurci : le bouclier tient jusqu'à son premier tour
   debutTour(d);
   return d;
 }
@@ -55,8 +55,10 @@ function debutTour(d) {
   if (j.brulure > 0) { blesser(j, j.brulure, true); j.brulure--; if (verifier(d)) return; }
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
-  j.energie = 3; j.attaquesTour = 0; j.arcanes = false;
+  j.energie = 3; j.attaquesTour = 0; j.arcanes = false; j.arcN = 0;
   piocher(d, j, 5);
+  // Appel : l'allié invoqué frappe l'adversaire
+  if (j.appel > 0 && d.tour > 2) attaquer({ force: 0, affaibli: 0, pv: 1 }, d.j[1 - d.actif], j.appel);
   verifier(d);
 }
 export function coutDe(j, i) {
@@ -70,21 +72,28 @@ export function jouer(d, qui, i) {
   const j = d.j[qui], adv = d.j[1 - qui], k = j.main[i];
   if (!k || coutDe(j, i) > j.energie) return false;
   const carte = CARTES[k.id], e = effetsDe(k.id, k.niv), cout = coutDe(j, i);
-  if (cout < carte.cout) j.arcanes = true;
+  if (cout < carte.cout) { j.arcN = (j.arcN || 0) + 1; j.arcanes = j.arcN >= (j.branche === 'archimage' ? 2 : 1); }
   j.energie -= cout; j.main.splice(i, 1);
   let bonus = 0, mult = 1;
   if (carte.type === 'attaque') {
-    if (j.classe === 'escrimeur' && j.attaquesTour > 0) bonus = 2;
-    if (j.classe === 'tireur') { j.tirs++; if (j.tirs % 3 === 0) mult = 2; }
+    if (j.classe === 'escrimeur' && j.attaquesTour > 0) bonus = j.branche === 'duelliste' ? 2 * j.attaquesTour : 2;
+    if (j.classe === 'tireur') { j.tirs++; if (j.tirs % (j.branche === 'sniper' ? 2 : 3) === 0) mult = 2; }
+    bonus += bonusBranche(j.branche, j, e);
+    if (j.branche === 'ombre' && j.attaquesTour === 0) adv.affaibli += 1;
     j.attaquesTour++;
   }
+  if (e.sacrifice) j.pv -= Math.min(e.sacrifice, j.pv - 1);
   if (e.degats) for (let f = 0; f < (e.fois || 1); f++) attaquer(j, adv, e.degats + bonus, mult);
   if (e.degatsParBrulure) attaquer(j, adv, adv.brulure * e.degatsParBrulure + bonus, mult);
   if (e.bouclierEnDegats) attaquer(j, adv, j.bloc + bonus, mult);
+  if (e.degatsParAffaibli) attaquer(j, adv, adv.affaibli * e.degatsParAffaibli + bonus, mult);
   if (e.brulure) adv.brulure += e.brulure;
   if (e.trempe) adv.trempe += e.trempe;
   if (e.affaibli) adv.affaibli += e.affaibli;
+  if (e.doubleBouclier) j.bloc *= 2;
   if (e.bouclier) j.bloc += e.bouclier;
+  if (j.branche === 'gardien' && carte.type === 'defense') j.bloc += 2;
+  if (e.appel) j.appel = (j.appel || 0) + e.appel;
   if (e.soin) j.pv = Math.min(j.pvMax, j.pv + e.soin);
   if (e.epines) j.epines += e.epines;
   if (e.regen) j.regen += e.regen;
@@ -107,7 +116,7 @@ export function finTour(d, qui) {
 }
 // ce que voit un joueur : sa main, et seulement le nombre de cartes de l'adversaire
 export function vue(d, qui) {
-  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, app: j.app, pv: j.pv, pvMax: j.pvMax, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
+  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche, appel: j.appel || 0, app: j.app, pv: j.pv, pvMax: j.pvMax, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
   const moi = d.j[qui];
   return { moi: { ...pub(moi), main: moi.main.map((k, i) => ({ id: k.id, niv: k.niv, cout: coutDe(moi, i) })) }, adv: pub(d.j[1 - qui]), aMoi: d.actif === qui, tour: d.tour, fini: d.fini, gagnant: d.gagnant === null ? null : d.gagnant === qui ? 'moi' : 'adv', journal: d.journal.slice(-4) };
 }

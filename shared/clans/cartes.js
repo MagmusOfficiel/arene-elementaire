@@ -31,6 +31,20 @@ export const CLASSES = {
   escrimeur: { nom: 'Escrimeur', ico: '🤺', pv: 0, talent: 'Enchaînement', desc: 'Chaque attaque jouée après une autre attaque, dans le même tour, inflige +2 dégâts par coup.', depart: ['estoc', 'parade'] },
 };
 export const LISTE_CLASSES = Object.keys(CLASSES);
+// ---------- les branches (v69) : au niveau 20, chaque classe choisit sa spécialisation ----------
+// le talent de la branche s'ajoute à celui de la classe (géré par combat.js et duel.js)
+export const NIV_ASCENSION = 20;
+export const BRANCHES = {
+  gardien: { classe: 'combattant', nom: 'Gardien', ico: '🛡️', talent: 'Égide', desc: 'Endurci donne 10 de bouclier, et chaque carte Défense donne 2 bouclier de plus.', titre: 'Gardien inébranlable' },
+  berserker: { classe: 'combattant', nom: 'Berserker', ico: '🪓', talent: 'Furie', desc: 'Tes attaques infligent +1 dégât par tranche de 8 PV qui te manquent.', titre: 'Berserker furieux' },
+  archimage: { classe: 'mage', nom: 'Archimage', ico: '📖', talent: 'Double arcane', desc: 'Arcanes s’applique aux deux premiers sorts élémentaires de chaque tour.', titre: 'Archimage' },
+  invocateur: { classe: 'mage', nom: 'Invocateur', ico: '🐾', talent: 'Esprit lié', desc: 'Commence chaque combat avec Appel 3 : un esprit frappe un ennemi au début de chacun de tes tours.', titre: 'Maître des esprits' },
+  sniper: { classe: 'tireur', nom: 'Sniper', ico: '🎯', talent: 'Œil de lynx', desc: 'Visée double une attaque sur deux, au lieu d’une sur trois.', titre: 'Œil de lynx' },
+  artificier: { classe: 'tireur', nom: 'Artificier', ico: '💣', talent: 'Poudre noire', desc: 'Tes attaques qui touchent tous les ennemis infligent +3 dégâts.', titre: 'Artificier fou' },
+  duelliste: { classe: 'escrimeur', nom: 'Duelliste', ico: '⚜️', talent: 'Crescendo', desc: 'Enchaînement donne +2 par attaque déjà jouée ce tour (+2, +4, +6…).', titre: 'Lame virtuose' },
+  ombre: { classe: 'escrimeur', nom: 'Lame d’ombre', ico: '🌑', talent: 'Lame sournoise', desc: 'Ta première attaque de chaque tour applique Affaibli 1.', titre: 'Lame d’ombre' },
+};
+export const branchesDe = (classe) => Object.keys(BRANCHES).filter((b) => BRANCHES[b].classe === classe);
 export const RARETES = {
   commune: { nom: 'Commune', couleur: '#a8a8a8', eclats: 5 },
   rare: { nom: 'Rare', couleur: '#4a9ae8', eclats: 15 },
@@ -42,6 +56,9 @@ const c = (id, nom, element, rarete, cout, type, ico, effets, classe = null, exc
 const X = (terr) => (id, nom, rarete, cout, type, ico, effets) => c(id, nom, terr, rarete, cout, type, ico, effets, null, terr);
 const k = (classe) => (id, nom, rarete, cout, type, ico, effets) => c(id, nom, 'neutre', rarete, cout, type, ico, effets, classe);
 const CO = k('combattant'), MA = k('mage'), TI = k('tireur'), ES = k('escrimeur');
+// une carte de branche : elle appartient à la classe ET à la branche
+const br = (branche) => (id, nom, rarete, cout, type, ico, effets) => ({ ...c(id, nom, 'neutre', rarete, cout, type, ico, effets, BRANCHES[branche].classe), branche });
+const GA = br('gardien'), BE = br('berserker'), AR = br('archimage'), IN = br('invocateur'), SN = br('sniper'), AF = br('artificier'), DU = br('duelliste'), OM = br('ombre');
 export const CARTES = Object.fromEntries([
   // ---- neutres (le deck de départ)
   c('frappe', 'Frappe', 'neutre', 'commune', 1, 'attaque', '🗡️', { degats: 6 }),
@@ -139,10 +156,59 @@ export const CARTES = Object.fromEntries([
   ES('danse_lames', 'Danse des lames', 'epique', 2, 'attaque', '🌀', { degats: 3, fois: 5 }),
   ES('coup_grace', 'Coup de grâce', 'epique', 2, 'attaque', '💀', { degats: 20, epuise: true }),
   ES('maitre_armes', 'Maître d’armes', 'legendaire', 1, 'pouvoir', '👑', { force: 2, energie: 2, pioche: 2, epuise: true }),
+  // ---- les cartes de branche (v69) : seulement à l'autel, seulement pour sa branche
+  GA('gd_egide', 'Égide', 'rare', 1, 'defense', '🔰', { bouclier: 10, epines: 2 }),
+  GA('gd_represailles', 'Représailles', 'rare', 1, 'attaque', '💢', { bouclierEnDegats: true, bouclier: 4 }),
+  GA('gd_bastion', 'Bastion vivant', 'epique', 2, 'defense', '🏯', { doubleBouclier: true, bouclier: 6 }),
+  GA('gd_serment', 'Serment du gardien', 'epique', 1, 'pouvoir', '🤞', { epines: 5, regen: 3, epuise: true }),
+  GA('gd_mur', 'Mur éternel', 'legendaire', 3, 'defense', '🗿', { bouclier: 30, epines: 6 }),
+  GA('gd_jugement', 'Jugement de l’égide', 'legendaire', 2, 'attaque', '⚖️', { bouclierEnDegats: true, tous: true, bouclier: 8 }),
+  BE('bs_entaille', 'Entaille sauvage', 'rare', 1, 'attaque', '🩸', { degats: 9, rage: 6 }),
+  BE('bs_soif', 'Soif de sang', 'rare', 0, 'pouvoir', '🍷', { sacrifice: 4, energie: 2 }),
+  BE('bs_frenesie', 'Frénésie', 'epique', 2, 'attaque', '🌀', { degats: 6, fois: 3, rage: 8 }),
+  BE('bs_hurlement', 'Hurlement bestial', 'epique', 1, 'pouvoir', '🐺', { sacrifice: 6, force: 4, epuise: true }),
+  BE('bs_carnage', 'Carnage', 'legendaire', 2, 'attaque', '💀', { degats: 12, tous: true, rage: 5 }),
+  BE('bs_fureur', 'Fureur immortelle', 'legendaire', 1, 'pouvoir', '🔥', { soin: 15, force: 3, regen: 4, epuise: true }),
+  AR('am_prisme', 'Prisme élémentaire', 'rare', 1, 'attaque', '🔺', { degats: 7, brulure: 2, trempe: 1 }),
+  AR('am_flux', 'Flux arcanique', 'rare', 0, 'pouvoir', '🌊', { energie: 1, pioche: 2 }),
+  AR('am_tempete', 'Tempête des quatre vents', 'epique', 2, 'attaque', '🌪️', { degats: 10, tous: true, affaibli: 1, trempe: 1 }),
+  AR('am_canalisation', 'Canalisation', 'epique', 1, 'pouvoir', '🔋', { energie: 3, epuise: true }),
+  AR('am_singularite', 'Singularité', 'legendaire', 3, 'attaque', '🕳️', { degats: 34 }),
+  AR('am_grimoire', 'Grimoire infini', 'legendaire', 1, 'pouvoir', '📚', { pioche: 4, energie: 2, force: 2, epuise: true }),
+  IN('iv_lien', 'Lien d’âme', 'rare', 1, 'pouvoir', '🔗', { appel: 2, bouclier: 4 }),
+  IN('iv_morsure', 'Morsure spectrale', 'rare', 1, 'attaque', '👻', { degats: 7, appel: 1 }),
+  IN('iv_meute', 'Appel de la meute', 'epique', 2, 'pouvoir', '🐺', { appel: 4, epuise: true }),
+  IN('iv_totem', 'Totem protecteur', 'epique', 1, 'defense', '🪵', { bouclier: 9, regen: 3 }),
+  IN('iv_pacte', 'Pacte des esprits', 'legendaire', 2, 'pouvoir', '🕯️', { appel: 6, force: 2, epuise: true }),
+  IN('iv_colosse', 'Colosse invoqué', 'legendaire', 3, 'attaque', '🗻', { degats: 18, appel: 3 }),
+  SN('sn_marque', 'Marque du chasseur', 'rare', 0, 'pouvoir', '❌', { trempe: 2, pioche: 1 }),
+  SN('sn_precis', 'Tir précis', 'rare', 1, 'attaque', '🎯', { degats: 11 }),
+  SN('sn_perforant', 'Tir perforant', 'epique', 2, 'attaque', '➶', { degats: 16, trempe: 2 }),
+  SN('sn_patience', 'Patience du chasseur', 'epique', 1, 'pouvoir', '⏳', { force: 3, bouclier: 6, epuise: true }),
+  SN('sn_balle', 'Balle d’argent', 'legendaire', 2, 'attaque', '🌙', { degats: 30, epuise: true }),
+  SN('sn_pluie', 'Pluie de flèches', 'legendaire', 3, 'attaque', '🏹', { degats: 5, fois: 4, tous: true }),
+  AF('af_grenade', 'Grenade', 'rare', 1, 'attaque', '💣', { degats: 6, tous: true }),
+  AF('af_mine', 'Mine incendiaire', 'rare', 1, 'attaque', '🧨', { degats: 4, brulure: 4, tous: true }),
+  AF('af_tourelle', 'Tourelle mécanique', 'epique', 2, 'pouvoir', '⚙️', { appel: 3, bouclier: 5 }),
+  AF('af_fumigene', 'Fumigène', 'epique', 1, 'defense', '💨', { bouclier: 8, affaibli: 2, tous: true }),
+  AF('af_barrage', 'Barrage d’artillerie', 'legendaire', 3, 'attaque', '🎆', { degats: 9, fois: 2, tous: true }),
+  AF('af_dynamite', 'Méga-dynamite', 'legendaire', 2, 'attaque', '💥', { degats: 20, tous: true, sacrifice: 5 }),
+  DU('du_feinte', 'Feinte', 'rare', 0, 'attaque', '🎭', { degats: 4, pioche: 1 }),
+  DU('du_riposte', 'Riposte', 'rare', 1, 'defense', '🔄', { bouclier: 6, epines: 4 }),
+  DU('du_ballet', 'Ballet de lames', 'epique', 1, 'attaque', '💃', { degats: 3, fois: 4 }),
+  DU('du_elan', 'Élan du duelliste', 'epique', 0, 'pouvoir', '🏃', { energie: 2, pioche: 1, epuise: true }),
+  DU('du_mille', 'Mille entailles', 'legendaire', 2, 'attaque', '✨', { degats: 4, fois: 6 }),
+  DU('du_grace', 'Coup de grâce', 'legendaire', 1, 'attaque', '🗡️', { degats: 15, force: 2 }),
+  OM('om_poison', 'Lame empoisonnée', 'rare', 1, 'attaque', '🧪', { degats: 6, affaibli: 2 }),
+  OM('om_voile', 'Voile d’ombre', 'rare', 1, 'defense', '🌫️', { bouclier: 8, pioche: 1 }),
+  OM('om_assassinat', 'Assassinat', 'epique', 2, 'attaque', '🔪', { degats: 6, degatsParAffaibli: 6 }),
+  OM('om_brume', 'Brume noire', 'epique', 1, 'pouvoir', '🌑', { affaibli: 3, tous: true, epuise: true }),
+  OM('om_execution', 'Exécution silencieuse', 'legendaire', 2, 'attaque', '🥷', { degats: 18, affaibli: 3 }),
+  OM('om_nuee', 'Nuée de dagues', 'legendaire', 2, 'attaque', '🌠', { degats: 3, fois: 5, tous: true, affaibli: 1 }),
 ].map((x) => [x.id, x]));
 
 // les effets qui grandissent quand on améliore une carte (niveau 1 à 3)
-const CROISSANTS = ['degats', 'bouclier', 'soin', 'brulure', 'epines', 'regen'];
+const CROISSANTS = ['degats', 'bouclier', 'soin', 'brulure', 'epines', 'regen', 'appel', 'degatsParAffaibli'];
 export const NIV_MAX = 3;
 export function effetsDe(id, niv = 1) {
   const e = { ...CARTES[id].effets };
@@ -155,7 +221,11 @@ export function decrire(id, niv = 1) {
   const e = effetsDe(id, niv), t = [], zone = e.tous ? ' à tous les ennemis' : '';
   if (e.degats) t.push(`Inflige ${e.degats} dégâts${e.fois > 1 ? ` ${e.fois} fois` : ''}${zone}.`);
   if (e.degatsParBrulure) t.push(`Inflige ${e.degatsParBrulure}× la brûlure de la cible.`);
-  if (e.bouclierEnDegats) t.push('Inflige autant de dégâts que ton bouclier.');
+  if (e.bouclierEnDegats) t.push(`Inflige autant de dégâts que ton bouclier${zone}.`);
+  if (e.degatsParAffaibli) t.push(`Inflige ${e.degatsParAffaibli}× l’affaibli de la cible.`);
+  if (e.rage) t.push(`+1 dégât par tranche de ${e.rage} PV qui te manquent.`);
+  if (e.sacrifice) t.push(`Perds ${e.sacrifice} PV.`);
+  if (e.doubleBouclier) t.push('Double ton bouclier.');
   if (e.bouclier) t.push(`Gagne ${e.bouclier} bouclier.`);
   if (e.soin) t.push(`Soigne ${e.soin} PV.`);
   if (e.brulure) t.push(`Brûlure ${e.brulure}${e.degats ? '' : zone}.`);
@@ -164,6 +234,7 @@ export function decrire(id, niv = 1) {
   if (e.epines) t.push(`Épines ${e.epines}.`);
   if (e.regen) t.push(`Régénération ${e.regen}.`);
   if (e.force) t.push(`+${e.force} Force.`);
+  if (e.appel) t.push(`Appel ${e.appel}.`);
   if (e.energie) t.push(`+${e.energie} énergie.`);
   if (e.pioche) t.push(`Pioche ${e.pioche} carte${e.pioche > 1 ? 's' : ''}.`);
   if (e.epuise) t.push('Épuisée.');
@@ -176,6 +247,7 @@ export const STATUTS = {
   epines: { nom: 'Épines', ico: '🌵', desc: 'Chaque attaque reçue renvoie ces dégâts à l’attaquant.' },
   regen: { nom: 'Régénération', ico: '💚', desc: 'Soigne autant de PV en fin de tour, puis baisse de 1.' },
   force: { nom: 'Force', ico: '💪', desc: 'Ajoute ces dégâts à chaque attaque.' },
+  appel: { nom: 'Appel', ico: '🐾', desc: 'Au début de ton tour, ton allié invoqué inflige autant de dégâts à un ennemi.' },
 };
 // le deck de départ selon le clan
 export const DECK_DEPART = {

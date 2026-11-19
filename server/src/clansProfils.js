@@ -22,6 +22,8 @@ import * as PS from '../../shared/clans/passe.js';
 import * as MA from '../../shared/clans/marchand.js';
 import * as HF from '../../shared/clans/hautsfaits.js';
 import { alea } from '../../shared/clans/combat.js';
+import * as AS from '../../shared/clans/ascension.js';
+import * as MT from '../../shared/clans/montures.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
 import { lireProfilClans, ecrireProfilClans, jetonValide } from './stats.js';
@@ -36,6 +38,7 @@ function signatureValide(copie) {
   const a = Buffer.from(signer(copie.p)), b = Buffer.from(copie.sig);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+export const DELAI_PSEUDO = 24 * 3600000;   // un changement de pseudo par jour
 const propre = (t, n) => String(t || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 // Retrouver le profil d'un joueur qui se connecte
@@ -63,6 +66,7 @@ export const ACTIONS = {
     if (!CLANS.includes(m.clan) || typeof m.classe !== 'string' || !Object.hasOwn(CLASSES, m.classe)) return { ok: false, raison: 'Choix invalide.' };
     ctx.p = P.nouveauProfil(m.clan, propre(m.nom, 16) || 'Joueur', Date.now(), m.classe);
     // tests de bout en bout seulement (jamais en production) : un profil riche pour tout essayer
+    if (+process.env.CLANS_TEST_NIVEAU > 1) ctx.p.stats.victoires = (+process.env.CLANS_TEST_NIVEAU - 1) * 6;   // tests seulement
     if (process.env.CLANS_TEST_DEPART === '1') { const r = ctx.p.ress; r.essence = 50000; r.eclats = 3000; for (const k of ['braises', 'perles', 'seve']) r[k] = 800; for (const k of ['cristal', 'perle_noire', 'graine_or']) r[k] = 60; }
     return { ok: true };
   },
@@ -120,13 +124,34 @@ export const ACTIONS = {
   // une relique à choisir après un élite (id, ou null pour passer)
   expeRelique(p, m) { if (m.id !== null && typeof m.id !== 'string') return { ok: false }; return X.choisirRelique(p, m.id); },
   // le titre affiché sous le nom (un haut fait atteint), ou aucun
+  // changer de pseudo (v70) : le compte (le jeton) ne change pas ; la maison reste à sa place
+  renommer(p, m) {
+    const nom = propre(m.nom, 16);
+    if ([...nom].length < 2) return { ok: false, raison: 'Ton pseudo doit faire au moins 2 caractères.' };
+    if (nom === p.nom) return { ok: false, raison: 'C’est déjà ton pseudo.' };
+    const reste = (p.renomme || 0) + DELAI_PSEUDO - Date.now();
+    if (reste > 0) return { ok: false, raison: `Tu pourras rechanger de pseudo dans ${Math.ceil(reste / 3600000)} h.` };
+    p.maison ||= p.nom; p.nom = nom; p.renomme = Date.now();
+    return { ok: true, res: { nom } };
+  },
   titreChoisir(p, m) { return HF.choisirTitre(p, m.t ?? null); },
+  // l'Ascension (v69) : l'épreuve (rejouée par le serveur), puis le choix de la branche
+  ascensionDebut(p) { const r = AS.commencer(p, graine()); return r.ok ? { ok: true, res: { graine: r.graine } } : r; },
+  ascensionCombat(p, m) {
+    if (!p.ascension || p.ascension.reussie) return { ok: false, raison: 'Aucune épreuve en cours.' };
+    const c = rejouer(AS.defEpreuve(p), m.coups);
+    if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
+    const r = AS.finir(p, c); return r.ok ? { ok: true, res: { victoire: r.victoire } } : { ok: false };
+  },
+  ascensionChoisir(p, m) { return AS.choisir(p, typeof m.b === 'string' ? m.b : ''); },
   // le marchand ambulant : prendre une de ses 3 offres (il faut être à côté de lui)
   marchandAcheter(p, m, ctx) { return MA.acheter(p, m.i, ctx?.pos); },
   // le passe de saison : réclamer les récompenses des niveaux atteints
   passeReclamer(p) { const r = PS.reclamer(p); return r.ok ? { ok: true, res: r.total } : r; },
   // les familiers : en fabriquer un, ou choisir celui qui nous suit
   familierFabriquer(p, m) { return F.valide(m.id) ? F.fabriquer(p, m.id) : { ok: false }; },
+  montureAcheter(p, m) { return MT.acheter(p, m.id); },
+  montureChoisir(p, m) { return m.id === null || MT.valide(m.id) ? MT.choisir(p, m.id) : { ok: false }; },
   familierChoisir(p, m) { return m.id === null || F.valide(m.id) ? F.choisir(p, m.id) : { ok: false }; },
   // un don au projet de clan de la semaine
   projetDonner(p, m, ctx) {

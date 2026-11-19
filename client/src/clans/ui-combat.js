@@ -5,7 +5,7 @@
 import * as RQ from '../../../shared/clans/reliques.js';
 import * as F from '../../../shared/clans/familiers.js';
 import { feuilleFamilier } from './familiersArt.js';
-import { CARTES, CLASSES, RARES, STATUTS } from '../../../shared/clans/cartes.js';
+import { BRANCHES, CARTES, CLASSES, RARES, STATUTS } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES, PALIERS, MALEDICTIONS } from '../../../shared/clans/monstres.js';
 import * as C from '../../../shared/clans/combat.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -96,12 +96,12 @@ export function lancerCombat(def, type) {
   setCombat(C.nouveauCombat(def)); setCarteChoisie(null); typeCombat = type; coups = []; animCb = false;
   $('fenetre').classList.add('cache');
   const sc = $('combat'); sc.className = 'scene'; $('cbBanniere').replaceChildren(); sc.querySelector('.rayons')?.remove();
-  const terr = mondialEnCours?.terr || p.expedition.territoire;
+  const terr = mondialEnCours?.terr || p.expedition?.territoire || p.clan;
   decor($('cbDecor'), terr);
   ambCb?.arreter(); ambCb = ambiance($('cbAmbiance'), terr);
   fxCb ||= creerFx($('cbFx'));
-  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr].nom}` }[type] || 'Combat';
-  $('cbInfo').innerHTML = type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
+  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr].nom}`, ascension: '🌟 Épreuve d’ascension' }[type] || 'Combat';
+  $('cbInfo').innerHTML = type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
   sc.classList.toggle('cauchemar', !!PALIERS[p.expedition?.palier - 1]?.cauchemar && type !== 'mondial');
   dessinerSprite($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p));
   // le familier, à côté du héros (expéditions et boss mondial)
@@ -169,8 +169,9 @@ export function dessinerCombat(donner = false, entree = false) {
   $('cbEnergie').classList.toggle('vide', c.energie === 0);
   const cl = CLASSES[p.classe];
   if (cl) {
-    const etat = p.classe === 'tireur' ? (C.viseeProchaine(c) ? ' — <b>la prochaine attaque est doublée !</b>' : ` — tir ${(c.tirs % 3) + 1}/3`) : p.classe === 'escrimeur' ? (c.attaquesTour ? ' — <b>+2 par coup actif</b>' : '') : p.classe === 'mage' ? (c.arcanes ? ' — utilisé ce tour' : ' — <b>prêt</b>') : '';
-    $('cbTalent').innerHTML = `<b>${cl.ico} ${cl.talent}</b> : ${cl.desc}${etat}`;
+    const br = BRANCHES[c.branche], per = C.periodeVisee(c);
+    const etat = p.classe === 'tireur' ? (C.viseeProchaine(c) ? ' — <b>la prochaine attaque est doublée !</b>' : ` — tir ${(c.tirs % per) + 1}/${per}`) : p.classe === 'escrimeur' ? (c.attaquesTour ? ` — <b>+${c.branche === 'duelliste' ? 2 * c.attaquesTour : 2} par coup actif</b>` : '') : p.classe === 'mage' ? (c.arcanes ? ' — utilisé ce tour' : ' — <b>prêt</b>') : '';
+    $('cbTalent').innerHTML = `<b>${cl.ico} ${cl.talent}</b> : ${cl.desc}${etat}${br ? `<br><b>${br.ico} ${esc(br.talent)}</b> : ${esc(br.desc)}` : ''}`;
     $('cbTalent').classList.toggle('pret', (p.classe === 'tireur' && C.viseeProchaine(c)) || (p.classe === 'escrimeur' && c.attaquesTour > 0));
   }
   const n = c.main.length;
@@ -306,7 +307,7 @@ export async function jouerEvenements(evs) {
       }
       case 'brule': {
         if (!z) break; const c = centre(z);
-        fx.eclats(c.x, c.y + 10, PALETTES.feu, 24, { vitesse: 160, g: -260, angle: -1.57, ecart: 1.4 }); nombre(z, `🔥 −${e.deg}`, 'brule');
+        fx.eclats(c.x, c.y + 10, PALETTES.feu, 24, { vitesse: 160, g: -260, angle: -1.57, ecart: 1.4 }); nombre(z, `${e.sang ? '🩸' : '🔥'} −${e.deg}`, 'brule');
         rejouerAnim(blocDe(e.a), 'touche'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); if (e.a === 'j') sfx.hurt(); await pauseCb(300); break;
       }
       case 'energie': rejouerAnim($('cbEnergie'), 'change'); break;
@@ -383,6 +384,12 @@ export function fermerScene() { stopAuraCb?.(); stopAuraCb = null; $('combat').c
 export async function finCombat() {
   if (envoiCombat) return;
   if (mondialEnCours) { fermerScene(); return finManche(); }
+  if (typeCombat === 'ascension') {
+    envoiCombat = true; $('cbAide').textContent = 'Le serveur valide l’épreuve…';
+    const rep = await act('ascensionCombat', { coups });
+    envoiCombat = false; fermerScene(); setCombat(null); typeCombat = null;
+    return (await import('./ui-ascension.js')).apresEpreuve(rep);
+  }
   // le serveur rejoue nos coups : c'est SON résultat qui compte
   envoiCombat = true; $('cbAide').textContent = 'Le serveur valide le combat…';
   let rep = await act('expeCombat', { coups });
@@ -411,7 +418,7 @@ export function lancerMondial(m) {
   if (!$('combat').classList.contains('cache')) return;
   mondialEnCours = { terr: m.terr };
   const pv = P.pvMax(p);
-  lancerCombat({ deck: P.deckCombat(p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[m.terr], pv: m.pv }], palier: PALIER_MONDIAL, graine: m.graine, classe: p.classe, familier: F.actif(p) }, 'mondial');
+  lancerCombat({ deck: P.deckCombat(p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[m.terr], pv: m.pv }], palier: PALIER_MONDIAL, graine: m.graine, classe: p.classe, branche: p.branche || null, familier: F.actif(p) }, 'mondial');
 }
 export function finManche() {
   const deg = combat.ennemis.reduce((t, e) => t + Math.max(0, e.pvMax - Math.max(0, e.pv)), 0), gagne = combat.fini === 'victoire';

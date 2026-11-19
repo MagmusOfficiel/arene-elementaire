@@ -121,7 +121,7 @@ export async function entrerMonde() {
   await monde.preparer((f) => etatChargement(`Préparation de la carte… ${Math.round(f * 100)} %<br><small>(seulement la première fois)</small>`));
   etatChargement('');
   $('ecranMonde').classList.remove('cache');
-  majBarre(); monde.demarrer(p.clan, p.nom, p.classe); monde.majMaParcelle(p.parcelle);
+  majBarre(); monde.demarrer(p.clan, p.nom, p.classe, p.maison || p.nom); monde.majMaParcelle(p.parcelle);
   majPastille(); guide.demarrer(); if (monde.tactile) $('tactile').classList.remove('cache');
   const x = p.expedition;
   if (x?.combatEnCours) setTimeout(() => lancerCombat(X.combatDe(p, x.combatEnCours), X.salle(x.carte, x.combatEnCours).type), 400);

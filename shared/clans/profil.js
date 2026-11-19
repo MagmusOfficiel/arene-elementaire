@@ -4,7 +4,7 @@
 //  et les règles qui les font évoluer : tirages, amélioration des cartes,
 //  production et construction de la parcelle, butin des expéditions.
 // =====================================================================
-import { CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
+import { BRANCHES, CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
 import { alea } from './combat.js';
 
 export const DECK_MIN = 10, DECK_MAX = 25, COPIES_MAX = 4;
@@ -33,6 +33,7 @@ export function choisirClasse(p, classe) {
   if (p.classe || !CLASSES[classe]) return false;
   p.classe = classe; p.v = 2;
   for (const id of CLASSES[classe].depart) { const c = (p.collection[id] ||= { n: 0, niv: 1 }); if (c.n < COPIES_MAX) c.n++; if (p.deck.length < DECK_MAX) p.deck.push(id); }
+  const conv = convertirAutresClasses(p); if (conv.n) p.avisClasse = conv;
   return true;
 }
 
@@ -44,10 +45,11 @@ function tirerRarete(r, p, garantieEpique) {
   for (const [rar, t] of TAUX) { acc += t; if (x < acc) return garantieEpique && (rar === 'rare' || rar === 'commune') ? 'epique' : rar; }
   return 'commune';
 }
-function tirerCarte(r, clan, rarete, classe) {
+function tirerCarte(r, clan, rarete, classe, branche) {
   // le pool : l'élément de son clan et les cartes de sa classe sortent bien plus souvent
-  const poids = (c) => (c.classe ? (c.classe === classe ? 5 : 0.6) : c.element === clan ? 5 : c.element === 'neutre' ? 2 : 1.2);
-  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif);
+  // les cartes des autres classes ne sortent jamais (v68)
+  const poids = (c) => (c.classe ? 5 : c.element === clan ? 5 : c.element === 'neutre' ? 2 : 1.2);
+  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif && pourClasse(c.id, classe, branche));
   const tot = pool.reduce((s, c) => s + poids(c), 0);
   let x = r() * tot;
   for (const c of pool) { x -= poids(c); if (x <= 0) return c.id; }
@@ -61,7 +63,7 @@ export function tirer(p, n = 1, graine = Date.now()) {
   const r = alea(graine), res = [];
   for (let i = 0; i < n; i++) {
     const garantie = n === 10 && i === 9 && !res.some((x) => ['epique', 'legendaire'].includes(CARTES[x.id].rarete));
-    const rar = tirerRarete(r, p, garantie), id = tirerCarte(r, p.clan, rar, p.classe);
+    const rar = tirerRarete(r, p, garantie), id = tirerCarte(r, p.clan, rar, p.classe, p.branche);
     p.tirages.total++; p.tirages.depuisLegendaire = rar === 'legendaire' ? 0 : p.tirages.depuisLegendaire + 1;
     const c = (p.collection[id] ||= { n: 0, niv: 1 });
     const nouveau = c.n === 0;
@@ -112,11 +114,42 @@ export const BUTIN_DUEL = (essencePerdant) => Math.min(300, Math.floor(Math.max(
 export function completer(p) {
   for (const k of ['cristal', 'perle_noire', 'graine_or']) p.ress[k] ??= 0;
   p.duels ??= { gagnes: 0, perdus: 0 };
+  delete p.avisClasse;
+  const conv = convertirAutresClasses(p);
+  if (conv.n) p.avisClasse = conv;   // le client prévient le joueur une fois (effacé au chargement suivant)
   return p;
+}
+
+// ---------- les cartes de classe (v68) : chaque classe ne joue que ses propres cartes de classe ----------
+// une carte sans classe (élément ou neutre) va à tout le monde
+// une carte de branche (v69) ne va qu'à sa branche
+export const pourClasse = (id, classe, branche = null) => { const c = CARTES[id]; return !c?.classe || (c.classe === classe && (!c.branche || c.branche === branche)); };
+// un ancien profil qui avait des cartes d'une autre classe : elles partent du deck et deviennent des éclats
+export function convertirAutresClasses(p) {
+  if (!p?.classe || !p.collection) return { n: 0, eclats: 0 };
+  let n = 0, eclats = 0;
+  for (const [id, c] of Object.entries(p.collection)) {
+    if (pourClasse(id, p.classe, p.branche) || !(c.n > 0)) continue;
+    n += c.n; eclats += c.n * RARETES[CARTES[id].rarete].eclats * (c.niv || 1);
+    delete p.collection[id];
+  }
+  if (!n) return { n: 0, eclats: 0 };
+  p.ress.eclats = (p.ress.eclats || 0) + eclats;
+  p.deck = p.deck.filter((id) => pourClasse(id, p.classe, p.branche));
+  // un deck devenu trop petit est complété avec les cartes de base
+  for (const id of deckDepart(p.clan, p.classe)) {
+    if (p.deck.length >= DECK_MIN) break;
+    const c = (p.collection[id] ||= { n: 0, niv: 1 });
+    if (p.deck.filter((x) => x === id).length >= c.n) { if (c.n < COPIES_MAX) c.n++; else continue; }
+    p.deck.push(id);
+  }
+  if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = d.cartes.filter((id) => pourClasse(id, p.classe, p.branche));
+  return { n, eclats };
 }
 
 // ---------- le deck ----------
 export function ajouterAuDeck(p, id) {
+  if (!pourClasse(id, p.classe, p.branche)) return { ok: false, raison: CARTES[id].branche ? `Cette carte est réservée à la branche ${BRANCHES[CARTES[id].branche].nom}.` : `Cette carte est réservée à la classe ${CLASSES[CARTES[id].classe].nom}.` };
   const possede = p.collection[id]?.n || 0, dedans = p.deck.filter((x) => x === id).length;
   if (dedans >= possede) return { ok: false, raison: 'Tu n’as pas d’autre exemplaire de cette carte.' };
   if (dedans >= COPIES_MAX) return { ok: false, raison: `${COPIES_MAX} exemplaires au plus.` };
@@ -142,7 +175,7 @@ export function emplacements(p) {
 // un deck enregistré peut ne plus être valable (cartes perdues…) : on garde ce qui l'est
 export function nettoyerDeck(p, cartes) {
   const deck = [], compte = {};
-  for (const id of Array.isArray(cartes) ? cartes : []) { if (!CARTES[id] || !p.collection[id] || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(COPIES_MAX, p.collection[id].n)) deck.push(id); }
+  for (const id of Array.isArray(cartes) ? cartes : []) { if (!CARTES[id] || !p.collection[id] || !pourClasse(id, p.classe, p.branche) || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(COPIES_MAX, p.collection[id].n)) deck.push(id); }
   return deck;
 }
 export function choisirDeck(p, i) {
