@@ -124,3 +124,29 @@ test('quêtes : le serveur les fait avancer (tirage, combat gagné) et paie via 
   if (i >= 0) { assert.ok(ACTIONS.quete(p, { quel: `j${i}` }, { points: (k) => pts.push(k) }).ok); assert.deepEqual(pts, ['quete']); }
   assert.equal(ACTIONS.quete(p, { quel: 'bonus' }, {}).ok, false);
 });
+
+test('équilibrage : un combat validé est compté (cartes, monstres, rencontres, classe), sans le journal côté joueur', async () => {
+  const S = await import('../server/src/stats.js');
+  S.remettreEquilibrage();
+  const p = creer('eau', 'mage');
+  ACTIONS.expeCommencer(p, { terr: 'feu', palier: 1 });
+  const salle = X.choixPossibles(p.expedition).find((k) => ['combat', 'elite', 'rare'].includes(X.salle(p.expedition.carte, k).type));
+  if (!salle) return;
+  ACTIONS.expeEntrer(p, { salle });
+  const def = X.combatDe(p, p.expedition.combatEnCours), { c, coups } = jouerEtNoter(def);
+  assert.equal(c.ev, undefined);                                         // le combat du joueur n'a pas de journal
+  assert.ok(ACTIONS.expeCombat(p, { coups }, {}).ok);
+  const E = S.equilibrage();
+  assert.equal(E.nCombats, 1);
+  assert.equal(Object.values(E.rencontres)[0].n, 1);
+  assert.equal(E.classes['mage|1'].n, 1);
+  const joues = Object.entries(E.cartes).filter(([k, x]) => k.endsWith('|1') && x.joue).length;
+  assert.ok(joues > 0, 'des cartes jouées sont comptées');
+  assert.ok(Object.keys(E.monstres).every((k) => k.endsWith('|1')));
+  assert.ok(Object.values(E.cartes).some((x) => (x.deg || 0) + (x.bloc || 0) > 0), 'dégâts ou bouclier attribués aux cartes');
+  const { noterDuel } = await import('../server/src/clansEquilibrage.js');
+  noterDuel({ gagnant: { classe: 'mage', clan: 'eau', deck: [{ id: 'frappe' }] }, perdant: { classe: 'tireur', clan: 'feu', deck: [{ id: 'garde' }] }, arene: true, reflet: false });
+  assert.deepEqual(E.duels['arene|mage'], { n: 1, v: 1 }); assert.deepEqual(E.duels['arene|tireur'], { n: 1, v: 0 });
+  assert.deepEqual(E.cartes['frappe|duel'], { n: 1, v: 1 });
+  S.remettreEquilibrage();
+});

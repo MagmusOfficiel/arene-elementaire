@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Les Clans Élémentaires</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚜️</text></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="/clans/polices/nunito-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/clans/polices/fredoka-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
   <!-- Choix du clan -->
@@ -27,56 +27,98 @@
       <span id="moi"></span>
       <span id="ressources"></span>
       <span class="espace"></span>
-      <button id="btSon" title="Couper / remettre le son (touche M)">🔊</button>
+      <button id="btPasse" title="Passe de saison (touche P)">🎟️<span> Passe</span><i id="pastilleP" class="cache"></i></button>
       <button id="btQuetes" title="Quêtes du jour et de la semaine (touche J)">📜<span> Quêtes</span><i id="pastilleQ" class="cache"></i></button>
-      <button id="btClassement" title="Rivalité des clans">🏆<span> Clans</span></button>
       <button id="btParcelle" title="Ta parcelle">🏠<span> Parcelle</span></button>
       <button id="btDeck" title="Ta collection et ton deck">🃏<span> Deck</span></button>
+      <div id="menuBarre">
+        <button id="btMenu" title="Plus : apparence, familiers, arène, clans, son" aria-haspopup="true" aria-expanded="false">☰<span> Plus</span></button>
+        <div id="menuListe" class="cache" role="menu">
+          <button id="btFiche" role="menuitem">🏅 Ma fiche et hauts faits <small>H</small></button>
+          <button id="btApparence" role="menuitem">👕 Apparence</button>
+          <button id="btFamiliers" role="menuitem">🐾 Familiers <small>F</small></button>
+          <button id="btArene" role="menuitem">🏟️ Arène classée</button>
+          <button id="btClassement" role="menuitem">🏆 Rivalité des clans</button>
+          <button id="btAide" role="menuitem">❓ Comment jouer <small>?</small></button>
+          <button id="btSon" role="menuitem">🔊 Son <small>M</small></button>
+        </div>
+      </div>
     </header>
     <div id="bandeau" class="cache"></div>
     <div id="bandeauMondial" class="cache"></div>
+    <div id="bandeauSanct" class="cache"></div>
+    <div id="alerteSanct" class="cache"></div>
+    <div id="bandeauArene" class="cache"></div>
     <aside id="enLigne"><h3>En ligne <span id="nbEnLigne"></span></h3><div id="listeClans"></div></aside>
     <div id="chat"><div id="chatOnglets"><button data-c="tous" class="actif">Tous</button><button data-c="clan">Mon clan</button></div><div id="chatMsgs"></div><input id="chatTexte" maxlength="140" placeholder="Écrire… (Entrée)"></div>
-    <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guidePasser" title="Masquer le guide">Passer</button></div>
+    <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guideOk" class="cache">Compris</button><button id="guidePasser" title="Masquer le guide et ses astuces">Passer</button></div>
     <div id="tactile" class="cache"><div id="joy"><i id="joyBouton"></i></div><button id="btAgir">✋</button><button id="btChatMobile">💬</button></div>
-    <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir</div>
+    <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir · <b>?</b> aide</div>
   </section>
 
   <!-- Fenêtres -->
   <div id="fenetre" class="cache"><div id="fenetreBoite"><button id="btFermer" title="Fermer">✕</button><div id="fenetreCorps"></div></div></div>
 
-  <!-- Combat -->
-  <section id="combat" class="cache">
-    <div id="cbFond"></div>
-    <div id="cbHaut"><span id="cbTitre"></span><span id="cbInfo"></span></div>
-    <div id="cbEnnemis"></div>
-    <div id="cbJoueur">
-      <div id="cbPortrait"></div><div id="cbTalent"></div>
-      <div id="cbVie"><div class="barre"><i id="cbPv"></i><b id="cbPvTxt"></b></div><div id="cbStatuts"></div></div>
-      <div id="cbEnergie"><b id="cbEnergieTxt"></b><small>énergie</small></div>
+  <!-- Combat (expéditions, boss mondial) : une scène en pixel art, le héros face aux monstres -->
+  <section id="combat" class="scene cache">
+    <canvas id="cbDecor" class="decor"></canvas>
+    <canvas id="cbAmbiance" class="ambiance"></canvas>
+    <div class="voile"></div>
+    <div id="cbHaut" class="haut"><span id="cbTitre"></span><span id="cbInfo"></span></div>
+    <div id="cbTour" class="tourCb"></div>
+    <div id="cbTalent" class="talent"></div>
+    <div id="cbReliques" class="reliquesCb"></div>
+    <div class="arene">
+      <div id="cbHeros" class="heros">
+        <div id="cbMenace" class="menace"></div>
+        <div class="combattant"><canvas id="cbFam" class="familier cache" width="12" height="11"></canvas><canvas id="cbSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="jauge"><span id="cbBloc" class="bouclier"></span><div class="barre vie"><i id="cbPvF" class="fantome"></i><i id="cbPv"></i><b id="cbPvTxt"></b></div></div>
+        <div id="cbStatuts" class="statuts"></div>
+      </div>
+      <div id="cbEnnemis" class="ennemis"></div>
     </div>
-    <div id="cbMain"></div>
-    <div id="cbPiles"><span id="cbPioche" title="Pioche"></span><span id="cbDefausse" title="Défausse"></span><span id="cbEpuisees" title="Épuisées"></span></div>
-    <button id="btFinTour">Fin du tour</button>
-    <div id="cbAide"></div>
+    <div id="cbEnergie" class="energie"><b id="cbEnergieTxt"></b><small>énergie</small></div>
+    <div id="cbPioche" class="pile pioche" title="Pioche"><i></i><b></b></div>
+    <div id="cbDefausse" class="pile defausse" title="Défausse"><i></i><b></b></div>
+    <span id="cbEpuisees" class="epuisees" title="Cartes épuisées"></span>
+    <div id="cbMain" class="main"></div>
+    <button id="btFinTour" class="finTour" title="Finir ton tour : les ennemis agissent (touche E)">Fin du tour</button>
+    <button id="btVitesse" class="vitesse" title="Vitesse des animations (touche V)">⏩ ×1</button>
+    <div id="cbAide" class="aide"></div>
+    <canvas id="cbFx" class="fx"></canvas>
+    <div id="cbBanniere" class="bannScene"></div>
   </section>
 
-  <!-- Duel entre joueurs -->
-  <section id="duel" class="cache">
-    <div id="duFond"></div>
-    <div id="duHaut"><span id="duTitre">Duel</span><span id="duTour"></span></div>
-    <div id="duAdv"></div>
-    <div id="duMoi">
-      <div id="duPortrait"></div>
-      <div id="duVie"><div class="barre"><i id="duPv"></i><b id="duPvTxt"></b></div><div id="duStatuts"></div></div>
-      <div id="duEnergie"><b id="duEnergieTxt"></b><small>énergie</small></div>
+  <!-- Duel entre joueurs (et arène) : la même scène, face à face -->
+  <section id="duel" class="scene cache">
+    <canvas id="duDecor" class="decor"></canvas>
+    <canvas id="duAmbiance" class="ambiance"></canvas>
+    <div class="voile"></div>
+    <div id="duHaut" class="haut"><span id="duTitre">Duel</span><span id="duTour"></span></div>
+    <div class="arene">
+      <div id="duHeros" class="heros">
+        <div class="combattant"><canvas id="duSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="jauge"><span id="duBloc" class="bouclier"></span><div class="barre vie"><i id="duPvF" class="fantome"></i><i id="duPv"></i><b id="duPvTxt"></b></div></div>
+        <div id="duStatuts" class="statuts"></div>
+      </div>
+      <div id="duAdv" class="heros adversaire">
+        <div class="mainAdv"></div>
+        <div class="combattant"><canvas id="duSpriteAdv" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="nomAdv"></div>
+        <div class="jauge"><span class="bouclier"></span><div class="barre vie"><i class="fantome"></i><i class="pvAdv"></i><b></b></div></div>
+        <div class="statuts"></div>
+      </div>
     </div>
-    <div id="duMain"></div>
-    <div id="duJournal"></div>
-    <button id="btDuelFin">Fin du tour</button>
-    <button id="btDuelAbandon">Abandonner</button>
+    <div id="duEnergie" class="energie"><b id="duEnergieTxt"></b><small>énergie</small></div>
+    <div id="duMain" class="main"></div>
+    <div id="duJournal" class="journal"></div>
+    <button id="btDuelFin" class="finTour">Fin du tour</button>
+    <button id="btDuelAbandon" class="abandon">Abandonner</button>
+    <canvas id="duFx" class="fx"></canvas>
+    <div id="duBanniere" class="bannScene"></div>
   </section>
 
+  <div id="reseau" class="cache"></div>
   <div id="toasts"></div>
   <script type="module" src="../src/clans/main.js"></script>
 </body>

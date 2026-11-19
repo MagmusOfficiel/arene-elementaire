@@ -14,6 +14,15 @@ import * as P from '../../shared/clans/profil.js';
 import * as X from '../../shared/clans/expedition.js';
 import { rejouer } from '../../shared/clans/combat.js';
 import * as Q from '../../shared/clans/quetes.js';
+import * as T from '../../shared/clans/territoires.js';
+import * as AP from '../../shared/clans/apparence.js';
+import * as PJ from '../../shared/clans/projets.js';
+import * as F from '../../shared/clans/familiers.js';
+import * as PS from '../../shared/clans/passe.js';
+import * as MA from '../../shared/clans/marchand.js';
+import * as HF from '../../shared/clans/hautsfaits.js';
+import { alea } from '../../shared/clans/combat.js';
+import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
 import { lireProfilClans, ecrireProfilClans, jetonValide } from './stats.js';
 
@@ -45,6 +54,7 @@ export async function enregistrer(jeton, p) { try { await ecrireProfilClans(jeto
 // ---------- les actions du joueur ----------
 // chacune reçoit (profil, message, contexte) et renvoie { ok, raison?, res? }
 // ctx.points(n) : points pour la rivalité des clans ; ctx.p : le profil (création)
+// ctx.projets : l'état des projets de clan (bonus de la semaine) ; ctx.cle : identifiant stable du joueur
 const carte = (id) => typeof id === 'string' && Object.hasOwn(CARTES, id);
 const graine = () => crypto.randomInt(0, 2 ** 31);
 export const ACTIONS = {
@@ -52,41 +62,77 @@ export const ACTIONS = {
     if (p) return { ok: false, raison: 'Tu as déjà un profil.' };
     if (!CLANS.includes(m.clan) || typeof m.classe !== 'string' || !Object.hasOwn(CLASSES, m.classe)) return { ok: false, raison: 'Choix invalide.' };
     ctx.p = P.nouveauProfil(m.clan, propre(m.nom, 16) || 'Joueur', Date.now(), m.classe);
+    // tests de bout en bout seulement (jamais en production) : un profil riche pour tout essayer
+    if (process.env.CLANS_TEST_DEPART === '1') { const r = ctx.p.ress; r.essence = 50000; r.eclats = 3000; for (const k of ['braises', 'perles', 'seve']) r[k] = 800; for (const k of ['cristal', 'perle_noire', 'graine_or']) r[k] = 60; }
     return { ok: true };
   },
   classe(p, m) { if (typeof m.classe !== 'string' || !Object.hasOwn(CLASSES, m.classe)) return { ok: false }; return P.choisirClasse(p, m.classe) ? { ok: true } : { ok: false, raison: 'Choix impossible.' }; },
   tirer(p, m) { const n = m.n === 10 ? 10 : 1, r = P.tirer(p, n, graine()); if (r.ok) Q.evenement(p, 'tirage', n); return r.ok ? { ok: true, res: r } : r; },
-  fabriquer(p, m) { if (!carte(m.id)) return { ok: false }; return P.fabriquer(p, m.id); },
-  ameliorer(p, m) { if (!carte(m.id)) return { ok: false }; const r = P.ameliorer(p, m.id); if (r.ok) Q.evenement(p, 'ameliorer'); return r.ok ? { ok: true, res: r } : r; },
+  fabriquer(p, m, ctx) { if (!carte(m.id)) return { ok: false }; return P.fabriquer(p, m.id, PJ.bonusDe(ctx?.projets, p.clan, 'remise')); },
+  ameliorer(p, m, ctx) { if (!carte(m.id)) return { ok: false }; const r = P.ameliorer(p, m.id, PJ.bonusDe(ctx?.projets, p.clan, 'remise')); if (r.ok) Q.evenement(p, 'ameliorer'); return r.ok ? { ok: true, res: r } : r; },
   deckAjouter(p, m) { if (!carte(m.id)) return { ok: false }; return P.ajouterAuDeck(p, m.id); },
   deckRetirer(p, m) { if (!carte(m.id)) return { ok: false }; return P.retirerDuDeck(p, m.id); },
-  recolter(p) { const g = P.recolter(p, Date.now()); if ((g.essence || 0) >= 1) Q.evenement(p, 'recolter'); return { ok: true, res: g }; },
+  // plusieurs decks (v64) : passer à un autre emplacement, ou le renommer
+  deckChoisir(p, m) { return P.choisirDeck(p, m.i); },
+  deckRenommer(p, m) { return P.renommerDeck(p, m.i, m.nom); },
+  recolter(p, m, ctx) {
+    const g = P.recolter(p, Date.now()), b = T.bonusProduction(ctx?.sanctuaires || 0) + PJ.bonusDe(ctx?.projets, p.clan, 'production');
+    // bonus des sanctuaires tenus par le clan, et de l'Arbre-monde
+    if (b > 0) for (const [k, v] of Object.entries(g)) if (typeof v === 'number' && v > 0 && typeof p.ress[k] === 'number') { const e = Math.floor(v * b); p.ress[k] += e; g[k] += e; }
+    g.bonus = b;
+    if ((g.essence || 0) >= 1) Q.evenement(p, 'recolter');
+    return { ok: true, res: g };
+  },
   construire(p, m) { if (typeof m.bat !== 'string' || !Object.hasOwn(P.BATIMENTS, m.bat)) return { ok: false }; const r = P.construire(p, m.bat); return r.ok ? { ok: true, res: r } : r; },
-  expeCommencer(p, m) {
+  expeCommencer(p, m, ctx) {
     if (p.expedition) return { ok: false, raison: 'Une expédition est déjà en cours.' };
-    const r = ['feu', 'eau', 'plante'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(3, m.palier | 0)), graine());
+    const r = ['feu', 'eau', 'plante'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
+    if (r?.ok) { const b = PJ.bonusDe(ctx?.projets, p.clan, 'butin'); if (b) p.expedition.bonusButin = b; }
     return r?.ok ? { ok: true } : (r || { ok: false });
   },
   expeEntrer(p, m) {
     if (p.expedition?.combatEnCours) return { ok: false, raison: 'Un combat est en cours.' };
     const r = X.entrer(p, String(m.salle || ''));
-    return r.ok ? { ok: true, res: { type: r.type, soin: r.soin, gain: r.gain } } : { ok: false, raison: 'Salle inaccessible.' };
+    return r.ok ? { ok: true, res: { type: r.type, soin: r.soin, gain: r.gain, relique: r.relique } } : { ok: false, raison: r.raison || 'Salle inaccessible.' };
   },
   // le client envoie ses coups ; on rejoue le combat et on garde CE résultat
   expeCombat(p, m, ctx) {
     const x = p.expedition; if (!x?.combatEnCours) return { ok: false, raison: 'Aucun combat en cours.' };
-    const type = X.salle(x.carte, x.combatEnCours).type, terr = x.territoire;
-    const c = rejouer(X.combatDe(p, x.combatEnCours), m.coups);
+    const type = X.salle(x.carte, x.combatEnCours).type, terr = x.territoire, def = X.combatDe(p, x.combatEnCours);
+    const c = rejouer(def, m.coups, { journal: true });
     if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
+    noterCombat({ classe: p.classe, clan: p.clan, terr, palier: x.palier, type, deck: def.deck, c, pvAvant: x.pv });
     const r = X.apresCombat(p, c);
     if (c.fini === 'victoire') Q.evenement(p, 'victoire', 1, { terr, type });
-    if (type === 'boss' && c.fini === 'victoire') ctx.points?.('bossExpe');
-    return { ok: true, res: { ...r, issue: c.fini } };
+    let familier = null;
+    if (type === 'boss' && c.fini === 'victoire') { ctx.points?.('bossExpe'); familier = F.butinBoss(p, terr, def.palier?.n || 1, alea(graine())); }
+    return { ok: true, res: { ...r, issue: c.fini, familier } };
   },
   // réclamer la récompense d'une quête (les quêtes avancent toutes seules côté serveur)
   quete(p, m, ctx) {
     const r = Q.reclamer(p, typeof m.quel === 'string' ? m.quel : '');
-    if (r.ok) ctx.points?.(r.semaine ? 'queteSemaine' : 'quete');
+    if (r.ok) { ctx.points?.(r.semaine ? 'queteSemaine' : 'quete'); p.stats.quetes = (p.stats.quetes || 0) + 1; PS.gagner(p, r.semaine ? 'queteSemaine' : 'quete'); }
+    return r.ok ? { ok: true, res: r } : r;
+  },
+  // l'apparence : acheter une pièce, ou porter une pièce qu'on a
+  apparenceAcheter(p, m) { return AP.acheter(p, m.id); },
+  apparencePorter(p, m) { return AP.porter(p, m.id); },
+  // une relique à choisir après un élite (id, ou null pour passer)
+  expeRelique(p, m) { if (m.id !== null && typeof m.id !== 'string') return { ok: false }; return X.choisirRelique(p, m.id); },
+  // le titre affiché sous le nom (un haut fait atteint), ou aucun
+  titreChoisir(p, m) { return HF.choisirTitre(p, m.t ?? null); },
+  // le marchand ambulant : prendre une de ses 3 offres (il faut être à côté de lui)
+  marchandAcheter(p, m, ctx) { return MA.acheter(p, m.i, ctx?.pos); },
+  // le passe de saison : réclamer les récompenses des niveaux atteints
+  passeReclamer(p) { const r = PS.reclamer(p); return r.ok ? { ok: true, res: r.total } : r; },
+  // les familiers : en fabriquer un, ou choisir celui qui nous suit
+  familierFabriquer(p, m) { return F.valide(m.id) ? F.fabriquer(p, m.id) : { ok: false }; },
+  familierChoisir(p, m) { return m.id === null || F.valide(m.id) ? F.choisir(p, m.id) : { ok: false }; },
+  // un don au projet de clan de la semaine
+  projetDonner(p, m, ctx) {
+    if (!ctx?.projets) return { ok: false };
+    const r = PJ.donner(ctx.projets, p, { essence: m.essence, materiau: m.materiau }, ctx.cle);
+    if (r.ok) { Q.evenement(p, 'projet', r.pts); ctx.projetDon?.(r); }
     return r.ok ? { ok: true, res: r } : r;
   },
   expeAbandon(p) {

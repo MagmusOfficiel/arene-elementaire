@@ -51,4 +51,22 @@ export const PALIERS = [
   { n: 1, nom: 'Palier I', pv: 1.3, deg: 1.2, butin: 1 },
   { n: 2, nom: 'Palier II', pv: 1.7, deg: 1.45, butin: 1.6 },
   { n: 3, nom: 'Palier III', pv: 2.2, deg: 1.75, butin: 2.4 },
+  { n: 4, nom: 'Cauchemar', pv: 2.6, deg: 2, butin: 3.6, cauchemar: true },
 ];
+// ---------- le palier IV « Cauchemar » ----------
+// débloqué en battant le boss du palier III d'un territoire. Chaque expédition tire 2 malédictions au sort,
+// les monstres sont « maudits » (plus forts, illustrations assombries) et le boss est un titan ancien.
+export const MALEDICTIONS = {
+  rage: { nom: 'Rage', ico: '😡', desc: 'Les monstres commencent chaque combat avec +2 de force.' },
+  carapace: { nom: 'Carapaces', ico: '🐚', desc: 'Les monstres commencent chaque combat avec un bouclier (15 % de leurs PV).' },
+  horde: { nom: 'Horde', ico: '👥', desc: 'Un monstre de plus dans les combats ordinaires.' },
+  disette: { nom: 'Disette', ico: '🍂', desc: 'Les feux de camp soignent deux fois moins.' },
+  epuisement: { nom: 'Épuisement', ico: '🥱', desc: 'Tu pioches 4 cartes au lieu de 5 au premier tour de chaque combat.' },
+  vitalite: { nom: 'Vitalité', ico: '💗', desc: 'Les monstres regagnent 3 PV à la fin de leur tour.' },
+  brouillard: { nom: 'Brouillard', ico: '🌫️', desc: 'Les intentions des monstres sont cachées.' },
+};
+export const BOSS_CAUCHEMAR = {
+  feu: m('titan_magma', 'Titan primordial', '🌋', 100, [{ a: 12 }, { d: 12, f: 2 }, { a: 5, n: 3 }, { w: 2, a: 7 }, { b: 4, a: 9 }, { a: 16 }], 'boss'),
+  eau: m('leviathan_abyssal', 'Léviathan des abysses', '🐋', 102, [{ a: 6, n: 2 }, { t: 2, d: 10 }, { a: 13 }, { f: 1, d: 10 }, { a: 4, n: 3 }, { t: 1, a: 15 }], 'boss'),
+  plante: m('ancien_sylvain', 'Ancien sylvain', '🌳', 124, [{ a: 12, e: 3 }, { d: 14, f: 1 }, { a: 7, n: 3 }, { w: 2, a: 10 }, { a: 19 }, { e: 3, d: 10, f: 1 }], 'boss'),
+};

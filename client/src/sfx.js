@@ -1,7 +1,7 @@
 // =====================================================================
 //  Effets sonores synthétisés en direct (Web Audio) — aucun fichier audio
 // =====================================================================
-let ctx = null, master, sfxBus, musicBus, ambBus, noiseBuf, music = null, muted = false;
+let ctx = null, master, sfxBus, musicBus, ambBus, noiseBuf, music = null, muted = false, douxF = null;
 const last = new Map();   // anti-spam par type de son
 
 export function initAudio() {
@@ -9,7 +9,9 @@ export function initAudio() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   master = ctx.createGain(); master.gain.value = 0.8; master.connect(ctx.destination);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
-  sfxBus = ctx.createGain(); sfxBus.gain.value = 0.55; sfxBus.connect(comp);
+  // un filtre doux sur les effets : il retire le plus aigu (les « tss » fatigants au casque)
+  douxF = ctx.createBiquadFilter(); douxF.type = 'lowpass'; douxF.frequency.value = 20000; douxF.Q.value = 0.5; douxF.connect(comp);
+  sfxBus = ctx.createGain(); sfxBus.gain.value = 0.55; sfxBus.connect(douxF);
   musicBus = ctx.createGain(); musicBus.connect(master);
   ambBus = ctx.createGain(); ambBus.gain.value = 0.5; ambBus.connect(comp);
   appliquerVolumes();
@@ -19,13 +21,18 @@ export function initAudio() {
 
 // Volumes (0 à 1) gardés dans le navigateur
 const lireVol = (k, d) => { try { const v = parseFloat(localStorage.getItem(k)); return Number.isFinite(v) ? v : d; } catch { return d; } };
-export const volumes = { musique: lireVol('vol_musique', 0.6), effets: lireVol('vol_effets', 0.8) };
+export const volumes = { musique: lireVol('vol_musique', 0.6), effets: lireVol('vol_effets', 0.8), ambiance: lireVol('vol_ambiance', 0.7) };
 function appliquerVolumes() {
   if (!ctx) return;
   musicBus.gain.setTargetAtTime(0.5 * volumes.musique, ctx.currentTime, 0.05);
   sfxBus.gain.setTargetAtTime(0.7 * volumes.effets, ctx.currentTime, 0.05);
-  ambBus.gain.setTargetAtTime(0.6 * volumes.effets, ctx.currentTime, 0.05);
+  ambBus.gain.setTargetAtTime(0.45 * volumes.ambiance, ctx.currentTime, 0.05);
 }
+// pour la musique générée des Clans (clans/musique.js) : le contexte audio et le bus de musique
+export const audio = () => (ctx ? { ctx, musicBus, noiseBuf } : null);
+export const estMuet = () => muted;
+// mode doux (Clans) : les effets passent dans un passe-bas à 5,5 kHz
+export function setDoux(oui) { if (douxF) douxF.frequency.setTargetAtTime(oui ? 5500 : 20000, ctx.currentTime, 0.1); }
 export function setVolume(k, v) { volumes[k] = v; try { localStorage.setItem('vol_' + k, v); } catch { /* stockage indisponible */ } appliquerVolumes(); }
 
 // Ambiance de fond en boucle (foule du Colisée, grondement de la Brèche, vent du monde)
@@ -59,13 +66,15 @@ export function setAmbiance(nom) {
   let minuterie = null;
   const ponctuel = (f, min, max) => { const go = () => { if (ambNom !== nom) return; f(); minuterie = setTimeout(go, min + Math.random() * (max - min)); }; minuterie = setTimeout(go, min); };
   if (nom === 'braise') {         // grondement du volcan + crépitements de braises
-    bruit('lowpass', 90, 1, 0.45, 0.05, 0.15); bruit('bandpass', 260, 2, 0.05, 0.23, 0.03);
-    ponctuel(() => noise(0.03 + Math.random() * 0.04, 0.12 + Math.random() * 0.15, g, 'highpass', 2500 + Math.random() * 3000), 60, 420);
+    // (v62) plus de grésillement aigu : un grondement sourd, des crépitements feutrés, et la lave qui fait « bloup »
+    bruit('lowpass', 80, 0.8, 0.28, 0.05, 0.08); bruit('bandpass', 220, 1.5, 0.025, 0.17, 0.012);
+    ponctuel(() => noise(0.04 + Math.random() * 0.05, 0.025 + Math.random() * 0.03, g, 'bandpass', 900 + Math.random() * 700, null, 1.2), 350, 1600);
+    ponctuel(() => { const t = ctx.currentTime, f = 90 + Math.random() * 50; osc('sine', f, f * 0.55, 0.22, 0.07, g, t, 0.02); }, 3500, 9000);
   } else if (nom === 'lagon') {   // vagues qui vont et viennent + mouettes au loin
-    bruit('lowpass', 700, 0.7, 0.16, 0.11, 0.14); bruit('highpass', 2500, 0.5, 0.02, 0.11, 0.018);
+    bruit('lowpass', 600, 0.7, 0.14, 0.09, 0.12); bruit('bandpass', 1400, 0.6, 0.012, 0.09, 0.01);
     ponctuel(() => { const t = ctx.currentTime, f = 1300 + Math.random() * 400; osc('sine', f, f * 0.7, 0.18, 0.05, g, t, 0.03); osc('sine', f * 1.05, f * 0.72, 0.2, 0.04, g, t + 0.22, 0.03); }, 5000, 14000);
   } else if (nom === 'sylve') {   // vent dans les arbres + oiseaux
-    bruit('bandpass', 700, 0.6, 0.07, 0.07, 0.04); bruit('highpass', 4000, 0.5, 0.012, 0.19, 0.008);
+    bruit('bandpass', 650, 0.6, 0.06, 0.07, 0.035); bruit('bandpass', 2200, 0.8, 0.006, 0.19, 0.004);
     ponctuel(() => { const t = ctx.currentTime, f = 2400 + Math.random() * 1600; for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) osc('sine', f, f * (1.2 + Math.random() * 0.3), 0.07, 0.06, g, t + k * 0.1, 0.01); }, 1500, 6000);
   } else if (nom === 'carrefour') { // vent doux et clapotis de l'autel
     bruit('bandpass', 500, 0.6, 0.06, 0.09, 0.04);
@@ -94,6 +103,7 @@ export async function playMusic(url) { return setMusic(url.replace(/^.*\//, '').
 export async function setMusic(name) {
   if (!ctx || name === musicName) return;
   musicName = name;
+  if (!name) { if (music) { const old = music; musicGain.gain.setTargetAtTime(0, ctx.currentTime, 0.5); setTimeout(() => { try { old.stop(); } catch { /* déjà arrêtée */ } }, 2500); music = null; } return; }
   try {
     if (!musicCache.has(name)) musicCache.set(name, ctx.decodeAudioData(await (await fetch(`/audio/${name}.ogg`)).arrayBuffer()));
     const buf = await musicCache.get(name);
@@ -172,7 +182,7 @@ export const sfx = {
   horde() { if (!ctx) return; const o = out(0.7); [110, 104].forEach((f) => osc('sawtooth', f, f * 0.95, 1.6, 0.35, o, ctx.currentTime, 0.3)); noise(1.4, 0.2, o, 'lowpass', 400, 200, 1, ctx.currentTime, 0.3); },
   death() { if (!ctx) return; const o = out(0.6); osc('sawtooth', 400, 60, 0.9, 0.4, o); noise(0.8, 0.4, o, 'lowpass', 1500, 100); },
   land(vol = 1, pan = 0) { if (!ctx) return; const o = out(0.7 * vol, pan); osc('sine', 100, 35, 0.4, 1, o); noise(0.35, 0.5, o, 'lowpass', 900, 100); },
-  tick() { if (!ctx) return; osc('square', 1400, 1400, 0.025, 0.12, out(0.4)); },
+  tick() { if (!ctx) return; osc('triangle', 1100, 1000, 0.03, 0.14, out(0.35)); },
   reveal(pure) { if (!ctx) return; const o = out(0.6); (pure ? [523, 659, 784, 1047, 1319] : [392, 523, 659, 784]).forEach((f, i) => osc('triangle', f, f, 0.5, 0.35, o, ctx.currentTime + i * 0.07)); noise(0.6, 0.2, o, 'highpass', 6000, 9000, 1, ctx.currentTime, 0.05); },
   heal() { if (!ctx) return; const o = out(0.4); [660, 880, 1100].forEach((f, i) => osc('sine', f, f * 1.05, 0.3, 0.3, o, ctx.currentTime + i * 0.05)); },
   // --- touche / prise de coups ---
@@ -183,7 +193,7 @@ export const sfx = {
   heartbeat() { if (!ctx || !throttle('coeur', 850)) return; const o = out(0.55); osc('sine', 62, 40, 0.12, 1, o); osc('sine', 58, 38, 0.12, 0.8, o, ctx.currentTime + 0.2); },
   // --- tournoi ---
   gong() { if (!ctx) return; const o = out(0.75); [98, 147, 196, 262, 349].forEach((f, i) => osc('sine', f, f * 0.98, 2.4 - i * 0.3, 0.5 / (i + 1), o, ctx.currentTime, 0.004)); noise(0.3, 0.3, o, 'bandpass', 800, 300, 2); foule(1, 2.5); },
-  fanfare() { if (!ctx) return; const o = out(0.6); [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.4]].forEach(([f, d]) => { osc('sawtooth', f, f, 0.3, 0.18, o, ctx.currentTime + d, 0.01); osc('triangle', f * 2, f * 2, 0.3, 0.12, o, ctx.currentTime + d, 0.01); }); foule(1, 3); },
+  fanfare() { if (!ctx) return; const o = out(0.55); [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.4]].forEach(([f, d]) => { osc('triangle', f, f, d > 0.3 ? 0.7 : 0.3, 0.32, o, ctx.currentTime + d, 0.01); osc('sine', f * 2, f * 2, 0.3, 0.07, o, ctx.currentTime + d, 0.01); }); foule(1, 3); },
   defaite() { if (!ctx) return; const o = out(0.6); [392, 370, 349, 262].forEach((f, i) => osc('triangle', f, f * 0.97, 0.45, 0.35, o, ctx.currentTime + i * 0.22)); },
   // --- survie ---
   cor() { if (!ctx) return; const o = out(0.7); [[110, 0], [110, 0.5], [147, 1.0]].forEach(([f, d]) => { osc('sawtooth', f, f * 1.01, d === 1 ? 1.2 : 0.38, 0.3, o, ctx.currentTime + d, 0.06); osc('sawtooth', f * 1.5, f * 1.5, d === 1 ? 1.2 : 0.38, 0.12, o, ctx.currentTime + d, 0.06); }); },
@@ -196,7 +206,15 @@ export const sfx = {
   pop(vol = 1, pan = 0) { if (!ctx || !throttle('pop', 120)) return; const o = out(0.35 * vol, pan); osc('sine', 600, 1100, 0.08, 0.5, o); osc('sine', 1300, 1500, 0.06, 0.2, o, ctx.currentTime + 0.05); },
   niveau() { if (!ctx) return; const o = out(0.45); [523, 659, 784, 1047].forEach((f, i) => osc('triangle', f, f, 0.25, 0.3, o, ctx.currentTime + i * 0.06)); },
   // --- Clans Élémentaires : cartes ---
-  carte(el = 'feu') { if (!ctx || !throttle('carte', 60)) return; const o = out(0.45); noise(0.12, 0.35, o, 'bandpass', 900, 2600, 1.5); (CAST[{ feu: 'feu', eau: 'eau', plante: 'nature' }[el]] || CAST.metal)(out(0.35)); },
+  // (v62) une carte jouée : un froissement de papier et une petite note de l'élément, sans agresser
+  carte(el = 'feu') {
+    if (!ctx || !throttle('carte', 60)) return; const o = out(0.4), t = ctx.currentTime;
+    noise(0.1, 0.22, o, 'bandpass', 1200, 2200, 1.2);
+    const f = { feu: 392, eau: 523, plante: 440 }[el] || 494;
+    osc('triangle', f, f * (el === 'feu' ? 0.8 : 1.12), 0.28, 0.22, o, t + 0.03, 0.01); osc('sine', f * 2, f * 2, 0.2, 0.06, o, t + 0.03, 0.01);
+    if (el === 'feu') noise(0.25, 0.12, o, 'lowpass', 1400, 300, 1, t + 0.02);
+    if (el === 'eau') osc('sine', 700, 1100, 0.12, 0.08, o, t + 0.08, 0.01);
+  },
   bouclier() { if (!ctx || !throttle('bouclier', 80)) return; const o = out(0.45); [330, 660, 990].forEach((f, i) => osc('triangle', f, f * 1.02, 0.35, 0.2 / (i + 1), o)); noise(0.12, 0.25, o, 'bandpass', 2000, 1200, 2); },
   pouvoir() { if (!ctx || !throttle('pouvoir', 80)) return; const o = out(0.45); [440, 554, 659, 880].forEach((f, i) => osc('sine', f, f * 1.01, 0.4, 0.22, o, ctx.currentTime + i * 0.05)); },
   coup() { if (!ctx || !throttle('coup', 50)) return; const o = out(0.55); osc('sine', 170, 45, 0.16, 0.9, o); noise(0.1, 0.55, o, 'lowpass', 2600, 300); },

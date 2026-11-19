@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Les Clans Élémentaires — équilibrage</title>
+<style>
+  @font-face { font-family: 'Nunito'; font-weight: 400 900; src: url(/clans/polices/nunito-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Nunito'; font-weight: 700; src: url(/clans/polices/nunito-latin-700-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Fredoka'; font-weight: 600; src: url(/clans/polices/fredoka-latin-600-normal.woff2) format('woff2'); }
+  :root { --or: #e8c060; --papier: #f0e6d0; --fond: #0e0b14; --carte: #18141f; --ligne: rgba(255,255,255,.08); --vert: #7ad87a; --rouge: #ff8a7a; --feu: #e0552a; --eau: #3a8ae0; --plante: #3aa84a; --neutre: #a89e8a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(ellipse at 50% 0, #241a30, var(--fond) 60%); color: var(--papier); font: 14px/1.45 'Nunito', system-ui, sans-serif; font-variant-numeric: tabular-nums; min-height: 100vh; }
+  header { padding: 18px 24px 8px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  h1 { margin: 0; font: 600 22px 'Fredoka', system-ui, sans-serif; color: var(--or); flex: 1; min-width: 260px; }
+  h1 small { display: block; font: 13px 'Nunito', system-ui, sans-serif; color: #a89e8a; margin-top: 2px; }
+  input, select, button { font: inherit; color: var(--papier); background: #221c2c; border: 1px solid rgba(232,192,96,.35); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; } button:hover { border-color: var(--or); }
+  button.danger { border-color: rgba(255,120,100,.5); color: #ffb0a0; }
+  main { padding: 0 24px 40px; }
+  .resume { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 6px 0 14px; }
+  .resume div { background: var(--carte); border: 1px solid var(--ligne); border-radius: 10px; padding: 10px 14px; }
+  .resume b { display: block; font-size: 22px; color: var(--or); }
+  .resume span { color: #a89e8a; font-size: 12px; }
+  .onglets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .onglets button.actif { background: rgba(232,192,96,.18); border-color: var(--or); }
+  .filtres { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; color: #c8bca8; }
+  .aide { color: #a89e8a; font-size: 12.5px; margin: 0 0 10px; max-width: 980px; }
+  .table { overflow-x: auto; background: var(--carte); border: 1px solid var(--ligne); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--ligne); white-space: nowrap; }
+  th { position: sticky; top: 0; background: #221c2c; color: #d8ccb8; font-weight: normal; cursor: pointer; user-select: none; font-size: 12.5px; }
+  th.tri::after { content: ' ▾'; color: var(--or); } th.tri.asc::after { content: ' ▴'; }
+  th:first-child, td:first-child { text-align: left; }
+  tr.petit td { opacity: .45; }
+  td .el { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  td small { color: #a89e8a; }
+  .barre { display: inline-block; vertical-align: middle; width: 70px; height: 7px; border-radius: 4px; background: rgba(255,255,255,.08); margin-left: 6px; position: relative; overflow: hidden; }
+  .barre i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--or); }
+  .pos { color: var(--vert); } .neg { color: var(--rouge); }
+  .drapeau { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 10px; margin-left: 4px; background: rgba(255,255,255,.08); }
+  .drapeau.fort { background: rgba(255,120,100,.2); color: #ffb0a0; } .drapeau.faible { background: rgba(120,170,255,.18); color: #b0d0ff; } .drapeau.dort { background: rgba(255,255,255,.08); color: #c8bca8; } .drapeau.mortel { background: rgba(200,40,40,.3); color: #ffc0b0; }
+  .alertes { display: grid; gap: 6px; margin-bottom: 14px; }
+  .alertes div { background: var(--carte); border-left: 3px solid var(--or); border-radius: 6px; padding: 7px 12px; }
+  .vide { padding: 30px; text-align: center; color: #a89e8a; }
+  #cle { width: 180px; }
+  @media (max-width: 700px) { header, main { padding-left: 12px; padding-right: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚖️ Équilibrage des Clans Élémentaires<small id="sous">Chargement…</small></h1>
+  <input id="cle" type="password" placeholder="Clé (JOURNAL_CLE)">
+  <button id="btCharger">Actualiser</button>
+  <button id="btReset" class="danger">Remettre à zéro</button>
+</header>
+<main>
+  <div class="resume" id="resume"></div>
+  <div class="alertes" id="alertes"></div>
+  <div class="onglets" id="onglets"></div>
+  <div class="filtres" id="filtres"></div>
+  <p class="aide" id="aide"></p>
+  <div class="table" id="table"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const COUL = { feu: 'var(--feu)', eau: 'var(--eau)', plante: 'var(--plante)', neutre: 'var(--neutre)' };
+const PALIERS = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV · Cauchemar' };
+const TYPES = { combat: '⚔️ Combat', elite: '💀 Élite', rare: '🌟 Rare', boss: '👑 Boss' };
+const TERR = { feu: '🌋 Braise', eau: '🏝️ Lagons', plante: '🌲 Sylve' };
+const CLASSES = { combattant: '⚔️ Combattant', mage: '🔮 Mage', tireur: '🏹 Tireur', escrimeur: '🤺 Escrimeur' };
+const CLANS = { feu: '🔥 Feu', eau: '💧 Eau', plante: '🌿 Plante' };
+let D = null, onglet = 'cartes', palier = 'tous', minN = 30, recherche = '', tri = {};
+try { $('cle').value = localStorage.getItem('clansAdminCle') || ''; } catch {}
+const pct = (a, b) => (b ? (100 * a) / b : null);
+const fmt = (x, d = 1) => (x == null || !isFinite(x) ? '—' : x.toFixed(d).replace('.', ','));
+const fmtPct = (x) => (x == null ? '—' : `${fmt(x)} %`);
+const ecart = (x) => (x == null ? '—' : `<span class="${x >= 0 ? 'pos' : 'neg'}">${x >= 0 ? '+' : ''}${fmt(x)} pts</span>`);
+const esc = (t) => String(t).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+const barre = (x) => (x == null ? '' : `<span class="barre"><i style="width:${Math.max(0, Math.min(100, x))}%"></i></span>`);
+
+async function charger() {
+  const cle = $('cle').value.trim(); try { localStorage.setItem('clansAdminCle', cle); } catch {}
+  const r = await fetch(`/api/clans/equilibrage?cle=${encodeURIComponent(cle)}`);
+  if (r.status === 403) { $('sous').textContent = 'Clé requise : entre la valeur de JOURNAL_CLE (variable du serveur sur Render).'; D = null; return dessiner(); }
+  D = await r.json();
+  $('sous').textContent = `Depuis le ${new Date(D.depuis).toLocaleString('fr-FR')} · version ${D.version}${D.protege ? '' : ' · ⚠️ page non protégée : définis JOURNAL_CLE sur le serveur'}`;
+  dessiner();
+}
+$('btCharger').onclick = charger;
+$('btReset').onclick = async () => {
+  if (!confirm('Remettre toutes les statistiques d’équilibrage à zéro ? (à faire après un changement d’équilibrage, pour repartir sur des chiffres propres)')) return;
+  const r = await fetch(`/api/clans/equilibrage/reset?cle=${encodeURIComponent($('cle').value.trim())}`, { method: 'POST' });
+  const j = await r.json(); if (!r.ok) return alert(j.erreur || 'Refusé.');
+  charger();
+};
+
+// ---------- les chiffres, mis en forme ----------
+// somme des lignes « id|palier » pour le palier choisi (ou tous)
+function parId(table, garder = (p) => palier === 'tous' || p === palier) {
+  const out = {};
+  for (const [k, v] of Object.entries(table || {})) {
+    const [id, p] = k.split('|'); if (p === 'duel' || !garder(p)) continue;
+    const o = (out[id] ||= {}); for (const [c, n] of Object.entries(v)) o[c] = (o[c] || 0) + n;
+  }
+  return out;
+}
+function base() {   // taux de victoire et PV perdus moyens des combats (pour le palier choisi)
+  let n = 0, v = 0, pv = 0;
+  for (const [k, x] of Object.entries(D.rencontres)) { const p = k.split('|')[1]; if (palier !== 'tous' && p !== palier) continue; n += x.n; v += x.v || 0; pv += x.pvPerdus || 0; }
+  return { n, taux: pct(v, n), pv: n ? pv / n : null };
+}
+function lignesCartes() {
+  const B = base(), b = B.taux, C = parId(D.cartes), duels = {};
+  for (const [k, v] of Object.entries(D.cartes)) { const [id, p] = k.split('|'); if (p === 'duel') duels[id] = v; }
+  return Object.entries(D.noms.cartes).map(([id, c]) => {
+    const x = C[id] || {}, d = duels[id] || {}, taux = pct(x.deckV, x.deck), joue = x.joue || 0;
+    const parJeu = joue ? ((x.deg || 0) + (x.bloc || 0) + (x.soin || 0)) / joue : null;
+    const pvMoy = x.deck ? (x.pv || 0) / x.deck : null;
+    const L = { id, c, n: x.deck || 0, joue, taux, ecart: taux != null && b != null ? taux - b : null, usage: x.deck ? joue / x.deck : null,
+      pv: pvMoy, pvEcart: pvMoy != null && B.pv ? (100 * (pvMoy - B.pv)) / B.pv : null,
+      deg: joue ? (x.deg || 0) / joue : null, bloc: joue ? (x.bloc || 0) / joue : null, soin: joue ? (x.soin || 0) / joue : null,
+      valeur: parJeu != null ? parJeu / Math.max(0.5, c.cout) : null, duelN: d.n || 0, duelTaux: pct(d.v, d.n) };
+    L.drapeaux = [];
+    if (L.n >= minN) {
+      // en expédition, presque tous les combats sont gagnés : le signal, ce sont les PV perdus (et la victoire, si elle s'écarte vraiment)
+      if ((L.pvEcart <= -20 || L.ecart >= 5) && L.usage >= 0.4) L.drapeaux.push(['fort', '💪 trop forte ?']);
+      if (L.pvEcart >= 20 || L.ecart <= -5) L.drapeaux.push(['faible', '📉 faible ?']);
+      if (L.usage != null && L.usage < 0.25) L.drapeaux.push(['dort', '💤 peu jouée']);
+    }
+    if (L.duelN >= minN && L.duelTaux >= 62) L.drapeaux.push(['fort', '⚔️ domine en duel']);
+    return L;
+  }).filter((L) => !recherche || L.c.nom.toLowerCase().includes(recherche) || L.id.includes(recherche));
+}
+function lignesMonstres() {
+  const M = parId(D.monstres);
+  return Object.entries(M).map(([id, x]) => {
+    const nom = D.noms.monstres[id] || { nom: id, terr: '?', rang: '?' };
+    const L = { id, nom, n: x.n || 0, defaites: pct(x.defaites || 0, x.n), deg: x.n ? (x.deg || 0) / x.n : null, tours: x.n ? x.tours / x.n : null, maudit: pct(x.maudit || 0, x.n) };
+    L.drapeaux = [];
+    if (L.n >= minN) {
+      const seuil = { normal: 12, rare: 22, elite: 30, boss: 45, cauchemar: 60 }[nom.rang] ?? 30;
+      if (L.defaites >= seuil) L.drapeaux.push(['mortel', '☠️ très mortel']);
+      if (L.deg != null && L.deg < 6 && (nom.rang === 'elite' || nom.rang === 'rare')) L.drapeaux.push(['dort', '🥱 inoffensif']);
+    }
+    return L;
+  });
+}
+function lignesRencontres() {
+  return Object.entries(D.rencontres).map(([k, x]) => { const [terr, p, type] = k.split('|'); return { terr, p, type, n: x.n, taux: pct(x.v, x.n), tours: x.tours / x.n, pv: x.pvPerdus / x.n }; })
+    .filter((L) => palier === 'tous' || L.p === palier).sort((a, b) => a.terr.localeCompare(b.terr) || a.p - b.p || Object.keys(TYPES).indexOf(a.type) - Object.keys(TYPES).indexOf(b.type));
+}
+function lignesClasses() {
+  const parCle = (table, pref) => { const o = {}; for (const [k, x] of Object.entries(table)) { const [a, p] = k.split('|'); if (palier !== 'tous' && p !== palier) continue; const r = (o[a] ||= { n: 0, v: 0 }); r.n += x.n; r.v += x.v || 0; } return o; };
+  const exp = parCle(D.classes), clans = parCle(D.clans), du = {};
+  for (const [k, x] of Object.entries(D.duels)) { const [mode, qui] = k.split('|'); (du[qui] ||= {})[mode] = x; }
+  const ligne = (cle, nom, e) => ({ nom, n: e?.n || 0, taux: pct(e?.v, e?.n), duel: du[cle]?.duel, arene: du[cle]?.arene, reflet: du[cle]?.reflet });
+  const L = [...Object.keys(CLASSES).map((k) => ligne(k, CLASSES[k], exp[k])), ...Object.keys(CLANS).map((k) => ligne(`clan:${k}`, CLANS[k], clans[k]))];
+  const moy = (l) => { const v = l.filter((x) => x.n >= minN).map((x) => x.taux); return v.length ? v.reduce((a, b) => a + b) / v.length : null; };
+  const mc = moy(L.slice(0, 4)), mk = moy(L.slice(4));
+  L.forEach((x, i) => { const m = i < 4 ? mc : mk; x.ecart = x.taux != null && m != null ? x.taux - m : null; x.drapeaux = x.n >= minN && Math.abs(x.ecart) >= 6 ? [[x.ecart > 0 ? 'fort' : 'faible', x.ecart > 0 ? '💪 au-dessus' : '📉 en dessous']] : []; });
+  return L;
+}
+
+// ---------- les tableaux ----------
+const COLONNES = {
+  cartes: [['Carte', (L) => `<span class="el" style="background:${COUL[L.c.element]}"></span>${esc(L.c.nom)} <small>${L.c.cout}⚡ ${esc(L.c.rarete)}${L.c.classe ? ` · ${L.c.classe}` : ''}${L.c.exclusif ? ' · relique' : ''}</small>${L.drapeaux.map(([k, t]) => `<span class="drapeau ${k}">${t}</span>`).join('')}`, (L) => L.c.nom],
+    ['Combats (dans le deck)', (L) => L.n, (L) => L.n], ['Victoire si dans le deck', (L) => `${fmtPct(L.taux)}${barre(L.taux)}`, (L) => L.taux], ['Écart / moyenne', (L) => ecart(L.ecart), (L) => L.ecart],
+    ['PV perdus / combat', (L) => `${fmt(L.pv)} <small>${L.pvEcart == null ? '' : `<span class="${L.pvEcart <= 0 ? 'pos' : 'neg'}">${L.pvEcart > 0 ? '+' : ''}${fmt(L.pvEcart, 0)} %</span>`}</small>`, (L) => L.pvEcart],
+    ['Jouée (par combat)', (L) => fmt(L.usage, 2), (L) => L.usage], ['Dégâts / jeu', (L) => fmt(L.deg), (L) => L.deg], ['Bouclier / jeu', (L) => fmt(L.bloc), (L) => L.bloc], ['Soin / jeu', (L) => fmt(L.soin), (L) => L.soin],
+    ['Valeur / énergie', (L) => fmt(L.valeur), (L) => L.valeur], ['Duels (deck)', (L) => L.duelN, (L) => L.duelN], ['Victoire en duel', (L) => fmtPct(L.duelTaux), (L) => L.duelTaux]],
+  monstres: [['Monstre', (L) => `${esc(L.nom.nom)} <small>${TERR[L.nom.terr] || ''} · ${L.nom.rang}</small>${L.drapeaux.map(([k, t]) => `<span class="drapeau ${k}">${t}</span>`).join('')}`, (L) => L.nom.nom],
+    ['Combats', (L) => L.n, (L) => L.n], ['Joueur vaincu', (L) => `${fmtPct(L.defaites)}${barre(L.defaites)}`, (L) => L.defaites], ['Dégâts infligés / combat', (L) => fmt(L.deg), (L) => L.deg], ['Tours / combat', (L) => fmt(L.tours), (L) => L.tours], ['Dont maudit', (L) => fmtPct(L.maudit), (L) => L.maudit]],
+  rencontres: [['Territoire', (L) => TERR[L.terr] || L.terr, (L) => L.terr], ['Palier', (L) => PALIERS[L.p] || L.p, (L) => +L.p], ['Salle', (L) => TYPES[L.type] || L.type, (L) => L.type], ['Combats', (L) => L.n, (L) => L.n],
+    ['Victoires', (L) => `${fmtPct(L.taux)}${barre(L.taux)}`, (L) => L.taux], ['PV perdus / combat', (L) => fmt(L.pv), (L) => L.pv], ['Tours / combat', (L) => fmt(L.tours), (L) => L.tours]],
+  classes: [['Classe / clan', (L) => `${L.nom}${L.drapeaux.map(([k, t]) => `<span class="drapeau ${k}">${t}</span>`).join('')}`, (L) => L.nom], ['Combats d’expédition', (L) => L.n, (L) => L.n], ['Victoires', (L) => `${fmtPct(L.taux)}${barre(L.taux)}`, (L) => L.taux], ['Écart', (L) => ecart(L.ecart), (L) => L.ecart],
+    ['Duels', (L) => (L.duel ? `${fmtPct(pct(L.duel.v, L.duel.n))} <small>(${L.duel.n})</small>` : '—'), (L) => pct(L.duel?.v, L.duel?.n)], ['Arène', (L) => (L.arene ? `${fmtPct(pct(L.arene.v, L.arene.n))} <small>(${L.arene.n})</small>` : '—'), (L) => pct(L.arene?.v, L.arene?.n)], ['Contre Reflets', (L) => (L.reflet ? `${fmtPct(pct(L.reflet.v, L.reflet.n))} <small>(${L.reflet.n})</small>` : '—'), (L) => pct(L.reflet?.v, L.reflet?.n)]],
+};
+const AIDES = {
+  cartes: 'En expédition, presque tous les combats sont gagnés : le meilleur signal est « PV perdus / combat » quand la carte est dans le deck, comparé à la moyenne du même palier (moins de PV perdus = carte forte). Victoire si dans le deck : part des combats gagnés, avec l’écart à la moyenne. Jouée : combien de fois elle est jouée par combat où elle est dans le deck (une carte qu’on garde sans la jouer est suspecte). Valeur / énergie : (dégâts + bouclier + soin) par jeu, divisés par son coût. Les lignes pâles ont moins de combats que le minimum choisi : trop peu pour conclure.',
+  monstres: 'Joueur vaincu : part des combats contre ce monstre que le joueur a perdus. Les seuils du drapeau « très mortel » dépendent du rang (12 % pour un monstre ordinaire, 45 % pour un boss, 60 % pour un titan du Cauchemar).',
+  rencontres: 'La courbe de difficulté : victoires, PV perdus et durée par territoire, palier et type de salle. Les trois territoires d’un même palier devraient se ressembler.',
+  classes: 'Victoires en expédition par classe et par clan (au palier choisi), comparées à la moyenne des autres. Duels et arène : seulement les parties jouées jusqu’au bout (ni abandon ni fuite).',
+};
+const LIGNES = { cartes: lignesCartes, monstres: lignesMonstres, rencontres: lignesRencontres, classes: lignesClasses };
+
+function dessiner() {
+  $('onglets').innerHTML = Object.entries({ cartes: '🃏 Cartes', monstres: '👾 Monstres', rencontres: '🗺️ Difficulté', classes: '🎭 Classes et clans' }).map(([k, t]) => `<button data-o="${k}" class="${k === onglet ? 'actif' : ''}">${t}</button>`).join('');
+  document.querySelectorAll('[data-o]').forEach((b) => b.onclick = () => { onglet = b.dataset.o; dessiner(); });
+  $('filtres').innerHTML = `Palier <select id="fPal">${['tous', '1', '2', '3', '4'].map((p) => `<option value="${p}" ${p === palier ? 'selected' : ''}>${p === 'tous' ? 'Tous' : PALIERS[p]}</option>`).join('')}</select>
+    Minimum pour conclure <select id="fMin">${[10, 30, 50, 100].map((n) => `<option ${n === minN ? 'selected' : ''}>${n}</option>`).join('')}</select> combats
+    ${onglet === 'cartes' ? `<input id="fRech" placeholder="Chercher une carte…" value="${esc(recherche)}">` : ''}`;
+  $('fPal').onchange = (e) => { palier = e.target.value; dessiner(); };
+  $('fMin').onchange = (e) => { minN = +e.target.value; dessiner(); };
+  if ($('fRech')) $('fRech').oninput = (e) => { recherche = e.target.value.toLowerCase(); const pos = e.target.selectionStart; dessiner(); $('fRech').focus(); $('fRech').setSelectionRange(pos, pos); };
+  $('aide').textContent = AIDES[onglet];
+  if (!D) { $('resume').innerHTML = ''; $('alertes').innerHTML = ''; $('table').innerHTML = '<div class="vide">Pas de données.</div>'; return; }
+  const b = base();
+  $('resume').innerHTML = `<div><b>${D.nCombats}</b><span>combats d’expédition analysés</span></div><div><b>${D.nDuels}</b><span>duels et matchs d’arène</span></div>
+    <div><b>${fmtPct(b.taux)}</b><span>victoires en moyenne (${palier === 'tous' ? 'tous paliers' : `palier ${PALIERS[palier]}`})</span></div>
+    <div><b>${Object.keys(parId(D.cartes)).length}</b><span>cartes vues dans des decks</span></div>`;
+  // les alertes les plus nettes, tous onglets confondus
+  const al = [];
+  for (const L of lignesCartes()) for (const [k, t] of L.drapeaux) al.push([k === 'fort' ? 3 : k === 'faible' ? 2 : 1, t.includes('duel')
+    ? `🃏 <b>${esc(L.c.nom)}</b> : ${t} — ${fmtPct(L.duelTaux)} de victoires en duel quand elle est dans le deck (${L.duelN} duels)`
+    : t.includes('peu jouée') ? `🃏 <b>${esc(L.c.nom)}</b> : ${t} — jouée ${fmt(L.usage, 2)} fois par combat où elle est dans le deck (${L.n} combats)`
+    : `🃏 <b>${esc(L.c.nom)}</b> : ${t} — ${fmt(L.pv)} PV perdus par combat (${L.pvEcart > 0 ? '+' : ''}${fmt(L.pvEcart, 0)} % par rapport à la moyenne), ${fmtPct(L.taux)} de victoires, ${L.n} combats`]);
+  for (const L of lignesMonstres()) for (const [, t] of L.drapeaux) al.push([2, `👾 <b>${esc(L.nom.nom)}</b> : ${t} — joueur vaincu dans ${fmtPct(L.defaites)} des combats (${L.n})`]);
+  for (const L of lignesClasses()) for (const [, t] of L.drapeaux) al.push([1, `🎭 <b>${L.nom}</b> : ${t} — ${fmtPct(L.taux)} de victoires (${ecart(L.ecart)})`]);
+  al.sort((a, b2) => b2[0] - a[0]);
+  $('alertes').innerHTML = al.length ? al.slice(0, 8).map(([, t]) => `<div>${t}</div>`).join('') + (al.length > 8 ? `<div><small>… et ${al.length - 8} autres signalements dans les tableaux.</small></div>` : '') : `<div>Rien d’anormal pour l’instant${b.n < minN * 5 ? ' (encore peu de données)' : ''}.</div>`;
+  // le tableau de l'onglet, trié
+  const cols = COLONNES[onglet], lignes = LIGNES[onglet](), t = tri[onglet] ?? { i: onglet === 'rencontres' ? -1 : 1, asc: false };
+  if (t.i >= 0) { const f = cols[t.i][2]; lignes.sort((a, b2) => { const x = f(a), y = f(b2); if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * (t.asc ? 1 : -1); }); }
+  if (!lignes.length) { $('table').innerHTML = '<div class="vide">Pas encore de données ici : elles arrivent au fil des combats joués sur le serveur.</div>'; return; }
+  $('table').innerHTML = `<table><thead><tr>${cols.map(([n], i) => `<th data-i="${i}" class="${i === t.i ? `tri ${t.asc ? 'asc' : ''}` : ''}">${n}</th>`).join('')}</tr></thead>
+    <tbody>${lignes.map((L) => `<tr class="${(L.n ?? 0) < minN ? 'petit' : ''}">${cols.map(([, f]) => `<td>${f(L)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  document.querySelectorAll('th[data-i]').forEach((th) => th.onclick = () => { const i = +th.dataset.i, cur = tri[onglet]; tri[onglet] = { i, asc: cur?.i === i ? !cur.asc : false }; dessiner(); });
+}
+charger();
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@
 //  Changement de jour et de semaine à minuit UTC (1 h à Paris).
 // =====================================================================
 import { semaineDe } from './mondial.js';
+import { gagner as xpPasse } from './passe.js';
 
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
 const TERRS = ['feu', 'eau', 'plante'];
@@ -20,6 +21,9 @@ const JOUR = [
   { id: 'recolte', ev: 'recolter', n: 2, ico: '🏠', txt: 'Récolte ta parcelle 2 fois', rec: { essence: 70, eclats: 3 } },
   { id: 'filon', ev: 'filon', n: 1, ico: '💎', txt: 'Ramasse un filon rare sur la carte', rec: { essence: 90, eclats: 5 } },
   { id: 'ameliorer', ev: 'ameliorer', n: 1, ico: '⬆️', txt: 'Améliore une carte', rec: { essence: 80, eclats: 4 } },
+  { id: 'sanct1', ev: 'sanctuaire', n: 1, ico: '🏳️', txt: 'Participe à la prise d’un sanctuaire', rec: { essence: 120, eclats: 6 } },
+  { id: 'arene1', ev: 'arene', n: 1, ico: '🏟️', txt: 'Gagne un combat d’arène', rec: { essence: 90, eclats: 5 } },
+  { id: 'projet', ev: 'projet', n: 40, ico: '🏗️', txt: 'Donne 40 points au projet de ton clan', rec: { essence: 90, eclats: 5 } },
   { id: 'mondial', ev: 'mondial', n: 50, ico: '☠', txt: 'Inflige 50 dégâts à un boss mondial', rec: { essence: 120, eclats: 6 } },
 ];
 const SEMAINE = [
@@ -28,6 +32,8 @@ const SEMAINE = [
   { id: 'duels', ev: 'duel', n: 3, ico: '🤺', txt: 'Gagne 3 duels contre d’autres clans', rec: { essence: 500, eclats: 30 } },
   { id: 'filons6', ev: 'filon', n: 6, ico: '💎', txt: 'Ramasse 6 filons rares', rec: { essence: 400, eclats: 25 } },
   { id: 'mondial400', ev: 'mondial', n: 400, ico: '☠', txt: 'Inflige 400 dégâts aux boss mondiaux', rec: { essence: 450, eclats: 30 } },
+  { id: 'sanct4', ev: 'sanctuaire', n: 4, ico: '🏳️', txt: 'Participe à la prise de 4 sanctuaires', rec: { essence: 500, eclats: 30 } },
+  { id: 'arene5', ev: 'arene', n: 5, ico: '🏟️', txt: 'Gagne 5 combats d’arène', rec: { essence: 450, eclats: 30 } },
   { id: 'tirages20', ev: 'tirage', n: 20, ico: '🔮', txt: 'Fais 20 tirages', rec: { essence: 350, eclats: 25 } },
 ];
 export const BONUS_JOUR = { essence: 150, eclats: 10 };
@@ -63,6 +69,7 @@ function correspond(d, info) {
 }
 // un événement : fait avancer les quêtes concernées. Renvoie celles qui viennent d'être terminées.
 export function evenement(p, ev, n = 1, info = {}, t = Date.now()) {
+  xpPasse(p, ev, n, info, t);   // chaque événement fait aussi avancer le passe de saison (v54)
   const q = aJour(p, t), finies = [];
   for (const x of [...q.j, ...q.s]) {
     const d = DEFS[x.id]; if (!d || d.ev !== ev || x.n >= d.n || !correspond(d, info)) continue;

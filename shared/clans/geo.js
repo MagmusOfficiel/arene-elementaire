@@ -10,6 +10,7 @@ export const MONDE = { l: 3200, h: 2080 };
 export const NT = { l: MONDE.l / TUILE, h: MONDE.h / TUILE };   // 200 × 130 tuiles
 export const CENTRES = { feu: [648, 1544], eau: [1608, 424], plante: [2568, 1544] };
 export const CARREFOUR = [1608, 1096];
+import { SANCTUAIRES } from './territoires.js';
 export const LIEUX = [
   { id: 'autel', nom: 'Autel des tirages', x: 1608, y: 1096, r: 44, action: 'tirage' },
   { id: 'portail_feu', nom: 'Portail des Terres de Braise', x: 296, y: 1880, r: 40, action: 'expedition', terr: 'feu' },
@@ -30,6 +31,8 @@ export function territoireDe(x, y) {
 // maisons de chaque village (une par emplacement ; la tienne dépend de ton nom)
 const snap = (v) => Math.floor(v / TUILE) * TUILE + TUILE / 2;
 export const MAISONS = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx, cy]]) => [k, Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * Math.PI * 2 + 0.3; return { x: snap(cx + Math.cos(a) * 240), y: snap(cy + Math.sin(a) * 150) }; })]));
+// le grand ouvrage de la semaine (projet de clan), au centre de chaque village
+export const OUVRAGES = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx, cy]]) => [k, { x: snap(cx), y: snap(cy + 8) }]));
 export const maisonDe = (clan, nom) => MAISONS[clan][[...nom].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 8];
 
 // les chemins de terre : du Carrefour vers chaque village et chaque portail
@@ -51,7 +54,7 @@ export function sol(tx, ty) {
   const dc = distChemin(x, y);
   if (dc < 26) return 'chemin';
   if (t && dansVillage(x, y, t, 0.42)) return 'place';
-  const village = t && dansVillage(x, y, t, 1.25), libre = dc > 70 && !village && !LIEUX.some((l) => Math.hypot(x - l.x, y - l.y) < 150);
+  const village = t && dansVillage(x, y, t, 1.25), libre = dc > 70 && !village && !LIEUX.some((l) => Math.hypot(x - l.x, y - l.y) < 150) && !SANCTUAIRES.some((l) => Math.hypot(x - l.x, y - l.y) < 170);
   const n = bruitL(x * 1.7 + 900, y * 1.7), v = alea(tx * 7 + ty * 131);
   if (!t) return n > 0.3 && v < 0.5 ? 'fleurs' : 'herbe';
   if (village) return t === 'feu' ? 'roche' : t === 'eau' ? 'sable' : (n > 0.3 ? 'fleurs' : 'mousse');
@@ -72,7 +75,7 @@ export function obstacles() {
     const i = ty * L + tx, s = sols[i];
     if (!(s in DENS)) continue;
     const x = tx * TUILE + 8, y = ty * TUILE + 8, bord = tx < 2 || ty < 2 || tx >= L - 2 || ty >= H - 2;
-    if (!bord && (distChemin(x, y) < 56 || LIEUX.some((p) => Math.hypot(x - p.x, y - p.y) < 130))) continue;
+    if (!bord && (distChemin(x, y) < 56 || LIEUX.some((p) => Math.hypot(x - p.x, y - p.y) < 130) || SANCTUAIRES.some((p) => Math.hypot(x - p.x, y - p.y) < 110))) continue;
     if (!bord && Object.keys(CENTRES).some((k) => dansVillage(x, y, k, 1.15))) continue;
     if (grille[i - 1] || grille[i - L]) continue;   // pas collés les uns aux autres
     const v = alea(tx * 13.7 + ty * 71.3);
@@ -83,8 +86,12 @@ export function obstacles() {
   }
   // les maisons : 3 tuiles de large, 2 de profondeur
   for (const k of Object.keys(MAISONS)) for (const m of MAISONS[k]) { const tx = (m.x - 8) / TUILE, ty = (m.y - 8) / TUILE; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 0; b++) grille[(ty + b) * L + tx + a] = 1; }
+  // les ouvrages des projets de clan : 3 tuiles de large, 2 de profondeur
+  for (const o of Object.values(OUVRAGES)) { const tx = (o.x - 8) / TUILE, ty = (o.y - 8) / TUILE; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 0; b++) grille[(ty + b) * L + tx + a] = 1; }
   // le socle de l'autel
   { const a = LIEUX[0], tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
+  // le pilier de chaque sanctuaire
+  for (const a of SANCTUAIRES) { const tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
   l.grille = grille; l.sols = sols;
   return (CACHE = l);
 }

@@ -1,0 +1,307 @@
+#!/usr/bin/env python3
+"""Les Clans Élémentaires — tests de bout en bout dans un vrai navigateur.
+
+Le script joue au jeu comme un joueur : il clique, marche, appuie sur E, ouvre les
+fenêtres, et vérifie à chaque étape que le serveur a bien fait ce qu'il fallait.
+C'est ce qui aurait attrapé le bug de la v43 (le deck et les améliorations ne
+marchaient plus depuis l'interface, alors que les tests du serveur passaient).
+
+Ce que ça couvre :
+  1. création du personnage, guide ;
+  2. tirage à l'autel, deck (retirer, ajouter), amélioration d'une carte, forge d'une relique ;
+  3. parcelle (construction), quêtes, apparence (achat, porté) ;
+  4. une expédition jouée à la souris jusqu'à la fin d'un combat ;
+  5. l'arène contre un Reflet, et une coupure réseau en plein duel (reconnexion) ;
+  6. deux joueurs : prise d'un sanctuaire et alerte chez le défenseur ;
+  7. sur téléphone : joystick, fenêtres, combat ;
+  et aucune erreur JavaScript nulle part.
+
+Prérequis : `pip install playwright` puis `playwright install chromium`, et le jeu compilé
+(`npm run build`). Lancer : `npm run test:clans` (ou python3 tests/clans_e2e.py).
+Le serveur de test tourne sur son propre port avec un fichier de stats jetable, et des
+réglages qui accélèrent les choses (profil de départ riche, capture rapide, Reflet en 1,5 s).
+"""
+import math, os, subprocess, sys, tempfile, time
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+RACINE = Path(__file__).resolve().parent.parent
+PORT = 2597
+URL = f'http://localhost:{PORT}/clans/'
+echecs, erreurs_js = [], []
+
+def verifier(cond, msg):
+    print(('  ✅ ' if cond else '  ❌ ') + msg)
+    if not cond: echecs.append(msg)
+
+courante = ['démarrage']
+def etape(titre): courante[0] = titre; print(f'\n▶ {titre}')
+
+def serveur():
+    if not (RACINE / 'client/dist/clans/index.html').exists():
+        print('Le jeu n’est pas compilé : lance d’abord `npm run build`.'); sys.exit(2)
+    env = {k: v for k, v in os.environ.items() if not k.startswith('UPSTASH')}
+    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', CLANS_TEST_DEPART='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',
+               STATS_FILE=str(Path(tempfile.mkdtemp()) / 'stats.json'))
+    pr = subprocess.Popen(['node', 'src/index.js'], cwd=RACINE / 'server', env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(60):
+        try:
+            import urllib.request; urllib.request.urlopen(URL, timeout=1); return pr
+        except Exception: time.sleep(0.5)
+    pr.kill(); print('Le serveur de test ne démarre pas.'); sys.exit(2)
+
+def page(b, nom, mobile=False):
+    vp = {'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 760}
+    ctx = b.new_context(viewport=vp, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
+    pg = ctx.new_page(); pg.nom = nom
+    pg.on('pageerror', lambda e: erreurs_js.append(f'{nom} : {e}'))
+    pg.on('dialog', lambda d: d.accept())
+    return pg
+
+def creer(pg, nom, clan, classe):
+    pg.goto(URL); pg.wait_for_selector('#ecranClan:not(.cache)', timeout=30000)
+    pg.fill('#nomJoueur', nom); pg.click(f'.clanCarte.{clan}'); pg.click(f'.classeCarte[data-c="{classe}"]')
+    pg.wait_for_selector('#ecranMonde:not(.cache)', timeout=60000); pg.wait_for_timeout(600)
+
+def etat(pg, js): return pg.evaluate(f'(() => {{ const c = window.__clans, p = c.p; return {js}; }})()')
+
+def aller(pg, x, y, pas=60):
+    """marcher jusqu'à (x, y) par petits pas (comme un joueur pressé, sans se téléporter)"""
+    pg.bring_to_front()
+    for _ in range(200):
+        j = etat(pg, '({ x: c.monde.joueur.x, y: c.monde.joueur.y })'); d = math.hypot(x - j['x'], y - j['y'])
+        if d < 4: break
+        k = min(1, pas / d)
+        pg.evaluate(f'(() => {{ const j = __clans.monde.joueur; j.x += {(x - j["x"]) * k}; j.y += {(y - j["y"]) * k}; }})()')
+        pg.wait_for_timeout(140)
+    pg.wait_for_timeout(300)
+
+def fermer(pg):
+    if pg.locator('#fenetre:not(.cache)').count(): pg.click('#btFermer'); pg.wait_for_timeout(250)
+
+def jouer_combat(pg, max_tours=40):
+    """joue le combat affiché à la souris, jusqu'à la fin ; renvoie True si la scène s'est fermée"""
+    pg.wait_for_selector('#combat:not(.cache)', timeout=10000); pg.wait_for_timeout(1600)
+    libre = "!document.getElementById('combat').classList.contains('attente') || document.getElementById('combat').classList.contains('cache')"
+    for _ in range(max_tours):
+        if pg.evaluate("document.getElementById('combat').classList.contains('cache')"): return True
+        if pg.evaluate("document.getElementById('combat').classList.contains('finie')"): pg.wait_for_timeout(600); continue
+        for _ in range(8):
+            pg.wait_for_function(libre, timeout=20000)
+            ok = pg.evaluate("(() => { const k = document.querySelector('#cbMain .carte:not(.injouable)'); if (!k) return false; k.click(); const e = document.querySelector('#cbEnnemis .ennemi.ciblable'); if (e) e.click(); return true; })()")
+            pg.wait_for_timeout(120)
+            if not ok: break
+        pg.wait_for_function(libre, timeout=20000)
+        if pg.evaluate("document.getElementById('combat').classList.contains('cache') || document.getElementById('combat').classList.contains('finie')"): continue
+        pg.evaluate("document.getElementById('btFinTour').click()"); pg.wait_for_timeout(300); pg.wait_for_function(libre, timeout=25000)
+    pg.wait_for_selector('#combat.cache', state='attached', timeout=15000)
+    return True
+
+def scenario(b):
+    A = page(b, 'Testeur')
+
+    etape('Création du personnage')
+    creer(A, 'Testeur', 'feu', 'mage')
+    verifier(etat(A, 'p.clan') == 'feu' and etat(A, 'p.classe') == 'mage', 'profil créé par le serveur (Feu, Mage)')
+    verifier('1 / 6' in A.inner_text('#guideEtape'), 'le guide démarre à l’étape 1')
+
+    etape('Tirage à l’autel')
+    aller(A, 1608, 1150); A.keyboard.press('e'); A.wait_for_selector('#bt1', timeout=5000)
+    e0, n0 = etat(A, 'p.ress.essence'), etat(A, 'Object.keys(p.collection).length')
+    A.click('#bt1'); A.wait_for_function(f'__clans.p.ress.essence < {e0}', timeout=8000)
+    verifier(etat(A, 'p.ress.essence') == e0 - 100, 'tirer ×1 coûte 100 essences')
+    verifier(etat(A, 'p.tirages.total') >= 1, 'le tirage est compté')
+    A.click('#bt10'); A.wait_for_function(f'__clans.p.ress.essence <= {e0 - 1000}', timeout=8000)
+    verifier(etat(A, 'Object.keys(p.collection).length') > n0, 'de nouvelles cartes dans la collection')
+
+    etape('Forge d’une relique')
+    fab = A.locator('[data-fab]:not([disabled])').first
+    if fab.count():
+        rel = fab.get_attribute('data-fab'); fab.click()
+        A.wait_for_function(f"(__clans.p.collection['{rel}']?.n || 0) > 0", timeout=8000)
+        verifier(True, f'relique forgée : {rel}')
+    else: verifier(False, 'un bouton de forge disponible')
+    fermer(A)
+
+    etape('Plusieurs decks')
+    A.click('#btDeck'); A.wait_for_selector('[data-deck="1"]', timeout=5000)
+    d0 = etat(A, 'p.deck.length')
+    A.click('[data-deck="1"]'); A.wait_for_function('__clans.p.decks?.actif === 1', timeout=8000)
+    A.locator('[data-r]').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0 - 1}', timeout=8000)
+    A.click('[data-deck="0"]'); A.wait_for_function(f'__clans.p.decks.actif === 0 && __clans.p.deck.length === {d0}', timeout=8000)
+    verifier(True, 'deux decks différents, on passe de l’un à l’autre en un clic')
+    A.click('[data-ren="0"]'); A.fill('.champDeck', 'Mon deck test'); A.keyboard.press('Enter')
+    A.wait_for_function("__clans.p.decks.l[0].nom === 'Mon deck test'", timeout=8000)
+    verifier(True, 'un deck renommé')
+
+    etape('Deck : retirer, ajouter, améliorer')
+    A.wait_for_timeout(400)
+    d0 = etat(A, 'p.deck.length')
+    A.locator('[data-r]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0 - 1}', timeout=8000)
+    verifier(True, 'une carte retirée du deck (bug de la v43 corrigé)')
+    A.wait_for_timeout(300); A.locator('[data-a]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0}', timeout=8000)
+    verifier(True, 'une carte ajoutée au deck')
+    A.wait_for_timeout(300)
+    up = A.locator('[data-u]:not([disabled])').first
+    if up.count():
+        up = A.locator('[data-u].pret').first if A.locator('[data-u].pret').count() else up
+        cid = up.get_attribute('data-u'); niv = etat(A, f"p.collection['{cid}'].niv"); up.click()
+        A.wait_for_selector('.panneauAm .changements', timeout=5000)
+        verifier(A.locator('.panneauAm .avantApres .carte').count() == 2 and A.locator('.panneauAm .changements li').count() >= 1, 'le panneau montre la carte avant / après et ce qui change')
+        A.click('#btAmeliorer'); A.wait_for_function(f"__clans.p.collection['{cid}'].niv > {niv}", timeout=8000)
+        verifier(True, f'carte améliorée : {cid} niveau {niv} → {niv + 1}')
+        A.click('.fermerAm'); A.wait_for_timeout(300)
+    else: verifier(False, 'un bouton d’amélioration disponible')
+    fermer(A)
+
+    etape('Parcelle')
+    m = etat(A, 'c.monde.maison()'); aller(A, m['x'], m['y'] + 30); A.keyboard.press('e'); A.wait_for_selector('[data-b]', timeout=5000)
+    niv = etat(A, 'p.parcelle.maison'); A.click('[data-b="maison"]')
+    A.wait_for_function(f'__clans.p.parcelle.maison > {niv}', timeout=8000)
+    verifier(True, f'maison améliorée au niveau {niv + 1}')
+    fermer(A)
+
+    etape('Projet de clan')
+    aller(A, 648, 1600); A.keyboard.press('e'); A.wait_for_selector('[data-don]', timeout=5000)
+    verifier('Forge géante' in A.inner_text('#fenetreCorps'), 'la fenêtre du projet de la Forge géante s’ouvre')
+    b0 = etat(A, 'p.ress.braises'); A.click('[data-don="5"]')
+    A.wait_for_function(f'__clans.p.ress.braises === {b0 - 200}', timeout=8000)
+    verifier(etat(A, 'p.projet.pts') == 200, 'le don de 200 braises compte 200 points')
+    A.wait_for_function("(document.querySelector('.projetBarre b')?.textContent || '').startsWith('200')", timeout=6000)
+    verifier(True, 'la barre du projet est mise à jour par le serveur')
+    fermer(A)
+
+    etape('Marchand ambulant')
+    m = etat(A, '({ x: c.monde.marchand.x, y: c.monde.marchand.y, slot: c.monde.marchand.slot })')
+    aller(A, m['x'], m['y'] + 20); A.keyboard.press('e'); A.wait_for_selector('[data-offre]', timeout=5000)
+    verifier(A.locator('.offre').count() == 3, 'le marchand propose 3 échanges')
+    A.click('[data-offre="0"]'); A.wait_for_function(f"__clans.p.marchand?.slot === {m['slot']} && __clans.p.marchand.l.includes(0)", timeout=8000)
+    verifier(A.locator('.offre.prise').count() == 1, 'un échange conclu, il ne se refait pas avant le prochain passage')
+    fermer(A)
+
+    etape('Quêtes et apparence')
+    A.keyboard.press('j'); A.wait_for_timeout(400)
+    verifier(A.locator('.quete').count() >= 6, 'la fenêtre des quêtes s’ouvre (3 du jour + bonus + 2 de la semaine)')
+    fermer(A)
+    A.click('#btMenu'); A.click('#btApparence'); A.wait_for_timeout(400); A.click('.garde .onglets button[data-o="chapeau"]'); A.wait_for_timeout(300)
+    A.click('[data-acheter="h_paille"]'); A.wait_for_function("__clans.AP.code(__clans.p).includes('h_paille')", timeout=8000)
+    verifier(True, 'chapeau de paille acheté et porté')
+    A.click('.garde .onglets button[data-o="tenue"]'); A.wait_for_timeout(300); A.click('[data-acheter="t_nuit"]')
+    A.wait_for_function("__clans.AP.code(__clans.p).startsWith('t_nuit')", timeout=8000)
+    verifier(True, 'tenue « Nuit » achetée et portée')
+    fermer(A)
+
+    etape('Familier')
+    A.keyboard.press('f'); A.wait_for_selector('[data-fab="salamandre"]', timeout=5000)
+    A.click('[data-fab="salamandre"]'); A.wait_for_function("__clans.p.familiers?.actif === 'salamandre'", timeout=8000)
+    verifier(True, 'une Salamandre fabriquée, elle suit le joueur')
+    verifier(A.locator('.fam.actif').count() == 1, 'la fenêtre la montre comme active')
+    fermer(A)
+
+    etape('Expédition jouée à la souris')
+    aller(A, 296, 1925); A.keyboard.press('e'); A.wait_for_selector('[data-p="1"]', timeout=5000)
+    A.click('[data-p="1"]'); A.wait_for_selector('.salle.possible', timeout=8000)
+    verifier(etat(A, 'p.expedition?.palier') == 1, 'expédition commencée (palier I)')
+    v0 = etat(A, 'p.stats.combats')
+    verifier(etat(A, 'p.expedition?.familier') == 'salamandre', 'le familier part en expédition')
+    A.locator('.salle.possible').first.click(force=True)
+    A.wait_for_selector('#combat:not(.cache)', timeout=10000)
+    verifier(A.locator('#cbFam:not(.cache)').count() == 1 and etat(A, 'c.combat.ennemis.every((e) => e.brulure >= 2)'), 'la Salamandre est dans le combat et brûle les ennemis')
+    A.wait_for_timeout(1200); vu = False
+    for i in range(A.locator('#cbMain .carte').count()):
+        A.hover(f'#cbMain .carte[data-i="{i}"]'); A.wait_for_timeout(150)
+        if A.locator('#combat .apercu').count(): vu = True; break
+    verifier(vu, 'au survol d’une carte, l’aperçu de ses effets réels s’affiche')
+    A.mouse.move(5, 5); A.wait_for_timeout(150)
+    verifier(A.locator('#combat .apercu').count() == 0, 'l’aperçu disparaît quand la souris quitte la carte')
+    jouer_combat(A)
+    A.wait_for_function(f'__clans.p.stats.combats > {v0}', timeout=10000)
+    verifier(True, 'le combat est fini et validé par le serveur (le serveur a rejoué les coups)')
+    if A.locator('#btAbandon').count():
+        A.click('#btAbandon'); A.wait_for_function('!__clans.p.expedition', timeout=8000); verifier(True, 'expédition abandonnée proprement')
+    fermer(A)
+
+    etape('Passe de saison')
+    xp = etat(A, 'p.passe?.xp || 0')
+    verifier(xp > 0, f'les activités ont rapporté de l’XP au passe ({xp} XP)')
+    A.keyboard.press('p'); A.wait_for_selector('.passePiste', timeout=5000)
+    verifier(A.locator('.pnv').count() == 30 and A.locator('.passeExclu .piece').count() == 3, 'la fenêtre montre les 30 niveaux et les 3 apparences exclusives')
+    fermer(A)
+
+    etape('Arène contre un Reflet, et coupure réseau en plein duel')
+    A.click('#btMenu'); A.click('#btArene'); A.wait_for_timeout(500); A.click('#btFile')
+    A.wait_for_selector('#duel:not(.cache)', timeout=15000)
+    verifier('Arène' in A.inner_text('#duTitre'), 'un adversaire est trouvé (Reflet)')
+    A.wait_for_timeout(2000)
+    sid = etat(A, 'c.room.sessionId')
+    # on note si le bandeau « connexion perdue » apparaît (la reconnexion peut être très rapide)
+    A.evaluate("window.__vuReseau = false; new MutationObserver(() => { if (!document.getElementById('reseau').classList.contains('cache')) window.__vuReseau = true; }).observe(document.getElementById('reseau'), { attributes: true })")
+    A.evaluate('__clans.room.connection.transport.ws.close(4999)')   # coupure brutale
+    A.wait_for_function('window.__vuReseau', timeout=5000)
+    verifier(True, 'le bandeau « connexion perdue » s’affiche')
+    A.wait_for_selector('#reseau.cache', state='attached', timeout=25000); A.wait_for_timeout(800)
+    verifier(etat(A, 'c.room?.sessionId') == sid, 'reconnecté à la même place (même session)')
+    verifier(A.locator('#duel:not(.cache)').count() == 1, 'le duel continue après la coupure')
+    elo0 = etat(A, 'p.arene?.elo ?? 1000')
+    A.evaluate("document.getElementById('btDuelAbandon').click()")
+    A.wait_for_selector('#btRejouer', timeout=10000)
+    verifier(etat(A, 'p.arene.elo') < elo0, 'l’abandon fait perdre de l’Elo')
+    fermer(A)
+
+    etape('Deux joueurs : sanctuaire et alerte')
+    B = page(b, 'Pyro'); creer(B, 'Pyro', 'feu', 'combattant')
+    C = page(b, 'Ondine'); creer(C, 'Ondine', 'eau', 'tireur')
+    aller(C, 1112, 1730)
+    C.wait_for_function("document.getElementById('chatMsgs').innerText.includes('s’empare du Sanctuaire des Cendres') || document.getElementById('chatMsgs').innerText.includes(\"s'empare du Sanctuaire des Cendres\")", timeout=15000)
+    verifier(True, 'l’Eau prend le Sanctuaire des Cendres (au Feu)')
+    B.bring_to_front()
+    verifier('attaque le Sanctuaire des Cendres' in B.inner_text('#chatMsgs'), 'le Feu a été prévenu de l’attaque')
+
+    etape('Fiche de joueur et hauts faits')
+    A.bring_to_front(); A.keyboard.press('h'); A.wait_for_selector('.hautsFaits', timeout=5000)
+    t = A.evaluate("(() => { const s = document.querySelector('[data-hf]'); return s ? s.querySelector('option[value*=\":\"]')?.value : null; })()")
+    verifier(t is not None, f'Testeur a déjà un haut fait ({t})')
+    A.select_option(f'select[data-hf="{t.split(":")[0]}"]', t)
+    A.wait_for_function(f"__clans.p.titre === '{t}'", timeout=8000)
+    verifier(True, 'il choisit son titre')
+    fermer(A)
+    B.bring_to_front(); B.wait_for_timeout(1500)
+    B.locator('#listeClans [data-fiche]', has_text='Testeur').first.click(); B.wait_for_selector('.titreFiche', timeout=8000)
+    verifier('Testeur' in B.inner_text('#fenetreCorps') and '«' in B.inner_text('.titreFiche'), 'un autre joueur voit sa fiche et son titre')
+    fermer(B)
+
+    etape('Sur téléphone')
+    T = page(b, 'Mobile', mobile=True); creer(T, 'Mobile', 'plante', 'escrimeur')
+    verifier(T.locator('#tactile:not(.cache)').count() == 1, 'les commandes tactiles s’affichent')
+    x0 = etat(T, 'c.monde.joueur.x')
+    box = T.locator('#joy').bounding_box(); cx, cy = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    T.mouse.move(cx, cy); T.mouse.down(); T.mouse.move(cx + 50, cy, steps=4); T.wait_for_timeout(900); T.mouse.up()
+    verifier(etat(T, 'c.monde.joueur.x') > x0 + 40, 'le joystick fait marcher le personnage')
+    T.click('#btQuetes'); T.wait_for_timeout(400); verifier(T.locator('.quete').count() >= 6, 'fenêtre des quêtes sur téléphone'); fermer(T)
+    T.evaluate("__clans.act('expeCommencer', { terr: 'plante', palier: 1 })"); T.wait_for_timeout(500); T.reload()
+    T.wait_for_selector('.salle.possible', timeout=30000); T.locator('.salle.possible').first.click(force=True)
+    jouer_combat(T)
+    verifier(etat(T, 'p.stats.combats') >= 1, 'un combat joué jusqu’au bout sur téléphone')
+
+
+def main():
+    srv = serveur()
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch()
+            try: scenario(b)
+            except Exception as e:
+                # une étape bloquée (bouton qui ne répond pas, état qui n'arrive jamais…) : on dit laquelle, sans trace Python
+                print(f'  ❌ bloqué : {str(e).splitlines()[0][:160]}'); print('     ' + '\n     '.join(str(e).splitlines()[1:8])) if os.environ.get('DETAIL') else None; echecs.append(f'étape « {courante[0]} » bloquée')
+            b.close()
+    finally:
+        os.killpg(os.getpgid(srv.pid), 15)
+
+    print()
+    for e in erreurs_js: print(f'  ❌ erreur JavaScript — {e}')
+    total = len(echecs) + len(erreurs_js)
+    print('\n' + ('✅ Tout est bon.' if not total else f'❌ {total} problème(s).'))
+    sys.exit(1 if total else 0)
+
+if __name__ == '__main__':
+    main()

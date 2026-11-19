@@ -77,10 +77,15 @@ test('partie en ligne : on rejoint, on reçoit l’état, on bouge', async () =>
   assert.equal(room.state.players.get(room.sessionId)?.fusion, propose.props[1].fusion, 'le champion choisi');
   const p0 = room.state.players.get(room.sessionId);
   assert.ok(p0, 'mon joueur existe');
-  const x0 = p0.x;
-  room.send('input', { r: true }); await attendre(800); room.send('input', {});
-  await attendre(200);
-  assert.ok(room.state.players.get(room.sessionId).x > x0 + 50, 'le serveur me fait avancer');
+  // l'apparition est au hasard : un bâtiment peut barrer une direction, on essaie les quatre
+  let bouge = 0;
+  for (const dir of [{ r: true }, { l: true }, { d: true }, { u: true }]) {
+    const a = room.state.players.get(room.sessionId), x0 = a.x, y0 = a.y;
+    room.send('input', dir); await attendre(800); room.send('input', {}); await attendre(200);
+    const b = room.state.players.get(room.sessionId); bouge = Math.max(bouge, Math.hypot(b.x - x0, b.y - y0));
+    if (bouge > 50) break;
+  }
+  assert.ok(bouge > 50, 'le serveur me fait avancer');
   let pong = null; room.onMessage('pong', (m) => { pong = m; }); room.send('ping', { t: 42 }); await attendre(300);
   assert.equal(pong?.t, 42);
   await room.leave();

@@ -10,9 +10,10 @@
     "dev": "concurrently -n serveur,client -c magenta,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
-    "test": "node --test tests/logique.test.mjs tests/serveur.test.mjs tests/conclave.test.mjs tests/zonemorte.test.mjs tests/enquete.test.mjs tests/enquete2.test.mjs tests/clans.test.mjs tests/clansserveur.test.mjs",
+    "test": "node --test tests/logique.test.mjs tests/serveur.test.mjs tests/conclave.test.mjs tests/zonemorte.test.mjs tests/enquete.test.mjs tests/enquete2.test.mjs tests/clans.test.mjs tests/clansserveur.test.mjs tests/clansterritoires.test.mjs tests/clansprojets.test.mjs tests/clansfamiliers.test.mjs tests/clanspasse.test.mjs tests/clansmarchand.test.mjs tests/clansreliques.test.mjs tests/clanshautsfaits.test.mjs tests/clansdecks.test.mjs",
     "test:navigateur": "python3 tests/navigateur.py",
-    "test:serveur": "node --test tests/serveur.test.mjs"
+    "test:serveur": "node --test tests/serveur.test.mjs",
+    "test:clans": "python3 tests/clans_e2e.py"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

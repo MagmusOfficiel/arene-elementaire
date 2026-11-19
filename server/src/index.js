@@ -14,6 +14,9 @@ import { ClansRoom } from './ClansRoom.js';
 import { noterErreur, listeErreurs } from './journal.js';
 import { noterMesure, resumeMesures } from './mesures.js';
 import { statsConclave, partieZoneMorte, classementZoneMorte } from './stats.js';
+import { equilibrage, remettreEquilibrage } from './stats.js';
+import { CARTES as CARTES_CLANS } from '../../shared/clans/cartes.js';
+import { MONSTRES as MONSTRES_CLANS, BOSS_CAUCHEMAR } from '../../shared/clans/monstres.js';
 import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance, rapportFusions, classement, classementCote, coteDe, placeDe, classementSurvie, palmares } from './stats.js';
 
 const PORT = Number(process.env.PORT || 2567);
@@ -60,6 +63,22 @@ app.post('/api/mesures', (req, res) => {
 app.get('/api/mesures', (req, res) => {
   if (process.env.JOURNAL_CLE && req.query.cle !== process.env.JOURNAL_CLE) return res.status(403).json({ erreur: 'clé requise' });
   res.json({ version: VERSION_JEU, ...resumeMesures() });
+});
+
+// Les Clans Élémentaires : statistiques d'équilibrage (page /clans/admin.html), protégées par JOURNAL_CLE
+const cleOk = (req) => !process.env.JOURNAL_CLE || req.query.cle === process.env.JOURNAL_CLE;
+app.get('/api/clans/equilibrage', (req, res) => {
+  if (!cleOk(req)) return res.status(403).json({ erreur: 'clé requise' });
+  const E = equilibrage();
+  const cartes = Object.fromEntries(Object.entries(CARTES_CLANS).map(([id, c]) => [id, { nom: c.nom, element: c.element, rarete: c.rarete, cout: c.cout, type: c.type, classe: c.classe || null, exclusif: !!c.exclusif }]));
+  const monstres = {};
+  for (const [terr, M] of Object.entries(MONSTRES_CLANS)) for (const m of [...M.normaux, M.rare, M.elite, M.boss]) monstres[m.id] = { nom: m.nom, terr, rang: m.rang };
+  for (const [terr, m] of Object.entries(BOSS_CAUCHEMAR)) monstres[m.id] = { nom: m.nom, terr, rang: 'cauchemar' };
+  res.json({ version: VERSION_JEU, protege: !!process.env.JOURNAL_CLE, ...E, noms: { cartes, monstres } });
+});
+app.post('/api/clans/equilibrage/reset', (req, res) => {
+  if (!process.env.JOURNAL_CLE || req.query.cle !== process.env.JOURNAL_CLE) return res.status(403).json({ erreur: 'Remise à zéro possible seulement avec JOURNAL_CLE défini sur le serveur.' });
+  remettreEquilibrage(); res.json({ ok: true });
 });
 
 // Comptes : créer, lire, sauvegarder (le code du compte sert de clé)
