@@ -86,3 +86,46 @@ test('journal d’événements : n’existe que si on le demande, et ne change p
   const types = new Set(b.ev.map((e) => e.t));
   for (const t of ['carte', 'coup', 'tourEnnemi', 'agit', 'tour']) assert.ok(types.has(t), t);
 });
+
+test('Cauchemar : débloqué après le palier III, 2 malédictions fixes, monstres maudits, boss titan', async () => {
+  const P = await import('../shared/clans/profil.js'), X = await import('../shared/clans/expedition.js'), C = await import('../shared/clans/combat.js');
+  const { PALIERS, MALEDICTIONS, BOSS_CAUCHEMAR } = await import('../shared/clans/monstres.js');
+  const p = P.nouveauProfil('feu', 'T', 0, 'mage');
+  assert.equal(X.commencerExpedition(p, 'eau', 4, 5).ok, false);
+  p.paliers.eau = 4;
+  assert.ok(X.commencerExpedition(p, 'eau', 4, 5).ok);
+  const x = p.expedition; assert.equal(x.mods.length, 2); assert.notEqual(x.mods[0], x.mods[1]);
+  assert.deepEqual(X.tirerMaledictions(5), x.mods);
+  for (const k of x.mods) assert.ok(MALEDICTIONS[k]);
+  assert.ok(X.ennemisDe(x, X.choixPossibles(x)[0]).every((m) => m.maudit));
+  assert.equal(X.ennemisDe(x, 'boss')[0].id, BOSS_CAUCHEMAR.eau.id);
+  assert.equal(PALIERS.length, 4); assert.ok(PALIERS[3].cauchemar);
+  // chaque malédiction agit dans le moteur
+  const base = { deck: Array(12).fill({ id: 'frappe' }), joueur: { pv: 50, pvMax: 50 }, ennemis: [{ id: 'm', nom: 'm', pv: 40, intentions: [{ a: 3 }] }], graine: 3 };
+  assert.equal(C.nouveauCombat({ ...base, mods: ['rage'] }).ennemis[0].force, 2);
+  assert.equal(C.nouveauCombat({ ...base, mods: ['carapace'] }).ennemis[0].bloc, 6);
+  assert.equal(C.nouveauCombat({ ...base, mods: ['epuisement'] }).main.length, 4);
+  assert.equal(C.nouveauCombat(base).main.length, 5);
+  assert.equal(C.decrireIntention(C.nouveauCombat({ ...base, mods: ['brouillard'] }), C.nouveauCombat(base).ennemis[0])[0].txt, '❓');
+  const v = C.nouveauCombat({ ...base, mods: ['vitalite'] }); v.ennemis[0].pv = 20; C.finTour(v); assert.equal(v.ennemis[0].pv, 23);
+  // le palier IV ne se débloque pas plus loin
+  p.expedition = null; p.paliers.eau = 4; X.commencerExpedition(p, 'eau', 4, 8); p.expedition.position = '5-0';
+  assert.equal(X.terminer(p, 'victoire').debloque, null);
+});
+
+test('apparence : achat, pièces gagnées, code réseau, rien de truqué', async () => {
+  const P = await import('../shared/clans/profil.js'), AP = await import('../shared/clans/apparence.js');
+  const p = P.nouveauProfil('eau', 'T', 0, 'tireur');
+  assert.equal(AP.code(p), 't_clan.c_clan.h_classe.a_aucune');
+  p.ress.essence = 500;
+  assert.equal(AP.acheter(p, 't_or').ok, false);                       // trop cher
+  assert.ok(AP.acheter(p, 't_nuit').ok); assert.equal(p.ress.essence, 100);
+  assert.equal(AP.acheter(p, 't_nuit').ok, false);                     // déjà à soi
+  assert.equal(AP.portee(p).tenue, 't_nuit');
+  assert.equal(AP.porter(p, 'h_couronne').ok, false);                  // rang Or requis
+  p.arene = { meilleur: 1300 }; assert.ok(AP.porter(p, 'h_couronne').ok);
+  assert.equal(AP.acheter(p, 'h_couronne').ok, false);                 // ça se gagne, ça ne s'achète pas
+  p.arene.meilleur = 1000; assert.equal(AP.portee(p).chapeau, 'h_classe');   // plus le droit : on revient à la base
+  for (const id of ['__proto__', 'constructor', 'toString', 'x']) { assert.equal(AP.acheter(p, id).ok, false); assert.equal(AP.porter(p, id).ok, false); }
+  assert.deepEqual(AP.lireCode('t_nuit.<script>.h_paille.zz'), { tenue: 't_nuit', cheveux: 'c_clan', chapeau: 'h_paille', aura: 'a_aucune' });
+});

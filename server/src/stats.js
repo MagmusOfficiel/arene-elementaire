@@ -287,6 +287,9 @@ export async function ecrireProfilClans(jeton, p) {
 // ---------- Les Clans Élémentaires : qui tient les sanctuaires ----------
 export function lireSanctuaires() { return data.clansSanctuaires || null; }
 export function ecrireSanctuaires(props) { data.clansSanctuaires = { ...props }; dirty = true; }
+// ---------- Les Clans Élémentaires : les projets de clan de la semaine (v52) ----------
+export function lireProjets() { return data.clansProjets || null; }
+export function ecrireProjets(e) { data.clansProjets = e; dirty = true; }
 
 // ---------- Les Clans Élémentaires : l'arène classée (saison d'un mois) ----------
 // joueurs : { id (empreinte du jeton) : { nom, clan, classe, elo, v, d, deck, pvMax, t } }
@@ -315,3 +318,13 @@ export function classementArene(id) {
   const rang = id ? l.findIndex(([k]) => k === id) + 1 : 0;
   return { saison: a.saison, fin: a.fin, top: l.slice(0, 20).map(([, e]) => ({ nom: e.nom, clan: e.clan, classe: e.classe, elo: e.elo, v: e.v, d: e.d })), rang, total: l.length, palmares: (data.clansArenePalmares || []).slice(0, 3) };
 }
+
+// ---------- Les Clans Élémentaires : statistiques d'équilibrage (compteurs, quelques Ko) ----------
+export function equilibrage() {
+  const E = (data.clansEquilibrage ||= {});
+  E.depuis ||= Date.now(); E.nCombats ||= 0; E.nDuels ||= 0;
+  for (const k of ['rencontres', 'classes', 'clans', 'cartes', 'monstres', 'duels']) E[k] ||= {};
+  dirty = true;
+  return E;
+}
+export function remettreEquilibrage() { data.clansEquilibrage = null; dirty = true; return equilibrage(); }

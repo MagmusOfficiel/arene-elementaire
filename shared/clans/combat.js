@@ -6,6 +6,7 @@
 //  affichée à l'avance. Le combat se gagne quand tous sont à 0 PV.
 // =====================================================================
 import { CARTES, effetsDe } from './cartes.js';
+import { FAMILIERS } from './familiers.js';
 
 export function alea(graine) {
   let a = graine >>> 0;
@@ -16,18 +17,31 @@ const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, 
 
 // deck : [{ id, niv }] ; joueur : { pv, pvMax } ; ennemis : modèles de monstres.js ; palier : { pv, deg }
 // classe : son talent s'applique pendant le combat (Endurci, Arcanes, Visée, Enchaînement)
-export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null }) {
+export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, mods = null, familier = null }) {
   const r = alea(graine);
   let n = 0;
   const c = {
-    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, tirs: 0, attaquesTour: 0, arcanes: false,
+    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, tirs: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, mods: mods && mods.length ? mods.slice() : null,
     joueur: { pv: joueur.pv, pvMax: joueur.pvMax, ...statuts() },
-    ennemis: ennemis.map((m, i) => ({ uid: `e${i}`, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: Math.floor(r() * m.intentions.length), deg: palier.deg, ...statuts() })),
+    ennemis: ennemis.map((m, i) => ({ uid: `e${i}`, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, maudit: !!m.maudit, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: Math.floor(r() * m.intentions.length), deg: palier.deg, ...statuts() })),
     pioche: melanger(deck.map((x) => ({ uid: `c${n++}`, id: x.id, niv: x.niv || 1 })), r), main: [], defausse: [], epuisees: [],
   };
   c._r = r;
+  // malédictions du Cauchemar
+  if (c.mods?.includes('rage')) for (const e of c.ennemis) e.force += 2;
+  if (c.mods?.includes('carapace')) for (const e of c.ennemis) e.bloc = Math.round(e.pvMax * 0.15);
   debutTour(c);
   if (classe === 'combattant') c.joueur.bloc += 6;     // Endurci
+  // le familier (v53) : un petit coup de pouce au début du combat
+  const f = c.familier && FAMILIERS[c.familier].effet;
+  if (f) {
+    if (f.brulureEnnemis) for (const e of c.ennemis) e.brulure += f.brulureEnnemis;
+    if (f.affaiblirEnnemis) for (const e of c.ennemis) e.affaibli += f.affaiblirEnnemis;
+    if (f.bloc) c.joueur.bloc += f.bloc;
+    if (f.energie) c.energie += f.energie;
+    if (f.pioche) piocher(c, f.pioche);
+    if (f.regen) c.joueur.regen += f.regen;
+  }
   return c;
 }
 const vivants = (c) => c.ennemis.filter((e) => e.pv > 0);
@@ -53,7 +67,7 @@ function debutTour(c) {
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
   c.energie = c.energieMax; c.attaquesTour = 0; c.arcanes = false;
-  piocher(c, 5);
+  piocher(c, c.tour === 1 && c.mods?.includes('epuisement') ? 4 : 5);
   ev(c, { t: 'tour', n: c.tour });
 }
 // dégâts d'une attaque : force, affaibli (−25 %), trempé (+50 %)
@@ -161,6 +175,7 @@ export function finTour(c) {
     if (it.w) { j.affaibli += it.w; ev(c, { t: 'statut', a: 'j', k: 'affaibli', n: it.w }); }
     if (it.a) for (let k = 0; k < (it.n || 1); k++) attaquer(c, e, j, Math.round(it.a * e.deg));
     e.i++;
+    if (c.mods?.includes('vitalite') && e.pv > 0 && e.pv < e.pvMax) { const avant = e.pv; e.pv = Math.min(e.pvMax, e.pv + 3); ev(c, { t: 'soin', a: e.uid, n: e.pv - avant, pv: e.pv }); }
     if (e.trempe > 0) e.trempe--;
     if (e.affaibli > 0) e.affaibli--;
     if (verifierFin(c)) return;
@@ -170,6 +185,7 @@ export function finTour(c) {
 }
 // ce que le monstre va faire, en clair (pour l'affichage)
 export function decrireIntention(c, e) {
+  if (c.mods?.includes('brouillard')) return [{ type: 'malus', txt: '❓' }];
   const it = intention(e), t = [];
   if (it.a) t.push({ type: 'attaque', txt: `${calculerDegats(Math.round(it.a * e.deg), e, c.joueur)}${it.n > 1 ? `×${it.n}` : ''}` });
   if (it.d) t.push({ type: 'defense', txt: `${Math.round(it.d * e.deg)}` });
@@ -184,8 +200,10 @@ export function decrireIntention(c, e) {
 // serveur rejoue ce que le client a joué et n'accepte que ce résultat-là.
 // coups : [['j', indexCarte, uidCible], ['f'], …]
 export const COUPS_MAX = 3000;
-export function rejouer(def, coups) {
+// journal : true → le combat rejoué garde son journal d'événements (c.ev), pour les statistiques
+export function rejouer(def, coups, { journal = false } = {}) {
   const c = nouveauCombat(def);
+  if (journal) c.ev = [];
   if (!Array.isArray(coups)) return c;
   for (const k of coups.slice(0, COUPS_MAX)) {
     if (c.fini || !Array.isArray(k)) break;

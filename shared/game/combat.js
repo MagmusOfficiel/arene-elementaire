@@ -100,6 +100,10 @@ export const combat = {
     const r = CONFIG.playerRadius;
     const pos = resolveCollisions({ x: clamp(p.x + vx * dt, r, ARENA.width - r), y: clamp(p.y + vy * dt, r, ARENA.height - r) }, r, this.blds);
     this.pousserMurs(pos, r);
+    // un mur de sort peut repousser contre un bâtiment : on refait la sortie des bâtiments,
+    // et si on reste coincé (entre un mur et un bâtiment), on ne bouge pas
+    if (this.murs?.size && insideBuilding(pos.x, pos.y, r * 0.5, this.blds)) resolveCollisions(pos, r, this.blds);
+    if (insideBuilding(pos.x, pos.y, 4, this.blds) && !insideBuilding(p.x, p.y, 4, this.blds)) { pos.x = p.x; pos.y = p.y; e.kx = 0; e.ky = 0; }
     p.x = pos.x; p.y = pos.y;
     if (this.mode === 'tournoi' && p.duel !== 255 && this.state.phase === 'jeu') {
       const c = tournoiPit(p.duel, this.duels.length), d = dist(c.x, c.y, p.x, p.y), R = c.r - r;

@@ -54,7 +54,7 @@ export const POINTS = {
   bossExpe: 8,         // boss d'expédition vaincu (au plus un toutes les 3 minutes)
   mondialPar: 10,      // 1 point tous les 10 dégâts au boss mondial
   mondialFin: 20,      // participation à un boss mondial vaincu
-  mondialTop: 30, quete: 4, queteSemaine: 15, capture: 12, sanctuaire: 1, arene: 6, areneReflet: 3,      // meilleur contributeur
+  mondialTop: 30, quete: 4, queteSemaine: 15, capture: 12, sanctuaire: 1, arene: 6, areneReflet: 3, projetPar: 25,      // meilleur contributeur
 };
 // numéro de semaine (lundi 0 h UTC) : sert de saison au classement des clans
 export function semaineDe(t = Date.now()) {

@@ -6,9 +6,12 @@
 //    des petits sprites dessinés en code, triés par profondeur (y) ;
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
-import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, maisonDe, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
+import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
+import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
+import { dessinerFamilier } from './familiersArt.js';
 import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
-export { MONDE, CENTRES, CARREFOUR, LIEUX, MAISONS, maisonDe, territoireDe };
+import { PIECES, lireCode } from '../../../shared/clans/apparence.js';
+export { MONDE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe };
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
 const COUL = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a' };
 const POLICE = '"Pixelify Sans", "Courier New", monospace';
@@ -237,9 +240,25 @@ const BOSS_SPR = {
 const PEAU = '#f0c49a', PEAU2 = '#d09a70', OEIL = '#1a1414';
 const TENUE = { feu: ['#c83a1a', '#8a2410', '#e86a2a'], eau: ['#2a6ac8', '#1a4688', '#1a2a5a'], plante: ['#3a9a3a', '#246a26', '#6a4a24'] };
 const CACHE_PERSO = new Map();
-export function feuillePerso(clan, classe) {
-  const cle = `${clan}|${classe}`; if (CACHE_PERSO.has(cle)) return CACHE_PERSO.get(cle);
-  const [ten, ten2, chev] = TENUE[clan] || TENUE.feu;
+// les coiffes (remplacent le couvre-chef de la classe) : dessinées sur la tête, selon la direction
+const COIFFES = {
+  h_aucun: () => {},
+  h_bandeau: (P, dir) => { P('#c82a2a', 4, 5, 8, 1); if (dir === 'haut') { P('#c82a2a', 7, 6, 1, 3); P('#a81a1a', 8, 6, 1, 2); } else if (dir !== 'bas') P('#c82a2a', 3, 6, 1, 3); },
+  h_paille: (P) => { P('#e8c870', 1, 4, 14, 1); P('#d8b050', 4, 1, 8, 3); P('#f0d890', 4, 1, 8, 1); P('#c83a2a', 4, 3, 8, 1); },
+  h_fleurs: (P) => { P('#4a9a3a', 4, 3, 8, 1); P('#f080b0', 4, 2, 2, 1); P('#f0e060', 7, 2, 2, 1); P('#ffffff', 10, 2, 2, 1); P('#f080b0', 12, 3, 1, 1); },
+  h_capuche: (P, dir, [, ten2]) => { P(ten2, 3, 3, 10, 3); P(ten2, 3, 6, 1, 6); P(ten2, 12, 6, 1, 6); P(ten2, 4, 2, 8, 1); if (dir === 'haut') P(ten2, 4, 6, 8, 6); },
+  h_plume: (P) => { P('#2a5a8a', 4, 2, 8, 3); P('#1a3a6a', 3, 4, 10, 1); P('#f0f0f0', 11, 0, 1, 3); P('#f0f0f0', 12, -1, 1, 2); P('#d8d8e0', 10, 1, 1, 1); },
+  h_casque: (P, dir) => { P('#9a9aac', 3, 2, 10, 5); P('#c8c8d4', 4, 2, 8, 1); P('#7a7a8c', 3, 6, 1, 4); P('#7a7a8c', 12, 6, 1, 4); if (dir === 'bas') P('#2a2a34', 5, 7, 6, 1); P('#c82a2a', 7, 0, 2, 2); },
+  h_cornes: (P) => { P('#e8e0d0', 3, 2, 1, 3); P('#e8e0d0', 2, 1, 1, 2); P('#e8e0d0', 12, 2, 1, 3); P('#e8e0d0', 13, 1, 1, 2); P('#a89880', 3, 4, 1, 1); P('#a89880', 12, 4, 1, 1); },
+  h_aureole: (P) => { P('#fff4a0', 5, 0, 6, 1); P('#ffe060', 4, 1, 1, 1); P('#ffe060', 11, 1, 1, 1); P('#fff4a0', 5, 2, 6, 1); },
+  h_couronne: (P) => { P('#f0c030', 4, 2, 8, 2); P('#f0c030', 4, 0, 1, 2); P('#f0c030', 7, 0, 2, 2); P('#f0c030', 11, 0, 1, 2); P('#fff0a0', 4, 2, 8, 1); P('#e83a3a', 7, 3, 2, 1); P('#3a8ae8', 5, 3, 1, 1); P('#3ae86a', 10, 3, 1, 1); },
+  h_masque: (P, dir) => { if (dir === 'haut') { P('#3a0a3a', 4, 8, 8, 1); return; } const x0 = dir === 'bas' ? 4 : 6; P('#e8e0d8', x0, 6, dir === 'bas' ? 8 : 6, 5); P('#3a0a3a', x0, 10, dir === 'bas' ? 8 : 6, 1); if (dir === 'bas') { P('#1a0418', 5, 8, 2, 1); P('#1a0418', 9, 8, 2, 1); P('#ff2a3a', 6, 8, 1, 1); P('#ff2a3a', 9, 8, 1, 1); } else { P('#1a0418', 9, 8, 2, 1); P('#ff2a3a', 10, 8, 1, 1); } P('#8a1a5a', 3, 3, 10, 2); P('#8a1a5a', 7, 1, 2, 2); },
+};
+export function feuillePerso(clan, classe, app = '') {
+  const cle = `${clan}|${classe}|${app}`; if (CACHE_PERSO.has(cle)) return CACHE_PERSO.get(cle);
+  const ap = lireCode(app), pt = PIECES[ap.tenue], pc = PIECES[ap.cheveux], coiffe = ap.chapeau === 'h_classe' ? null : COIFFES[ap.chapeau];
+  const [ten0, ten20, chev0] = TENUE[clan] || TENUE.feu;
+  const [ten, ten2] = pt?.couleurs || [ten0, ten20], chev = pc?.couleur || chev0;
   const c = document.createElement('canvas'); c.width = 48; c.height = 104; const g = c.getContext('2d');
   ['bas', 'haut', 'droite', 'gauche'].forEach((dir, row) => [0, 1, 2].forEach((f) => {
     const s = sprite(16, 26, (P) => {
@@ -260,15 +279,41 @@ export function feuillePerso(clan, classe) {
       else { P(PEAU, 5, 6, 7, 6); P(PEAU2, 5, 11, 7, 1); P(chev, 4, 4, 7, 3); P(chev, 4, 6, 3, 4); P(OEIL, 10, 8, 1, 2); }
       // accessoires de classe
       if (classe === 'combattant') { P('#a8a8b8', cote ? 6 : 3, 12, cote ? 4 : 2, 2); if (!cote) P('#a8a8b8', 11, 12, 2, 2); if (dir !== 'bas') P('#c8c8d0', cote ? 4 : 11, 7, 1, 6); }
-      if (classe === 'mage') { P('#6a3aa8', 3, 4, 10, 2); P('#6a3aa8', 5, 2, 6, 2); P('#6a3aa8', 7, 0, 3, 2); P('#f0d060', 6, 5, 4, 1); }
-      if (classe === 'tireur') { P('#4a7a3a', 3, 3, 10, 3); P('#4a7a3a', 3, 6, 1, 5); P('#4a7a3a', 12, 6, 1, 5); P('#3a6a2a', 4, 3, 8, 1); }
-      if (classe === 'escrimeur') { P('#2a2a4a', 3, 3, 10, 2); P('#2a2a4a', 5, 1, 6, 2); P('#f0f0f0', 11, 0, 2, 3); if (dir === 'bas') P('#a8243a', 4, 12, 2, 2); }
+      if (coiffe) coiffe(P, dir, [ten, ten2]);
+      else if (classe === 'mage') { P('#6a3aa8', 3, 4, 10, 2); P('#6a3aa8', 5, 2, 6, 2); P('#6a3aa8', 7, 0, 3, 2); P('#f0d060', 6, 5, 4, 1); }
+      if (!coiffe && classe === 'tireur') { P('#4a7a3a', 3, 3, 10, 3); P('#4a7a3a', 3, 6, 1, 5); P('#4a7a3a', 12, 6, 1, 5); P('#3a6a2a', 4, 3, 8, 1); }
+      if (classe === 'escrimeur') { if (!coiffe) { P('#2a2a4a', 3, 3, 10, 2); P('#2a2a4a', 5, 1, 6, 2); P('#f0f0f0', 11, 0, 2, 3); } if (dir === 'bas') P('#a8243a', 4, 12, 2, 2); }
     });
     g.save(); if (dir === 'gauche') { g.translate(f * 16 + 16, row * 26); g.scale(-1, 1); g.drawImage(s, 0, 0); } else g.drawImage(s, f * 16, row * 26); g.restore();
   }));
   CACHE_PERSO.set(cle, c); return c;
 }
 const LIGNE_DIR = { bas: 0, haut: 1, droite: 2, gauche: 3 };
+const AURAS = {
+  a_braises: { c: ['#ffd27a', '#ff8a3a', '#e0452a'], monte: 1 }, a_bulles: { c: ['#d8f4ff', '#7ac8ff'], monte: 0.6, rond: 1 },
+  a_lucioles: { c: ['#e8ff8a', '#b8f060'], orbite: 1 }, a_givre: { c: ['#ffffff', '#bfeaff', '#8ad0ff'], scintille: 1 },
+  a_or: { c: ['#fff6c0', '#ffd870', '#e8a830'], scintille: 1, monte: 0.4 }, a_ombre: { c: ['#3a0a3a', '#5a1a5a', '#1a0418'], ombre: 1 },
+  // exclusives du passe de saison (v54)
+  a_aube: { c: ['#fff0b0', '#ffc070', '#ff8a60'], monte: 0.8 }, a_abysses: { c: ['#a0fff0', '#40e0d0', '#2080c0'], orbite: 1 },
+  a_seve: { c: ['#fff080', '#c0ff80', '#70c040'], monte: 0.45, rond: 1 }, a_eclipse: { c: ['#fff8d0', '#d0b0ff', '#8a60e0'], scintille: 1 },
+};
+// x, y : les pieds du personnage ; t : le temps (s) ; k : taille d'un pixel
+export function dessinerAura(ctx, x, y, aura, t, k = 1) {
+  const a = AURAS[aura]; if (!a) return;
+  const n = a.ombre ? 10 : 8;
+  for (let i = 0; i < n; i++) {
+    const h = (Math.sin(i * 91.7) + 1) / 2, ph = (t * (a.monte || 0.5) + h) % 1;
+    let px, py;
+    if (a.ombre) { px = x + Math.sin(t * 1.3 + i * 2.1) * 9; py = y - 2 - ph * 10; ctx.globalAlpha = 0.55 * (1 - ph); ctx.fillStyle = a.c[i % a.c.length]; ctx.fillRect(Math.round(px - k * 1.5), Math.round(py - k), Math.ceil(k * 3), Math.ceil(k * 2)); continue; }
+    if (a.orbite) { const an = t * 1.6 + i * 0.785; px = x + Math.cos(an) * 10; py = y - 12 + Math.sin(an * 1.3) * 9; ctx.globalAlpha = 0.5 + Math.sin(t * 6 + i) * 0.5; }
+    else if (a.scintille) { px = x + (h - 0.5) * 22; py = y - 2 - ((h * 7.3 + t * 0.35) % 1) * 26; ctx.globalAlpha = Math.max(0, Math.sin(t * 4 + i * 1.7)); }
+    else { px = x + (h - 0.5) * 18 + Math.sin(t * 3 + i) * 2; py = y - ph * 30; ctx.globalAlpha = 1 - ph; }
+    ctx.fillStyle = a.c[i % a.c.length];
+    if (a.rond) { ctx.fillRect(Math.round(px), Math.round(py - k), Math.ceil(k), Math.ceil(k)); ctx.fillRect(Math.round(px - k), Math.round(py), Math.ceil(k), Math.ceil(k)); ctx.fillRect(Math.round(px + k), Math.round(py), Math.ceil(k), Math.ceil(k)); ctx.fillRect(Math.round(px), Math.round(py + k), Math.ceil(k), Math.ceil(k)); }
+    else ctx.fillRect(Math.round(px), Math.round(py), Math.ceil(k), Math.ceil(k));
+  }
+  ctx.globalAlpha = 1;
+}
 
 // =====================================================================
 export function creerMonde(canvas, rappels) {
@@ -277,8 +322,20 @@ export function creerMonde(canvas, rappels) {
   let fond = null, mini = null, joueur = { x: 0, y: 0, dir: 'bas', marche: false }, cam = { x: 0, y: 0 }, z = 3, temps = 0, dernier = 0, but = null, actif = false;
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
-  let miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {};
-  const dpr = () => Math.min(2, devicePixelRatio || 1);
+  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '';
+  const suiveurs = new Map();   // les familiers qui suivent chaque joueur : clé → { x, y, gauche, bouge }
+  // résolution du dessin : celle de l'écran (×2 au plus)… sauf si l'appareil n'arrive pas à suivre,
+  // auquel cas on dessine en ×1 (le pixel art agrandi reste net grâce à image-rendering: pixelated)
+  let leger = false;
+  try { leger = localStorage.getItem('clansLeger') === '1'; } catch { /* rien */ }
+  const dpr = () => (leger ? 1 : Math.min(2, devicePixelRatio || 1));
+  const mesures = [];
+  function surveiller(dt) {
+    if (leger || !actif || document.hidden || dt <= 0 || dt > 0.25) return;
+    mesures.push(dt); if (mesures.length < 120) return;
+    const moy = mesures.reduce((a, b) => a + b) / mesures.length; mesures.length = 0;
+    if (moy > 0.024 && dpr() > 1) { leger = true; try { localStorage.setItem('clansLeger', '1'); } catch { /* rien */ } redim(); }
+  }
   let joy = { x: 0, y: 0 }, cible = null;   // joystick tactile (vecteur −1..1) ; flèche du guide (point du monde)
   const tactile = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
@@ -298,6 +355,7 @@ export function creerMonde(canvas, rappels) {
     for (const p of LIEUX) { const d = Math.hypot(joueur.x - p.x, joueur.y - p.y); if (d < p.r + 30 && d < d0) { d0 = d; best = p; } }
     const m = maisonDe(monClan, monNom);
     if (Math.hypot(joueur.x - m.x, joueur.y - (m.y + 16)) < 50) best = { id: 'maison', nom: 'Ta maison', action: 'parcelle' };
+    { const o = OUVRAGES[monClan]; if (Math.hypot(joueur.x - o.x, joueur.y - (o.y + 12)) < 52) best = { id: 'projet', nom: PROJETS[monClan].nom, action: 'projet', x: o.x, y: o.y }; }
     for (const f of filons) if (Math.hypot(joueur.x - f.x, joueur.y - f.y) < 36) best = { ...f, nom: 'un filon rare', action: 'filon' };
     for (const [id, a] of autres) if (a.clan !== monClan && territoireDe(a.x, a.y) === monClan && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
     // près du boss mondial, on l'affronte (prioritaire : pas de duel par erreur)
@@ -319,7 +377,7 @@ export function creerMonde(canvas, rappels) {
     const r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
     const x = ((e.clientX - r.left) * k - ox) / z, y = ((e.clientY - r.top) * k - oy) / z;
     const m = maisonDe(monClan, monNom);
-    const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
+    const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
     but = { x, y, lieu: l || null };
   });
 
@@ -350,16 +408,78 @@ export function creerMonde(canvas, rappels) {
     const ond = Math.floor(temps * 4) % 2; ctx.fillStyle = col; ctx.fillRect(fx + 1, fy + ond, 8, 5); ctx.fillRect(fx + 1, fy + 5 + ond, 6, 1);
     if (st.capt && Math.floor(temps * 6) % 3 === 0) { ctx.fillStyle = COUL[st.capt.clan]; ctx.fillRect(cx - 1 + Math.round(Math.sin(temps * 9) * 8), cy + 10, 2, 2); }
   }
+  function majProjets(v) { projets = v; }
+  // le familier trottine derrière son maître et garde ses distances
+  function suivre(cle, p, dt) {
+    let f = suiveurs.get(cle);
+    if (!f || Math.hypot(f.x - p.x, f.y - p.y) > 160) { f = { x: p.x - 14, y: p.y + 2, gauche: false, bouge: false }; suiveurs.set(cle, f); }
+    const dx = p.x - f.x, dy = p.y + 2 - f.y, d = Math.hypot(dx, dy);
+    f.bouge = d > 18;
+    if (f.bouge) { const k = Math.min(1, dt * 5) * (d - 16) / d; f.x += dx * k; f.y += dy * k; }
+    if (Math.abs(dx) > 2) f.gauche = dx < 0;
+    return f;
+  }
+  // ---------- les grands ouvrages des projets de clan : ils grandissent avec les dons ----------
+  // étape 0 : fondations ; 1 à 4 : chantier (échafaudage) ; 5 : terminé (il brille)
+  function dessinerOuvrage(k, o) {
+    const e = projets?.clans?.[k]?.etape ?? 0, fini = e >= ETAPES - 1, x = o.x, y = o.y + 8;   // y : le pied de l'ouvrage
+    const r = (c, a, b, w, h) => { ctx.fillStyle = c; ctx.fillRect(R(a), R(b), R(w), R(h)); };
+    ombre(x, y, 52);
+    // les fondations (toujours là)
+    r('#5a5048', x - 24, y - 6, 48, 6); r('#7a7064', x - 24, y - 6, 48, 2); for (let i = -20; i < 24; i += 8) r('#463e38', x + i, y - 4, 1, 4);
+    const h = [0, 14, 26, 38, 50, 62][e];   // la hauteur construite
+    if (k === 'feu') {
+      // la Forge géante : un grand bâtiment de pierre noire, une cheminée, la gueule du four
+      if (h) {
+        r('#3e302c', x - 20, y - 6 - h, 40, h); r('#56423a', x - 20, y - 6 - h, 3, h); r('#2a201e', x + 17, y - 6 - h, 3, h);
+        for (let b = y - 10; b > y - 6 - h; b -= 6) for (let a = x - 18 + ((b / 6) % 2 ? 0 : 4); a < x + 16; a += 9) r('#2e2420', a, b, 1, 1);
+        if (e >= 2) { const v = fini ? 0.75 + Math.sin(temps * 6) * 0.2 : 0.45; r(`rgba(255,120,30,${v})`, x - 7, y - 20, 14, 14); r('#1a1210', x - 8, y - 22, 16, 2); r('#ffcc60', x - 4, y - 12, 8, 6); }
+        const ch = Math.min(h + (fini ? 18 : 6), 74); r('#4a3a34', x + 8, y - 6 - ch, 9, ch - h + 2); r('#5e4a42', x + 8, y - 6 - ch, 2, ch - h + 2);
+        if (fini) { r('#2a201e', x - 22, y - 8 - h, 44, 3); for (let i = 0; i < 4; i++) { const t = (temps * 0.6 + i / 4) % 1; r(`rgba(70,60,60,${0.6 - t * 0.6})`, x + 10 + Math.sin(t * 6 + i) * 4 - t * 6, y - 8 - ch - t * 30, 4 + t * 6, 4 + t * 6); } }
+        if (fini) { r('#22262a', x - 30, y - 12, 12, 4); r('#3a4046', x - 28, y - 14, 8, 2); r('#22262a', x - 26, y - 10, 4, 6); }   // l'enclume
+      }
+    } else if (k === 'eau') {
+      // le Phare des marées : une tour blanche à rayures, la lanterne en haut
+      if (h) {
+        const H2 = h + (fini ? 10 : 0);
+        for (let i = 0; i < H2; i++) { const w = 11 - Math.floor((i / 74) * 5), c = Math.floor(i / 10) % 2 ? '#c83a3a' : '#f2efe6'; r(c, x - w, y - 7 - i, w * 2, 1); r('rgba(0,0,0,.18)', x + w - 3, y - 7 - i, 3, 1); }
+        r('#3a4a5a', x - 4, y - 16, 8, 10); r('#5a6a7a', x - 4, y - 16, 8, 2);   // la porte
+        if (fini) {
+          const t = y - 7 - H2; r('#2a3440', x - 9, t - 2, 18, 3); r('#f8e8a0', x - 6, t - 12, 12, 10); r('#2a3440', x - 7, t - 14, 14, 2); r('#2a3440', x - 2, t - 18, 4, 4);
+          const a = temps * 1.6, lx = x, ly = t - 7, l = 70;   // le faisceau qui tourne
+          ctx.fillStyle = 'rgba(255,240,170,.18)'; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + Math.cos(a - 0.18) * l, ly + Math.sin(a - 0.18) * l * 0.5); ctx.lineTo(lx + Math.cos(a + 0.18) * l, ly + Math.sin(a + 0.18) * l * 0.5); ctx.closePath(); ctx.fill();
+        }
+      }
+    } else {
+      // l'Arbre-monde : un tronc qui s'épaissit, une couronne qui s'étend, des fruits dorés à la fin
+      if (h) {
+        const tw = 4 + e * 2;
+        r('#5a3a22', x - tw / 2, y - 6 - h, tw, h); r('#734c2c', x - tw / 2, y - 6 - h, 2, h); r('#5a3a22', x - tw / 2 - 4, y - 8, tw + 8, 3);
+        const cr = [0, 9, 14, 19, 24, 30][e], cy = y - 6 - h;
+        const feuille = (dx, dy, rr, c) => { for (let j = -rr; j <= rr; j++) { const w = Math.round(Math.sqrt(rr * rr - j * j) * 1.3); r(c, x + dx - w, cy + dy + j * 0.8, w * 2, 1); } };
+        feuille(0, 2, cr, '#1f5a26'); feuille(-cr * 0.5, -cr * 0.2, cr * 0.7, '#2e7a32'); feuille(cr * 0.45, -cr * 0.35, cr * 0.65, '#3a9038'); feuille(0, -cr * 0.6, cr * 0.5, '#4aa442');
+        if (fini) for (let i = 0; i < 9; i++) { const a = i * 2.39, d = cr * (0.35 + alea(i) * 0.55), fx = x + Math.cos(a) * d * 1.2, fy = cy + Math.sin(a) * d * 0.7; r(`rgba(255,220,90,${0.7 + Math.sin(temps * 3 + i) * 0.3})`, fx - 1, fy - 1, 3, 3); }
+        if (fini) for (let i = 0; i < 6; i++) { const a = temps * 0.7 + i, fx = x + Math.cos(a) * (cr + 8), fy = cy + Math.sin(a * 1.3) * cr * 0.6; r('rgba(230,255,150,.85)', fx, fy, 1, 1); }
+      }
+    }
+    // l'échafaudage du chantier
+    if (e >= 1 && !fini) {
+      const hh = h + 6;
+      for (const a of [-23, 22]) { r('#8a6a3a', x + a, y - 6 - hh, 2, hh); }
+      for (let b = y - 14; b > y - 6 - hh; b -= 12) { r('#9a7a48', x - 23, b, 47, 2); r('#6a5030', x - 23, b + 2, 47, 1); }
+      if (Math.floor(temps * 2) % 2) r('#e8c060', x - 2, y - 8 - hh, 4, 2);   // un drapeau de chantier qui bat
+    }
+  }
   function majMaParcelle(pc) { if (pc) maParcelle = pc.maison * 100 + pc.autel * 10 + pc.atelier; }
   function majAutres(liste, monId) {
     const vus = new Set();
-    for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle] of liste) {
+    for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle, app, fam] of liste) {
       if (id === monId) continue; vus.add(id);
       const a = autres.get(id);
-      if (!a) autres.set(id, { nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle });
-      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle });
+      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam });
+      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam });
     }
-    for (const id of [...autres.keys()]) if (!vus.has(id)) autres.delete(id);
+    for (const id of [...autres.keys()]) if (!vus.has(id)) { autres.delete(id); suiveurs.delete(id); }
   }
 
   // ---------- dessin ----------
@@ -369,7 +489,10 @@ export function creerMonde(canvas, rappels) {
     const f = p.marche ? 1 + (Math.floor(t * 8) % 2) : 0, row = LIGNE_DIR[p.dir] ?? 0;
     ombre(p.x, p.y, 12);
     if (p.moi) { ctx.fillStyle = 'rgba(255,230,140,.85)'; for (let a = 0; a < 16; a++) { const an = (a / 16) * Math.PI * 2 + temps; ctx.fillRect(R(p.x + Math.cos(an) * 9), R(p.y + Math.sin(an) * 4), 1, 1); } }
-    ctx.drawImage(feuillePerso(p.clan, p.classe), f * 16, row * 26, 16, 26, R(p.x) - 8, R(p.y) - 24, 16, 26);
+    const ap = p.app ? lireCode(p.app) : null;
+    if (ap?.aura === 'a_ombre') dessinerAura(ctx, p.x, p.y, ap.aura, t);
+    ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), f * 16, row * 26, 16, 26, R(p.x) - 8, R(p.y) - 24, 16, 26);
+    if (ap && ap.aura !== 'a_aucune' && ap.aura !== 'a_ombre') dessinerAura(ctx, p.x, p.y, ap.aura, t);
   }
   function dessinerLiquides(t0x, t0y, t1x, t1y) {
     for (let ty = t0y; ty <= t1y; ty++) for (let tx = t0x; tx <= t1x; tx++) {
@@ -435,7 +558,7 @@ export function creerMonde(canvas, rappels) {
   }
   function boucle(ts) {
     requestAnimationFrame(boucle);
-    const dt = Math.min(0.05, (ts - dernier) / 1000 || 0); dernier = ts; temps += dt;
+    const brut = (ts - dernier) / 1000 || 0, dt = Math.min(0.05, brut); dernier = ts; temps += dt; surveiller(brut);
     if (!actif || !canvas.offsetParent) return;
     // déplacement
     let dx = 0, dy = 0;
@@ -480,12 +603,17 @@ export function creerMonde(canvas, rappels) {
       if (pr) decorsParcelle(m, k, pr.pc, objets);
     }
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 - 20 && p.y < y1 + 80) objets.push({ y: p.y + 6, f: () => (p.action === 'tirage' ? dessinerAutel(p) : dessinerPortail(p)) });
+    for (const [k, o] of Object.entries(OUVRAGES)) if (o.x > x0 - 90 && o.x < x1 + 90 && o.y > y0 - 30 && o.y < y1 + 120) objets.push({ y: o.y + 8, f: () => dessinerOuvrage(k, o) });
     for (const f of filons) objets.push({ y: f.y, f: () => dessinerFilon(f) });
     for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 - 20 && d.y < y1 + 60) objets.push({ y: d.y + 6, f: () => dessinerSanctuaire(d) });
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
     const gens = [...autres.values()].map((a) => { a.x += (a.tx - a.x) * Math.min(1, dt * 10); a.y += (a.ty - a.y) * Math.min(1, dt * 10); return { ...a, dir: ['bas', 'haut', 'gauche', 'droite'][a.dir] || a.dir, marche: Math.hypot(a.tx - a.x, a.ty - a.y) > 1 }; });
-    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, moi: true });
+    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, moi: true, id: 'moi' });
+    for (const p of gens) if (p.fam && p.statut !== 'expedition') {
+      const f = suivre(p.id, p, dt), saut = f.bouge ? Math.floor(temps * 8) % 2 : Math.floor(temps * 1.5) % 2;
+      objets.push({ y: f.y, f: () => dessinerFamilier(ctx, p.fam, f.x, f.y, f.gauche, saut) });
+    }
     for (const p of gens) objets.push({ y: p.y, f: () => {
       if (!p.moi && p.clan !== monClan && territoireDe(p.x, p.y) === monClan) { ctx.fillStyle = `rgba(255,60,40,${0.6 + Math.sin(temps * 6) * 0.3})`; for (let a = 0; a < 24; a++) { const an = (a / 24) * Math.PI * 2; ctx.fillRect(R(p.x + Math.cos(an) * 11), R(p.y + Math.sin(an) * 5), 1, 1); } }
       dessinerPerso(p, temps + (p.moi ? 0 : p.x * 0.01));
@@ -516,7 +644,11 @@ export function creerMonde(canvas, rappels) {
       if (st.conteste) etiquette('⚔ Contesté !', ex(d.x), ey(d.y + 30), '#ffb0a0', '#e8402a', true);
       else if (st.capt) etiquette(`Capture ${st.capt.p} %`, ex(d.x), ey(d.y + 30), '#fff4c8', COUL[st.capt.clan], true);
     }
-    for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) { ctx.font = `bold ${R(16 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(NOMS_TERR[k], ex(vx) + 2 * s, ey(vy) + 2 * s); ctx.fillStyle = '#f8ecd0'; ctx.fillText(NOMS_TERR[k], ex(vx), ey(vy)); }
+    for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) { ctx.font = `bold ${R(16 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(NOMS_TERR[k], ex(vx) + 2 * s, ey(vy + 56) + 2 * s); ctx.fillStyle = '#f8ecd0'; ctx.fillText(NOMS_TERR[k], ex(vx), ey(vy + 56)); }
+    for (const [k, o] of Object.entries(OUVRAGES)) if (o.x > x0 - 90 && o.x < x1 + 90 && o.y > y0 && o.y < y1 + 120 && projets?.clans?.[k]) {
+      const pr = projets.clans[k], fini = pr.pts >= pr.objectif, pc = Math.min(100, Math.floor((pr.pts / pr.objectif) * 100));
+      etiquette(`${PROJETS[k].ico} ${PROJETS[k].nom} · ${fini ? 'terminé ✓' : `${pc} %`}`, ex(o.x), ey(o.y - 84), fini ? '#ffe070' : '#f0e6d0', COUL[k], fini);
+    }
     for (const a of autres.values()) { const m = maisonDe(a.clan, a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan]); }
     if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true);
     const ma = maisonDe(monClan, monNom); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true);
@@ -525,14 +657,12 @@ export function creerMonde(canvas, rappels) {
       etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi);
     }
     ctx.textBaseline = 'alphabetic';
-    // vignettage
-    const gr = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.4, canvas.width / 2, canvas.height / 2, canvas.width * 0.75);
-    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.4)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // (le vignettage est une couche CSS fixe : #ecranMonde::after — le recalculer à chaque image coûtait cher sur téléphone)
     // l'action possible
     const l = rappels.libre() && lieuProche();
     if (l) {
       const E = tactile ? '✋ ' : 'E : ';
-      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — il est sur ton territoire` : l.action === 'filon' ? 'E : ramasser le filon rare' : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
+      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — il est sur ton territoire` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
       const txt2 = txt.replace(/^E : /, E);
       ctx.font = `${R(15 * s)}px ${POLICE}`; ctx.textAlign = 'center';
       const w = ctx.measureText(txt2).width + 30 * s, h = 34 * s, y = canvas.height * (tactile ? 0.66 : 0.78);
@@ -589,5 +719,5 @@ export function creerMonde(canvas, rappels) {
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

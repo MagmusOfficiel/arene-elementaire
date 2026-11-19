@@ -14,8 +14,8 @@
 
 /* ---------- en-tête ---------- */
 .scene .haut { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; text-align: center; padding: 6px 26px 7px; background: linear-gradient(rgba(10,8,16,.85), rgba(10,8,16,.6)); border: 2px solid rgba(232,192,96,.55); border-radius: 4px; clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); min-width: 260px; }
-.scene .haut span:first-child { display: block; font-family: var(--pix); font-size: 21px; color: var(--or); letter-spacing: .04em; text-shadow: 0 2px 0 #3a2208; }
-.scene .haut span + span { display: block; font-size: 12px; color: #c8bca8; margin-top: 1px; }
+.scene .haut > span:first-child { display: block; font-family: var(--pix); font-size: 21px; color: var(--or); letter-spacing: .04em; text-shadow: 0 2px 0 #3a2208; }
+.scene .haut > span + span { display: block; font-size: 12px; color: #c8bca8; margin-top: 1px; }
 #duTour.moi { color: #ffd870; font-weight: bold; }
 .scene .talent { position: absolute; left: 14px; top: 12px; z-index: 5; width: 270px; font-size: 12px; line-height: 1.35; background: rgba(8,6,12,.78); border: 1px solid rgba(232,192,96,.4); border-radius: 8px; padding: 6px 10px; }
 .scene .talent b { color: var(--or); }
@@ -166,7 +166,7 @@
   .ennemis { justify-content: center; gap: 10px; flex-wrap: wrap; }
   .ennemi .nomE { font-size: 12px; margin-top: 10px; } .intention { font-size: 13px; padding: 3px 9px; margin-bottom: 7px; }
   .scene .talent { display: none; }
-  .scene .haut { min-width: 0; width: 86vw; padding: 4px 18px; } .scene .haut span:first-child { font-size: 17px; }
+  .scene .haut { min-width: 0; width: 86vw; padding: 4px 18px; } .scene .haut > span:first-child { font-size: 17px; }
   .scene .energie { left: 10px; bottom: 166px; width: 62px; height: 62px; } .scene .energie b { font-size: 22px; } .scene .energie small { font-size: 8px; }
   .scene .finTour { right: 8px; bottom: 170px; min-width: 0; padding: 9px 14px; font-size: 15px; }
   .scene .pile { width: 42px; height: 60px; bottom: 10px; } .scene .pioche { left: 6px; } .scene .defausse { right: 6px; } .scene .pile i::after { font-size: 16px; }
@@ -182,7 +182,7 @@
 /* téléphone couché (écran bas) */
 @media (max-height: 500px) {
   .scene .arene { top: 44px; bottom: 150px; }
-  .scene .haut { top: 4px; padding: 2px 18px; } .scene .haut span + span { display: none; } .scene .haut span:first-child { font-size: 15px; }
+  .scene .haut { top: 4px; padding: 2px 18px; } .scene .haut > span + span { display: none; } .scene .haut > span:first-child { font-size: 15px; }
   .scene .talent { display: none; }
   .scene .energie { left: 8px; bottom: 96px; width: 54px; height: 54px; } .scene .energie b { font-size: 19px; } .scene .energie small { display: none; }
   .scene .finTour { right: 8px; bottom: 100px; min-width: 0; padding: 7px 12px; font-size: 14px; }
@@ -202,3 +202,16 @@
 .ennemi .corps { position: relative; display: flex; justify-content: center; }
 .scene.gagne .arene .heros .combattant { filter: drop-shadow(0 0 16px rgba(255,216,112,.8)); }
 @media (max-aspect-ratio: 4/5) { .scene .abandon { top: auto; bottom: 236px; left: 8px; right: auto; font-size: 12px; padding: 4px 9px; } }
+/* le Cauchemar : décor assombri, monstres maudits */
+.scene.cauchemar .decor { filter: hue-rotate(-35deg) saturate(.7) brightness(.55) contrast(1.15); }
+.scene.cauchemar .voile { background: radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(40,0,40,.75)), linear-gradient(transparent 62%, rgba(0,0,0,.75)); }
+.ennemi.maudit { --r: #c04ac0; }
+.ennemi.maudit .portrait { filter: hue-rotate(250deg) saturate(1.35) contrast(1.15) brightness(.9); }
+.ennemi.maudit .portrait::after { background: radial-gradient(circle at 50% 60%, transparent 40%, rgba(80,0,80,.45)), linear-gradient(160deg, rgba(255,255,255,.18), transparent 40%); }
+.tagMaudit { font-size: 10px; letter-spacing: .08em; color: #ffb0ff; background: rgba(80,0,80,.85); border: 1px solid #c04ac0; border-radius: 4px; padding: 0 4px; vertical-align: middle; }
+.scene .malediction { font-size: 11px; padding: 0 6px; margin-left: 4px; }
+
+/* ---------- le familier, à côté du héros (v53) ---------- */
+.combattant .familier { position: absolute; left: calc(-11px * var(--z)); bottom: 0; width: calc(12px * var(--z)); height: calc(11px * var(--z)); image-rendering: pixelated; z-index: 2; animation: sautille 1.2s steps(2) infinite; }
+.combattant .familier.cache { display: none; }
+@keyframes sautille { 50% { transform: translateY(calc(-1px * var(--z))); } }

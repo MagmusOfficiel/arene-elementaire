@@ -5,7 +5,8 @@
 //  trésor. Les PV se gardent d'un combat à l'autre. Mourir fait perdre
 //  la moitié du butin ramassé ; vaincre le boss débloque le palier suivant.
 // =====================================================================
-import { MONSTRES, PALIERS, TERRITOIRES } from './monstres.js';
+import { actif as actifFamilier } from './familiers.js';
+import { MONSTRES, PALIERS, TERRITOIRES, MALEDICTIONS, BOSS_CAUCHEMAR } from './monstres.js';
 import { ELEMENTS, RARES } from './cartes.js';
 import { alea } from './combat.js';
 import { pvMax, deckCombat } from './profil.js';
@@ -51,9 +52,18 @@ export function commencerExpedition(p, territoire, palier = 1, graine = Date.now
   if (!TERRITOIRES[territoire]) return { ok: false };
   if (palier > (p.paliers[territoire] || 1)) return { ok: false, raison: 'Palier pas encore débloqué.' };
   p.expedition = { territoire, palier, graine, carte: genererCarte(graine), position: null, pv: pvMax(p), pvMax: pvMax(p), butin: { essence: 0, mat: 0 }, salles: 0, fini: null };
+  const fam = actifFamilier(p); if (fam) p.expedition.familier = fam;   // fixé pour toute l'expédition
+  if (PALIERS[palier - 1]?.cauchemar) p.expedition.mods = tirerMaledictions(graine);
   p.stats.expeditions++;
   return { ok: true, expedition: p.expedition };
 }
+// 2 malédictions différentes, tirées de la graine (le serveur et le client tombent d'accord)
+export function tirerMaledictions(graine) {
+  const r = alea(graine + 4242), l = Object.keys(MALEDICTIONS);
+  for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
+  return l.slice(0, 2);
+}
+const maudit = (m) => ({ ...m, maudit: true });
 // les salles où l'on peut aller maintenant
 export function choixPossibles(x) {
   if (x.fini) return [];
@@ -63,16 +73,19 @@ export function choixPossibles(x) {
 // les monstres d'une salle de combat
 export function ennemisDe(x, id) {
   const s = salle(x.carte, id), M = MONSTRES[x.territoire], r = alea(x.graine + s.etage * 31 + (s.i || 0) * 7);
-  if (s.type === 'boss') return [M.boss];
-  if (s.type === 'elite') return [M.elite];
-  if (s.type === 'rare') return [M.rare];
-  const n = s.etage <= 1 ? 1 : r() < 0.55 ? 2 : 1, l = [];
-  for (let k = 0; k < n; k++) l.push(M.normaux[Math.floor(r() * M.normaux.length)]);
+  const cauch = !!PALIERS[x.palier - 1]?.cauchemar, f = cauch ? maudit : (m) => m;
+  if (s.type === 'boss') return [cauch ? BOSS_CAUCHEMAR[x.territoire] : M.boss];
+  if (s.type === 'elite') return [f(M.elite)];
+  if (s.type === 'rare') return [f(M.rare)];
+  let n = s.etage <= 1 ? 1 : r() < 0.55 ? 2 : 1;
+  if (x.mods?.includes('horde')) n = Math.min(3, n + 1);
+  const l = [];
+  for (let k = 0; k < n; k++) l.push(f(M.normaux[Math.floor(r() * M.normaux.length)]));
   return l;
 }
 export function combatDe(p, id) {
   const x = p.expedition;
-  return { deck: deckCombat(p), joueur: { pv: x.pv, pvMax: x.pvMax }, ennemis: ennemisDe(x, id), palier: PALIERS[x.palier - 1], graine: x.graine + Number(String(id).replace(/\D/g, '') || 99), classe: p.classe };
+  return { deck: deckCombat(p), joueur: { pv: x.pv, pvMax: x.pvMax }, ennemis: ennemisDe(x, id), palier: PALIERS[x.palier - 1], graine: x.graine + Number(String(id).replace(/\D/g, '') || 99), classe: p.classe, mods: x.mods || null, familier: x.familier || null };
 }
 // entrer dans une salle : renvoie ce qu'il s'y passe (combat à lancer, ou effet immédiat)
 export function entrer(p, id) {
@@ -80,7 +93,7 @@ export function entrer(p, id) {
   if (!x || !choixPossibles(x).includes(id)) return { ok: false };
   x.position = id; x.salles++;
   const s = salle(x.carte, id), mult = PALIERS[x.palier - 1].butin;
-  if (s.type === 'repos') { const soin = Math.round(x.pvMax * 0.35); x.pv = Math.min(x.pvMax, x.pv + soin); return { ok: true, type: 'repos', soin }; }
+  if (s.type === 'repos') { const soin = Math.round(x.pvMax * (x.mods?.includes('disette') ? 0.175 : 0.35)); x.pv = Math.min(x.pvMax, x.pv + soin); return { ok: true, type: 'repos', soin }; }
   if (s.type === 'tresor') { const g = { essence: Math.round(45 * mult), mat: Math.round(5 * mult) }; x.butin.essence += g.essence; x.butin.mat += g.mat; return { ok: true, type: 'tresor', gain: g }; }
   x.combatEnCours = id;   // si la page se recharge pendant le combat, on le reprend
   return { ok: true, type: s.type, combat: combatDe(p, id) };
@@ -98,20 +111,21 @@ export function apresCombat(p, combat) {
   // les monstres rares et les boss donnent la ressource rare du territoire
   const rare = s.type === 'rare' ? 1 + x.palier : s.type === 'boss' ? 2 * x.palier : 0;
   if (rare) { x.butin.rare = (x.butin.rare || 0) + rare; g.rare = rare; }
-  if (s.type === 'boss') { p.stats.boss++; return { ...terminer(p, 'victoire'), gain: g }; }
+  if (s.type === 'boss') { p.stats.boss++; if (PALIERS[x.palier - 1]?.cauchemar) p.stats.cauchemar = (p.stats.cauchemar || 0) + 1; return { ...terminer(p, 'victoire'), gain: g }; }
   return { ok: true, gain: g };
 }
 // fin de l'expédition : la défaite fait perdre la moitié du butin ; le boss débloque le palier suivant
 export function terminer(p, issue) {
   const x = p.expedition; if (!x) return { ok: false };
-  const garde = issue === 'victoire' ? 1 : 0.5, mat = ELEMENTS[x.territoire].materiau;
-  const gain = { essence: Math.floor(x.butin.essence * garde), [mat]: Math.floor(x.butin.mat * garde) };
+  // x.bonusButin : bonus du Phare des marées (projet de clan terminé la semaine passée), fixé au départ
+  const garde = issue === 'victoire' ? 1 : 0.5, mat = ELEMENTS[x.territoire].materiau, b = 1 + (x.bonusButin || 0);
+  const gain = { essence: Math.floor(x.butin.essence * garde * b), [mat]: Math.floor(x.butin.mat * garde * b) };
   p.ress.essence += gain.essence; p.ress[mat] += gain[mat];
   if (x.butin.rare) { const r = RARES[x.territoire].id; gain[r] = Math.floor(x.butin.rare * garde); p.ress[r] = (p.ress[r] || 0) + gain[r]; }
   let debloque = null;
   if (issue === 'victoire' && x.palier === p.paliers[x.territoire] && x.palier < PALIERS.length) { p.paliers[x.territoire]++; debloque = p.paliers[x.territoire]; }
   x.fini = issue;
-  const bilan = { ok: true, fin: issue, gainTotal: gain, debloque, territoire: x.territoire, palier: x.palier };
+  const bilan = { ok: true, fin: issue, gainTotal: gain, debloque, territoire: x.territoire, palier: x.palier, bonus: x.bonusButin || 0 };
   p.expedition = null;
   return bilan;
 }

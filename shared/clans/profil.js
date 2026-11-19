@@ -73,16 +73,18 @@ export function tirer(p, n = 1, graine = Date.now()) {
 }
 
 // ---------- améliorer une carte (niveau 2 puis 3) ----------
-export function coutAmelioration(id, niv) {
+// remise : 0,2 = 20 % de moins (bonus de la Forge géante)
+const remiser = (cout, remise) => (remise > 0 ? Object.fromEntries(Object.entries(cout).map(([k, v]) => [k, Math.ceil(v * (1 - remise))])) : cout);
+export function coutAmelioration(id, niv, remise = 0) {
   const c = CARTES[id], base = { commune: 1, rare: 2, epique: 3, legendaire: 5 }[c.rarete];
   const eclats = (niv === 1 ? 20 : 60) * base, mat = (niv === 1 ? 10 : 30) * base;
-  return c.element === 'neutre' ? { eclats, essence: mat * 5 } : { eclats, [ELEMENTS[c.element].materiau]: mat };
+  return remiser(c.element === 'neutre' ? { eclats, essence: mat * 5 } : { eclats, [ELEMENTS[c.element].materiau]: mat }, remise);
 }
-export function ameliorer(p, id) {
+export function ameliorer(p, id, remise = 0) {
   const c = p.collection[id];
   if (!c || c.n < 1) return { ok: false, raison: "Tu n'as pas cette carte." };
   if (c.niv >= NIV_MAX) return { ok: false, raison: 'Déjà au niveau maximum.' };
-  const cout = coutAmelioration(id, c.niv);
+  const cout = coutAmelioration(id, c.niv, remise);
   for (const [k, v] of Object.entries(cout)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };
   for (const [k, v] of Object.entries(cout)) p.ress[k] -= v;
   c.niv++;
@@ -90,13 +92,13 @@ export function ameliorer(p, id) {
 }
 
 // ---------- fabriquer une carte exclusive avec les ressources rares de son territoire ----------
-export function coutFabrication(id) {
+export function coutFabrication(id, remise = 0) {
   const c = CARTES[id]; if (!c?.exclusif) return null;
   const r = RECETTES[c.rarete];
-  return { [RARES[c.exclusif].id]: r.rare, essence: r.essence };
+  return remiser({ [RARES[c.exclusif].id]: r.rare, essence: r.essence }, remise);
 }
-export function fabriquer(p, id) {
-  const cout = coutFabrication(id); if (!cout) return { ok: false };
+export function fabriquer(p, id, remise = 0) {
+  const cout = coutFabrication(id, remise); if (!cout) return { ok: false };
   const c = (p.collection[id] ||= { n: 0, niv: 1 });
   if (c.n >= COPIES_MAX) return { ok: false, raison: `${COPIES_MAX} exemplaires au plus.` };
   for (const [k, v] of Object.entries(cout)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };
@@ -187,7 +189,7 @@ export function assainir(x) {
   if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: COPIES_MAX, niv: 1 }; }
   for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(5, num(x.parcelle?.[k], 5)));
   p.parcelle.recolte = Math.min(Date.now(), +x.parcelle?.recolte || Date.now());
-  for (const k of CLANS) p.paliers[k] = Math.max(1, Math.min(3, num(x.paliers?.[k], 3)));
+  for (const k of CLANS) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
   for (const k of Object.keys(p.stats)) p.stats[k] = num(x.stats?.[k], 1e6);
   p.tirages = { total: num(x.tirages?.total, 1e6), depuisLegendaire: Math.min(59, num(x.tirages?.depuisLegendaire, 59)) };
   p.duels = { gagnes: num(x.duels?.gagnes, 1e6), perdus: num(x.duels?.perdus, 1e6) };

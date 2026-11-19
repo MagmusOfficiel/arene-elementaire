@@ -17,7 +17,7 @@ export function nouveauDuel(a, b, graine = 1) {
   const r = alea(graine);
   let n = 0;
   const joueur = (x) => ({
-    nom: x.nom, clan: x.clan, classe: x.classe, pv: x.pvMax, pvMax: x.pvMax, ...statuts(),
+    nom: x.nom, clan: x.clan, classe: x.classe, app: typeof x.app === 'string' ? x.app.slice(0, 80) : '', pv: x.pvMax, pvMax: x.pvMax, ...statuts(),
     pioche: melanger(x.deck.map((k) => ({ uid: `c${n++}`, id: k.id, niv: k.niv || 1 })), r), main: [], defausse: [], epuisees: [],
     energie: 0, tirs: 0, attaquesTour: 0, arcanes: false,
   });
@@ -107,7 +107,7 @@ export function finTour(d, qui) {
 }
 // ce que voit un joueur : sa main, et seulement le nombre de cartes de l'adversaire
 export function vue(d, qui) {
-  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, pv: j.pv, pvMax: j.pvMax, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
+  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, app: j.app, pv: j.pv, pvMax: j.pvMax, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
   const moi = d.j[qui];
   return { moi: { ...pub(moi), main: moi.main.map((k, i) => ({ id: k.id, niv: k.niv, cout: coutDe(moi, i) })) }, adv: pub(d.j[1 - qui]), aMoi: d.actif === qui, tour: d.tour, fini: d.fini, gagnant: d.gagnant === null ? null : d.gagnant === qui ? 'moi' : 'adv', journal: d.journal.slice(-4) };
 }

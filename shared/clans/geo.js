@@ -31,6 +31,8 @@ export function territoireDe(x, y) {
 // maisons de chaque village (une par emplacement ; la tienne dépend de ton nom)
 const snap = (v) => Math.floor(v / TUILE) * TUILE + TUILE / 2;
 export const MAISONS = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx, cy]]) => [k, Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * Math.PI * 2 + 0.3; return { x: snap(cx + Math.cos(a) * 240), y: snap(cy + Math.sin(a) * 150) }; })]));
+// le grand ouvrage de la semaine (projet de clan), au centre de chaque village
+export const OUVRAGES = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx, cy]]) => [k, { x: snap(cx), y: snap(cy + 8) }]));
 export const maisonDe = (clan, nom) => MAISONS[clan][[...nom].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 8];
 
 // les chemins de terre : du Carrefour vers chaque village et chaque portail
@@ -84,6 +86,8 @@ export function obstacles() {
   }
   // les maisons : 3 tuiles de large, 2 de profondeur
   for (const k of Object.keys(MAISONS)) for (const m of MAISONS[k]) { const tx = (m.x - 8) / TUILE, ty = (m.y - 8) / TUILE; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 0; b++) grille[(ty + b) * L + tx + a] = 1; }
+  // les ouvrages des projets de clan : 3 tuiles de large, 2 de profondeur
+  for (const o of Object.values(OUVRAGES)) { const tx = (o.x - 8) / TUILE, ty = (o.y - 8) / TUILE; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 0; b++) grille[(ty + b) * L + tx + a] = 1; }
   // le socle de l'autel
   { const a = LIEUX[0], tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
   // le pilier de chaque sanctuaire

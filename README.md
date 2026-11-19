@@ -445,3 +445,122 @@ Mesuré avec 40 joueurs simulés et un téléphone moyen (processeur ralenti 4×
 - **Animations** : arrivée des combattants, distribution des cartes depuis la pioche, carte qui s'envole vers sa cible, impacts (couleur de l'élément, chiffres qui sautent, secousse, éclair rouge quand tu es touché), boucliers, soins, statuts, brûlures, épines, morts en éclats, monstres qui frappent l'un après l'autre, bannières « Tour ennemi » / « Ton tour », écran de victoire (rayons, gerbe d'or) ou de défaite.
 - **Journal d'événements** (`c.ev` dans `shared/clans/combat.js`) : le moteur note chaque coup, bouclier, soin, statut, mort, tour… seulement si on le lui demande. Les règles ne changent pas : un test vérifie qu'un combat avec et sans journal finit exactement pareil, et le serveur, qui rejoue les combats, ne l'active pas.
 - **Duels et arène** : la même scène, face à face. Les effets sont déduits des changements entre deux vues envoyées par le serveur, et les cartes jouées par l'adversaire s'affichent au-dessus de sa tête.
+
+## Les Clans Élémentaires : apparences et palier Cauchemar (v48)
+### Apparences (`shared/clans/apparence.js`)
+- Quatre emplacements : **tenue** (couleurs), **cheveux**, **coiffe** (remplace le couvre-chef de la classe) et **aura** (particules autour du personnage). Visibles par tout le monde sur la carte, en duel et en arène (code court `t_….c_….h_….a_…` envoyé avec les infos du joueur, et gardé avec les Reflets).
+- Pièces à acheter (de 200 ✨ pour des cheveux à 2 500 ✨ + 40 💠 pour l'étoffe d'or) ou **à gagner** : bandeau (10 duels), toque à plume (20 quêtes), heaume (60 combats), cornes (10 boss), auréole (5 sanctuaires), couronne (rang Or en arène), tenue de champion (Platine), poussière d'or (Diamant), masque, linceul et ombre du Cauchemar. Une pièce gagnée se porte dès que la condition est remplie, et l'on revient à la pièce de base si elle ne l'est plus. Le serveur vérifie tout (actions `apparenceAcheter` et `apparencePorter`).
+- Fenêtre 👕 : aperçu qui tourne sur lui-même avec son aura, survoler une pièce l'essaie, barre de progression pour les pièces à gagner. Annonce quand une pièce est débloquée.
+- Nouveaux compteurs dans le profil : `stats.quetes`, `stats.sanct`, `stats.cauchemar`.
+### Palier IV « Cauchemar »
+- Débloqué en battant le boss du Palier III d'un territoire. PV ×2,6, dégâts ×2, butin ×3,6.
+- **2 malédictions** tirées au sort par expédition (à partir de la graine, donc identiques côté serveur) parmi 7 : Rage (+2 force), Carapaces (bouclier de départ), Horde (+1 monstre), Disette (feux de camp à moitié), Épuisement (4 cartes au 1er tour), Vitalité (les monstres regagnent 3 PV), Brouillard (intentions cachées). Elles passent par `def.mods` dans le moteur de combat ; sans `mods`, rien ne change.
+- Monstres **maudits** (cadre et illustration violets, étiquette MAUDIT) et un nouveau boss par territoire, qui reprend l'illustration du boss mondial : Titan primordial, Léviathan des abysses, Ancien sylvain. Décor assombri.
+- Équilibrage vérifié par un bot (40 expéditions par territoire) : avec un deck de 16 cartes au niveau 3 et la maison au maximum, environ 45 % de victoires dans chaque territoire ; presque aucune avec des cartes au niveau 2.
+### Correction importante
+- Depuis la v43, le numéro de chaque demande envoyée au serveur écrasait le champ `id` des actions : améliorer une carte, la forger, l'ajouter au deck ou l'en retirer échouait. Le numéro passe maintenant dans `rid`.
+
+## Les Clans Élémentaires : tests de bout en bout, reconnexion, fluidité (v49)
+### Tests de bout en bout : `npm run test:clans`
+- `tests/clans_e2e.py` joue au jeu comme un joueur, dans un vrai navigateur (clics, clavier, marche, touche E) et vérifie à chaque étape que le serveur a bien fait le travail : création, guide, tirage ×1 et ×10, forge d'une relique, deck (retirer, ajouter), amélioration d'une carte, construction sur la parcelle, quêtes, achat d'apparences, expédition jouée à la souris jusqu'à la fin d'un combat, arène contre un Reflet, **coupure réseau en plein duel**, prise d'un sanctuaire à deux joueurs avec l'alerte du défenseur, et sur téléphone (joystick, fenêtres, combat). Il échoue aussi à la moindre erreur JavaScript.
+- Prérequis : `pip install playwright`, `playwright install chromium`, puis `npm run build`. Le script lance son propre serveur (port 2597, stats dans un dossier temporaire, sans Upstash) avec des réglages de test : `CLANS_TEST_DEPART=1` (profil de départ riche, pour tout essayer ; **jamais en production**), capture 10× plus rapide, Reflet en 1,5 s.
+- Vérifié : remis volontairement, le bug de la v43 fait échouer le test (« Forge d'une relique » bloquée, code de sortie 1). Lance-le avant chaque mise en ligne. `DETAIL=1 npm run test:clans` montre le détail d'une étape bloquée.
+### Reconnexion
+- Une coupure (tunnel, wifi qui change, téléphone en veille quelques secondes) ne fait plus perdre la partie : le serveur garde la place du joueur **20 s** (`allowReconnection`), duel et arène compris, et le client se reconnecte tout seul avec son jeton (`reconnect`). Au retour, le serveur renvoie tout l'état (profil, joueurs, filons, boss, sanctuaires, duel en cours). Bandeau « 📡 Connexion perdue… » pendant ce temps. Au-delà de 20 s, on repart proprement (un duel en cours est alors perdu).
+- Un joueur absent ne compte pas pour un sanctuaire et n'est pas apparié dans l'arène. Variable `CLANS_RECONNEXION` pour changer le délai.
+### Fluidité sur téléphone
+- Mesuré sur un téléphone lent simulé (processeur ÷6, écran haute densité) : le JavaScript prend moins de 5 % du temps, le reste est le dessin des pixels.
+  - Le vignettage (bords assombris) était recalculé en plein écran à chaque image : c'est maintenant une couche CSS fixe. 36 → 43 images/s.
+  - Mode léger automatique : si l'appareil n'arrive pas à suivre (plus de 24 ms par image en moyenne), la carte est dessinée en résolution ×1 et agrandie sans flou (pixel art). Le choix est gardé (`clansLeger`). → 60 images/s.
+- Corrigé au passage : la liste « En ligne » recouvrait de nouveau la mini-carte sur téléphone (depuis la v47).
+
+## Les Clans Élémentaires : statistiques d'équilibrage (v50)
+- **Page** : `/clans/admin.html` (par ex. `https://arene-elementaire.onrender.com/clans/admin.html`), protégée par la variable **`JOURNAL_CLE`** (la même que pour le journal des erreurs) : on entre sa valeur dans le champ en haut de la page, le navigateur la retient. Sans `JOURNAL_CLE` sur le serveur, la page est lisible par tous et la remise à zéro est refusée.
+- **Collecte** (`server/src/clansEquilibrage.js`) : à chaque combat d'expédition qu'il valide, le serveur le rejoue avec le journal d'événements (il le rejouait déjà pour l'anti-triche) et note, par palier :
+  - pour chaque carte : combats où elle est dans le deck, victoires, PV perdus, fois où elle est jouée, dégâts, bouclier et soin qu'elle produit ;
+  - pour chaque monstre : combats, joueur vaincu, dégâts infligés, durée ;
+  - les rencontres (territoire × palier × type de salle) : victoires, PV perdus, durée ;
+  - les classes et les clans ;
+  - et, pour les duels et l'arène joués jusqu'au bout (ni abandon ni fuite) : classe, clan et cartes du deck du gagnant et du perdant (arène, duel sur la carte et Reflets séparés).
+- Ce sont des compteurs (~40 Ko au total, la taille ne grandit pas avec le nombre de parties), gardés dans les stats (`clansEquilibrage`).
+- **Lecture** : en expédition presque tous les combats sont gagnés, donc le meilleur signal pour une carte est « PV perdus / combat » quand elle est dans le deck, comparé à la moyenne du palier. La page signale toute seule : 💪 trop forte ?, 📉 faible ?, 💤 peu jouée, ⚔️ domine en duel, ☠️ monstre très mortel, 🥱 élite inoffensive, classe ou clan au-dessus / en dessous de la moyenne. Filtre par palier, minimum de combats pour conclure (les lignes en dessous sont pâles), tri par colonne, recherche.
+- **Remettre à zéro** (bouton) après chaque changement d'équilibrage, pour repartir sur des chiffres propres.
+- Testé avec ~3 800 combats et ~500 duels simulés par des bots : la page signale bien que les cartes de Plante font perdre moins de PV, ce qui recoupe la mesure du Cauchemar (v48).
+
+## Les Clans Élémentaires : ménage du code (v51)
+- **Rien ne change pour les joueurs.** Le fichier de l'interface (`client/src/clans/main.js`, 1 160 lignes) est découpé en modules :
+
+  | Module | Contenu |
+  |---|---|
+  | `ui-commun.js` | état partagé (profil, connexion, combat en cours), outils (`$`, `esc`, `toast`, cartes en HTML, ressources) ; ne dépend d'aucun autre module `ui-*`, donc il est chargé en premier |
+  | `ui-reseau.js` | connexion, reconnexion, `act()`, réception du profil, chat, joueurs en ligne |
+  | `ui-monde.js` | choix du clan, carte, barre du haut, ouverture/fermeture des fenêtres, son, guide, commandes tactiles |
+  | `ui-fenetres.js` | parcelle, deck, tirages, expédition, apparence, quêtes |
+  | `ui-combat.js` | scène de combat, animations, boss mondial |
+  | `ui-social.js` | classement, sanctuaires, arène |
+  | `ui-duel.js` | duels et matchs d'arène |
+  | `main.js` | démarrage seulement (et `window.__clans` pour les tests) |
+- Les variables partagées sont modifiées depuis les autres modules par de petites fonctions (`setP`, `setRoom`, `setCombat`…), puisqu'un module ne peut pas réaffecter une variable importée.
+- Le découpage a été fait par un script qui analyse le code (aucune ligne réécrite à la main). Le test de bout en bout (`npm run test:clans`) et les 121 tests unitaires passent.
+- **Test du battle royale stabilisé (vrai bug corrigé)** : il échouait environ une fois sur quatre parce qu'un bot finissait **coincé dans un bâtiment**. Un mur de sort pouvait repousser un personnage contre un bâtiment après la sortie des collisions. Maintenant, la sortie des bâtiments est refaite après un mur, et si le personnage reste coincé entre les deux, il ne bouge pas. Ça arrivait aussi aux joueurs dans l'Arène. 0 échec sur 45 parties.
+
+## Les Clans Élémentaires : projets de clan (v52)
+- **Un grand ouvrage par semaine** au centre de chaque village. Chaque clan a le sien :
+
+  | Clan | Ouvrage | Bonus pour tout le clan la semaine suivante |
+  |---|---|---|
+  | Feu | ⚒️ Forge géante | −20 % sur les améliorations de cartes et la forge des reliques |
+  | Eau | 🗼 Phare des marées | +20 % de butin (essence et matériaux) au retour d'expédition |
+  | Plante | 🌳 Arbre-monde | +20 % de production de la parcelle (s'ajoute aux sanctuaires) |
+
+- **Dons** : on s'approche de l'ouvrage (touche E), et on donne de l'essence ou le matériau du clan. 10 essences valent 1 point, 1 matériau vaut 1 point. Les dons rapportent aussi des points au classement des clans (1 tous les 25), et une nouvelle quête du jour demande d'en faire.
+- **Objectif** : 600 points par donateur de la semaine précédente (au moins 1 200, au plus 16 000), pour qu'il reste atteignable quel que soit le nombre de joueurs.
+- **Sur la carte, l'ouvrage grandit à vue** en 6 étapes :
+  - fondations ;
+  - quatre étapes de chantier, avec un échafaudage ;
+  - terminé : la forge fume et rougeoie, le faisceau du phare tourne, l'arbre porte des fruits dorés et des lucioles.
+
+  Une étiquette au-dessus de chaque ouvrage donne l'avancement. Le chat annonce chaque étape au clan, un ouvrage terminé à tout le monde, et le bonus actif le lundi.
+- **La fenêtre** montre l'avancement, ta part, les 5 meilleurs donateurs, le temps restant et où en sont les deux autres clans. Le bonus actif est rappelé là où il compte : coûts réduits dans le deck et la forge, ligne dans la parcelle, détail dans le bilan d'expédition.
+- **Côté serveur** :
+  - l'état est dans les stats (`clansProjets`, 300 donateurs au plus par clan) et change de semaine le lundi à 0 h UTC ;
+  - les bonus sont appliqués par le serveur ; pour le Phare, le bonus est fixé au départ de l'expédition ;
+  - le code partagé est dans `shared/clans/projets.js`, l'interface dans `client/src/clans/ui-projets.js`, les tests dans `tests/clansprojets.test.mjs` et une nouvelle étape du test de bout en bout.
+
+## Les Clans Élémentaires : familiers (v53)
+- **Un petit compagnon en pixel art** te suit sur la carte : il trottine derrière toi, saute quand tu marches, et les autres joueurs le voient. Il t'accompagne aussi dans les combats contre les monstres (expéditions et boss mondial), à côté de ton héros. Il n'est **jamais** en duel ni dans l'arène, pour garder le JcJ équitable.
+- **6 familiers, 2 par territoire**. Chacun donne un petit coup de pouce au début de chaque combat (appliqué par le moteur de combat, donc rejoué à l'identique par le serveur) :
+
+  | Familier | Territoire | Effet |
+  |---|---|---|
+  | 🦎 Salamandre | Feu | 2 brûlures à tous les ennemis |
+  | 🔥 Braisillon | Feu | +1 énergie au premier tour |
+  | 🐢 Tortue des lagons | Eau | 5 de bouclier |
+  | 🦦 Loutre | Eau | 1 carte de plus au premier tour |
+  | 🌱 Pousse | Plante | régénération 3 |
+  | ✨ Luciole | Plante | ennemis affaiblis 1 tour |
+
+- **Obtention** :
+  - en battant le boss d'un territoire : 30 / 40 / 50 / 60 % de chances selon le palier, pour un familier de ce territoire qu'on n'a pas encore. Il est annoncé dans le bilan de l'expédition ;
+  - ou en le fabriquant : 6 ressources rares du territoire et 1 200 essences.
+- **Fenêtre** : bouton 🐾 ou touche **F**. On y prend un familier avec soi, ou on le renvoie. Le familier est fixé au départ de chaque expédition.
+- **Pas de nouvelles illustrations** : les familiers sont dessinés en code (`client/src/clans/familiersArt.js`, grilles de 12 × 10 pixels), donc aucun crédit Anifusion n'a été dépensé.
+- **Barre du haut** : entre 761 et 1 500 px de large, les boutons n'affichent plus que leur icône (le nom reste dans l'infobulle). Le guide et la liste des joueurs se placent sous la hauteur réelle de la barre : avant, le guide pouvait cacher des boutons quand la barre passait sur deux lignes.
+- **Fichiers** : règles dans `shared/clans/familiers.js`, fenêtre dans `client/src/clans/ui-familiers.js`, tests dans `tests/clansfamiliers.test.mjs`, et une nouvelle étape du test de bout en bout.
+
+## Les Clans Élémentaires : passe de saison (v54)
+- **Gratuit pour tous, une saison par mois** (calée sur celle de l'arène) : **30 niveaux** de 300 XP, soit environ 3 semaines en jouant un peu chaque jour. Bouton 🎟️ (avec une pastille quand une récompense attend) ou touche **P**.
+- **XP de toutes les activités**, donnée par le serveur à chaque événement des quêtes (`Q.evenement`, donc rien à brancher pour les futures activités) et à chaque quête réclamée :
+  - combat gagné : 20 XP (élite 35, boss 80) ;
+  - quête du jour : 60 XP ; quête de la semaine : 200 XP ;
+  - victoire en arène ou en duel : 40 XP ;
+  - sanctuaire pris : 60 XP ;
+  - filon ou amélioration : 15 XP ;
+  - un peu pour le boss mondial (plafonné), les dons au projet du clan, les tirages et les récoltes.
+- **Récompenses** :
+  - essence et éclats à chaque niveau ;
+  - ressources rares de son clan aux niveaux 5, 15 et 25 ;
+  - **3 apparences exclusives** : cheveux au niveau 10, tenue au niveau 20, aura (plus 2 000 essences) au niveau 30.
+- **Les lots tournent chaque mois** : Aube (novembre 2026), Abysses, Sève ancienne, Éclipse, puis on recommence. Ces pièces ne s'achètent pas et ne se gagnent pas autrement. Dans la fenêtre d'apparence, on voit celles qu'on a déjà et celles du mois.
+- On réclame tout en un clic. À la fin du mois, ce qui a été atteint mais pas réclamé est donné d'office, puis le passe repart de zéro. Les apparences gagnées restent pour toujours.
+- **Fichiers** : règles dans `shared/clans/passe.js`, fenêtre dans `client/src/clans/ui-passe.js`, tests dans `tests/clanspasse.test.mjs`, et une nouvelle étape du test de bout en bout.

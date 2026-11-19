@@ -15,10 +15,14 @@ import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO } from '../.
 import { nouveauDuel, jouer as jouerDuel, finTour as finTourDuel, vue as vueDuel, deckValide, PV_DUEL } from '../../shared/clans/duel.js';
 import { BUTIN_DUEL } from '../../shared/clans/profil.js';
 import { BOSS_MONDIAUX, MONDIAL, POINTS, NOMS_CLANS, PALIER_MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial } from '../../shared/clans/mondial.js';
-import { pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, areneEnregistrer, areneJoueurs, classementArene } from './stats.js';
+import { pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lireProjets, ecrireProjets, areneEnregistrer, areneJoueurs, classementArene } from './stats.js';
 import crypto from 'node:crypto';
+import * as PJ from '../../shared/clans/projets.js';
+import * as F from '../../shared/clans/familiers.js';
 import * as T from '../../shared/clans/territoires.js';
 import * as A from '../../shared/clans/arene.js';
+import * as AP from '../../shared/clans/apparence.js';
+import { noterDuel } from './clansEquilibrage.js';
 import { deckDepart } from '../../shared/clans/cartes.js';
 import { retrouver, enregistrer, ACTIONS, signer } from './clansProfils.js';
 import * as P from '../../shared/clans/profil.js';
@@ -29,7 +33,7 @@ import { RARES } from '../../shared/clans/cartes.js';
 const { Room } = colyseus;
 export const MONDE = GEO;
 const CLANS = ['feu', 'eau', 'plante'], CLASSES = ['combattant', 'mage', 'tireur', 'escrimeur'];
-export const DEPARTS = Object.fromEntries(Object.entries(CENTRES).map(([k, [x, y]]) => [k, [x, y + 40]]));
+export const DEPARTS = Object.fromEntries(Object.entries(CENTRES).map(([k, [x, y]]) => [k, [x, y + 64]]));   // sous l’ouvrage du projet de clan
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
 const codeParcelle = (pc) => { const v = (k) => Math.max(1, Math.min(5, num(pc?.[k], 1) | 0)); return v('maison') * 100 + v('autel') * 10 + v('atelier'); };
 const empreinte = (jeton) => crypto.createHash('sha256').update(String(jeton)).digest('base64url').slice(0, 16);
@@ -67,7 +71,7 @@ export class ClansRoom extends Room {
     // ---------- les actions qui changent le profil (le serveur fait foi) ----------
     this.onMessage('act', (c, m = {}) => {
       const j = this.joueurs.get(c.sessionId); if (!j) return;
-      const rep = (o) => c.send('r', { id: m.id, ...o, profil: j.p ? { p: j.p, sig: signer(j.p), jeton: j.jeton } : null });
+      const rep = (o) => c.send('r', { id: m.rid, ...o, profil: j.p ? { p: j.p, sig: signer(j.p), jeton: j.jeton } : null });
       try {
         const f = Object.hasOwn(ACTIONS, m.type) ? ACTIONS[m.type] : null;
         if (!f) return rep({ ok: false, raison: 'Action inconnue.' });
@@ -77,7 +81,7 @@ export class ClansRoom extends Room {
         const t = Date.now(); j.seau = Math.min(15, (j.seau ?? 15) + ((t - (j.seauT || t)) / 1000) * 10); j.seauT = t;
         if (j.seau < 1) return rep({ ok: false, raison: 'Doucement !' });
         j.seau--;
-        const ctx = { points: (k) => this.points(j, POINTS[k]), sanctuaires: j.p ? T.tenus(this.props(), j.p.clan) : 0 };
+        const ctx = { points: (k) => this.points(j, POINTS[k]), sanctuaires: j.p ? T.tenus(this.props(), j.p.clan) : 0, projets: this.projetsAJour(), cle: empreinte(j.jeton), projetDon: (d) => this.apresDon(j, d) };
         const r = f(j.p, m, ctx) || { ok: false };
         if (ctx.p) { j.p = ctx.p; this.arriver(c, j); }
         if (r.ok) { j.sale = true; this.identite(j); }
@@ -122,7 +126,7 @@ export class ClansRoom extends Room {
       j.manche = null; j.statut = 'libre'; j.prochaineManche = Date.now() + MONDIAL.pause;
       const b = this.mondial; if (!b || b.id !== mc.id) return;
       // on rejoue la manche du joueur : seuls les dégâts vraiment infligés comptent
-      const pv = P.pvMax(j.p), c2 = rejouer({ deck: P.deckCombat(j.p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[mc.terr], pv: mc.pv }], palier: PALIER_MONDIAL, graine: mc.graine, classe: j.p.classe }, m.coups);
+      const pv = P.pvMax(j.p), c2 = rejouer({ deck: P.deckCombat(j.p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[mc.terr], pv: mc.pv }], palier: PALIER_MONDIAL, graine: mc.graine, classe: j.p.classe, familier: F.actif(j.p) }, m.coups);
       const reel = c2.ennemis.reduce((t, e) => t + Math.max(0, e.pvMax - Math.max(0, e.pv)), 0);
       const deg = Math.min(mc.pv, degatsValides(reel, mc.debut, Date.now(), b.terr)); if (!deg) return;
       const cle = j.jeton, pa = b.participants.get(cle) || { nom: j.nom, clan: j.clan, jeton: j.jeton, deg: 0 };
@@ -160,6 +164,10 @@ export class ClansRoom extends Room {
     this.sanctVu = '';
     this.clock.setInterval(() => this.tickSanctuaires(), 1000);
     this.clock.setInterval(() => { if (!this.clients.length) return; for (const x of this.sanct) pointsClan(x.prop, null, POINTS.sanctuaire); this.scoresChanges = true; }, 600000);   // 1 pt / 10 min par sanctuaire tenu
+    // ---------- projets de clan (un grand ouvrage par semaine dans chaque village) ----------
+    this.projets = null; this.projetsAJour();
+    this.clock.setInterval(() => this.projetsAJour(), 60000);
+    this.clock.setInterval(() => { if (this.projetsSales) { this.projetsSales = false; this.broadcast('projets', PJ.vue(this.projets)); } }, 1000);
     // ---------- arène classée ----------
     this.file = [];            // { sid, t } : les joueurs qui cherchent un adversaire
     this.nReflet = 0;
@@ -186,7 +194,7 @@ export class ClansRoom extends Room {
     for (const x of this.sanct) {
       const def = T.SANCTUAIRES.find((d) => d.id === x.id), presents = { feu: 0, eau: 0, plante: 0 }, la = [];
       for (const [sid, j] of this.joueurs) {
-        if (!j.p || j.duel || j.manche || j.statut === 'expedition') continue;
+        if (!j.p || j.absent || j.duel || j.manche || j.statut === 'expedition') continue;
         if (Math.hypot(j.x - def.x, j.y - def.y) <= T.CAPTURE.rayon) { presents[j.clan]++; la.push([sid, j]); }
       }
       const avant = x.capt?.clan;
@@ -201,12 +209,36 @@ export class ClansRoom extends Room {
       ecrireSanctuaires(this.props());
       this.broadcast('chat', { systeme: true, t: `🏳️ Le ${NOMS_CLANS[r.pris]} s'empare du ${def.nom}${r.ancien ? ` (tenu par le ${NOMS_CLANS[r.ancien]})` : ''} !` });
       for (const [sid, j] of la) if (j.clan === r.pris) {
-        this.points(j, POINTS.capture); Q.evenement(j.p, 'sanctuaire'); j.sale = true;
+        this.points(j, POINTS.capture); Q.evenement(j.p, 'sanctuaire'); j.p.stats.sanct = (j.p.stats.sanct || 0) + 1; j.sale = true;
         const cl = this.clients.find((k) => k.sessionId === sid); if (cl) this.pousserProfil(cl, j);
       }
     }
     const etat = JSON.stringify(this.etatSanctuaires());
     if (etat !== this.sanctVu) { this.sanctVu = etat; this.broadcast('sanctuaires', JSON.parse(etat)); }
+  }
+
+  // ---------- projets de clan ----------
+  // l'état de la semaine (on change de semaine le lundi à 0 h UTC)
+  projetsAJour() {
+    const { etat, change } = PJ.aJour(this.projets || lireProjets());
+    this.projets = etat;
+    if (change) {
+      ecrireProjets(etat);
+      if (this.clients?.length) {
+        this.broadcast('projets', PJ.vue(etat));
+        for (const [k, a] of Object.entries(etat.actifs || {})) if (a) this.broadcast('chat', { systeme: true, t: `${PJ.PROJETS[k].ico} Le ${NOMS_CLANS[k]} profite cette semaine de son ${PJ.PROJETS[k].nom} : ${PJ.PROJETS[k].bonus.toLowerCase()}.` });
+      }
+    }
+    return etat;
+  }
+  apresDon(j, d) {
+    const pr = PJ.PROJETS[j.clan], e = this.projets;
+    const avant = e.clans[j.clan].pts - d.pts;
+    this.points(j, Math.floor(e.clans[j.clan].pts / POINTS.projetPar) - Math.floor(avant / POINTS.projetPar));
+    PJ.compacter(e); ecrireProjets(e);
+    if (d.termine) this.broadcast('chat', { systeme: true, t: `${pr.ico} Le ${NOMS_CLANS[j.clan]} a terminé son ${pr.nom} ! La semaine prochaine : ${pr.bonus.toLowerCase()}.` });
+    else if (d.monte) for (const cl of this.clients) if (this.joueurs.get(cl.sessionId)?.clan === j.clan) cl.send('chat', { systeme: true, t: `${pr.ico} Le ${pr.nom} grandit (étape ${d.etape + 1}/${PJ.ETAPES}) grâce à ${j.nom} !` });
+    this.projetsSales = true;
   }
 
   // ---------- arène : l'appariement ----------
@@ -215,17 +247,17 @@ export class ClansRoom extends Room {
     // on retire ceux qui sont partis ou occupés
     this.file = this.file.filter((f) => {
       const j = this.joueurs.get(f.sid), cl = this.clients.find((k) => k.sessionId === f.sid);
-      if (j?.p && cl && !j.duel && !j.manche && j.statut !== 'expedition') return true;
+      if (j?.p && (cl || j.absent) && !j.duel && !j.manche && j.statut !== 'expedition') return true;
       cl?.send('areneFile', { en: false }); return false;
     });
     const pris = new Set();
     for (const a of [...this.file].sort((u, v) => u.t - v.t)) {
-      if (pris.has(a.sid)) continue;
+      if (pris.has(a.sid) || this.joueurs.get(a.sid)?.absent) continue;
       const ja = this.joueurs.get(a.sid), ea = ja.p.arene?.elo ?? A.ELO_DEPART, ecart = A.ARENE.ecartBase + A.ARENE.ecartParSeconde * ((t - a.t) / 1000);
       let mieux = null, dm = Infinity;
       for (const b of this.file) {
         if (b.sid === a.sid || pris.has(b.sid)) continue;
-        const jb = this.joueurs.get(b.sid); if (jb.jeton === ja.jeton) continue;
+        const jb = this.joueurs.get(b.sid); if (jb.absent || jb.jeton === ja.jeton) continue;
         const dd = Math.abs((jb.p.arene?.elo ?? A.ELO_DEPART) - ea); if (dd <= ecart && dd < dm) { dm = dd; mieux = b; }
       }
       const ca = this.clients.find((k) => k.sessionId === a.sid);
@@ -241,7 +273,7 @@ export class ClansRoom extends Room {
   reflet(j) {
     const id = empreinte(j.jeton), elo = j.p.arene?.elo ?? A.ELO_DEPART;
     const l = Object.entries(areneJoueurs()).filter(([k, e]) => k !== id && deckValide(e.deck)).sort((x, y) => Math.abs(x[1].elo - elo) - Math.abs(y[1].elo - elo)).slice(0, 3);
-    if (l.length) { const e = l[Math.floor(Math.random() * l.length)][1]; return { nom: `Reflet de ${e.nom}`, clan: e.clan, classe: e.classe, pvMax: e.pvMax, deck: e.deck, elo: e.elo }; }
+    if (l.length) { const e = l[Math.floor(Math.random() * l.length)][1]; return { nom: `Reflet de ${e.nom}`, clan: e.clan, classe: e.classe, pvMax: e.pvMax, deck: e.deck, elo: e.elo, app: e.app || '' }; }
     const clan = ['feu', 'eau', 'plante'][Math.floor(Math.random() * 3)], classe = CLASSES[Math.floor(Math.random() * 4)];
     return { nom: 'Gardien de l’Arène', clan, classe, pvMax: PV_DUEL(0, classe), deck: deckDepart(clan, classe).map((id2) => ({ id: id2, niv: elo >= 1250 ? 2 : 1 })), elo };
   }
@@ -250,7 +282,7 @@ export class ClansRoom extends Room {
     const ea = a.p.arene.elo;
     if (bot) {
       const sid = `reflet${++this.nReflet}`, faux = { sessionId: sid, send() {} };
-      const adv = { nom: bot.nom, clan: bot.clan, classe: bot.classe, pvMax: bot.pvMax, deck: bot.deck, essence: 0 };
+      const adv = { nom: bot.nom, clan: bot.clan, classe: bot.classe, pvMax: bot.pvMax, deck: bot.deck, essence: 0, app: bot.app || '' };
       ca.send('info', { t: `🏟️ Personne de libre : tu affrontes ${esc(bot.nom)} (${A.rangDe(bot.elo).nom}, ${bot.elo}).` });
       return this.lancerDuel(ca, a, faux, adv, { elos: [ea, bot.elo], reflet: true, bot: 1 });
     }
@@ -279,8 +311,8 @@ export class ClansRoom extends Room {
 
   lancerDuel(ca, a, cb, b, arene = null) {
     this.file = this.file.filter((f) => f.sid !== ca.sessionId && f.sid !== cb.sessionId);
-    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, pvMax: a.pvMax, deck: a.deck }, { nom: b.nom, clan: b.clan, classe: b.classe, pvMax: b.pvMax, deck: b.deck }, (Math.random() * 1e9) >>> 0);
-    const x = { d, ids: [ca.sessionId, cb.sessionId], clients: [ca, cb], noms: [a.nom, b.nom], essence: [a.essence || 0, b.essence || 0], tourVu: 0, limite: 0, arene, bot: arene?.bot ?? null };
+    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, pvMax: a.pvMax, deck: a.deck, app: a.app }, { nom: b.nom, clan: b.clan, classe: b.classe, pvMax: b.pvMax, deck: b.deck, app: b.app }, (Math.random() * 1e9) >>> 0);
+    const x = { d, decks: [a.deck, b.deck], ids: [ca.sessionId, cb.sessionId], clients: [ca, cb], noms: [a.nom, b.nom], essence: [a.essence || 0, b.essence || 0], tourVu: 0, limite: 0, arene, bot: arene?.bot ?? null };
     a.duel = b.duel = true; a.statut = b.statut = arene ? 'arene' : 'duel';
     this.duels.set(ca.sessionId, x); this.duels.set(cb.sessionId, x);
     if (!arene) {
@@ -296,7 +328,7 @@ export class ClansRoom extends Room {
       x.minuteur = this.clock.setTimeout(() => { if (!x.d.fini) { finTourDuel(x.d, x.d.actif); this.majDuel(x); } }, 40000);
       x.limite = Date.now() + 40000;
     }
-    x.clients.forEach((c, q) => c.send('duel', { ...vueDuel(x.d, q), limite: x.limite, arene: x.arene ? { moi: x.arene.elos[q], adv: x.arene.elos[1 - q], reflet: x.arene.reflet } : null }));
+    x.clients.forEach((c, q) => this.joueurs.get(c.sessionId)?.absent || c.send('duel', { ...vueDuel(x.d, q), limite: x.limite, arene: x.arene ? { moi: x.arene.elos[q], adv: x.arene.elos[1 - q], reflet: x.arene.reflet } : null }));
     // le Reflet joue son tour, carte après carte, comme un joueur
     if (x.bot !== null && x.d.actif === x.bot && !x.d.fini && !x.botAttend) {
       x.botAttend = true;
@@ -310,6 +342,8 @@ export class ClansRoom extends Room {
   }
   terminerDuel(x, gagnant, raison) {
     if (x.fin) return; x.fin = true; x.minuteur?.clear();
+    // statistiques : seulement les duels joués jusqu'au bout (ni abandon ni fuite)
+    if (gagnant !== null && raison === 'pv') { const pj = (q) => x.d.j[q]; noterDuel({ gagnant: { classe: pj(gagnant).classe, clan: pj(gagnant).clan, deck: x.decks?.[gagnant] }, perdant: { classe: pj(1 - gagnant).classe, clan: pj(1 - gagnant).clan, deck: x.decks?.[1 - gagnant] }, arene: !!x.arene, reflet: !!x.arene?.reflet }); }
     if (x.arene) return this.finArene(x, gagnant, raison);
     const butin = gagnant === null ? 0 : BUTIN_DUEL(x.essence[1 - gagnant]);
     x.clients.forEach((c, q) => {
@@ -339,7 +373,7 @@ export class ClansRoom extends Room {
         ar = A.resultat(j.p, x.arene.elos[1 - q], issue, x.arene.reflet, jour);
         if (issue === 'victoire') { Q.evenement(j.p, 'arene'); this.points(j, x.arene.reflet ? POINTS.areneReflet : POINTS.arene); }
         j.sale = true; this.identite(j);
-        areneEnregistrer(empreinte(j.jeton), { nom: j.nom, clan: j.clan, classe: j.classe, elo: j.p.arene.elo, v: j.p.arene.v, d: j.p.arene.d, deck: j.deck, pvMax: j.pvMax });
+        areneEnregistrer(empreinte(j.jeton), { nom: j.nom, clan: j.clan, classe: j.classe, elo: j.p.arene.elo, v: j.p.arene.v, d: j.p.arene.d, deck: j.deck, pvMax: j.pvMax, app: j.app });
         this.pousserProfil(c, j);
       }
       c.send('duelResultat', { issue, butin: 0, adv: x.noms[1 - q], raison, vue: vueDuel(x.d, q), arene: ar });
@@ -353,6 +387,7 @@ export class ClansRoom extends Room {
     // déjà connecté avec ce profil (autre onglet) : on garde le profil en mémoire, l'ancien onglet est fermé
     for (const [id, autre] of this.joueurs) if (autre.jeton === r.jeton && id !== client.sessionId) {
       if (autre.p) r.p = autre.p;
+      autre.remplace = true;
       const vieux = this.clients.find((x) => x.sessionId === id);
       vieux?.send('info', { t: 'Ton profil est ouvert ailleurs : cette page est déconnectée.' }); vieux?.leave(4001);
     }
@@ -361,7 +396,7 @@ export class ClansRoom extends Room {
     client.send('bienvenue', { id: client.sessionId });
     client.send('infos', { tout: [...this.joueurs.entries()].filter(([, x]) => x.p).map(([id, x]) => this.infosDe(id, x)) });
     client.send('profil', { p: j.p, sig: j.p ? signer(j.p) : null, jeton: j.jeton, source: r.source });
-    client.send('filons', this.listeFilons()); client.send('mondial', this.etatMondial()); client.send('scores', this.scores()); client.send('sanctuaires', this.etatSanctuaires());
+    client.send('filons', this.listeFilons()); client.send('mondial', this.etatMondial()); client.send('scores', this.scores()); client.send('sanctuaires', this.etatSanctuaires()); client.send('projets', PJ.vue(this.projetsAJour()));
     if (j.p) this.arriver(client, j);
   }
   // le joueur (avec un profil) apparaît dans le monde
@@ -375,17 +410,38 @@ export class ClansRoom extends Room {
   identite(j) {
     const p = j.p; if (!p) return;
     j.nom = p.nom; j.clan = p.clan; j.classe = p.classe || ''; j.niv = P.niveau(p);
-    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle);
+    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || '';
   }
   pousserProfil(client, j) { if (j.p) client.send('profil', { p: j.p, sig: signer(j.p), jeton: j.jeton }); }
 
-  onLeave(client) {
+  async onLeave(client, consenti) {
+    // une coupure (pas un départ voulu) : on garde la place 20 s — duel, arène et file d'attente compris
+    const jj = this.joueurs.get(client.sessionId);
+    if (jj?.p && !consenti && !jj.remplace) {
+      jj.absent = true;
+      try {
+        const nc = await this.allowReconnection(client, +process.env.CLANS_RECONNEXION || 20);
+        jj.absent = false; this.reprise(nc, jj);
+        return;
+      } catch { jj.absent = false; /* trop tard : on le fait partir pour de bon */ }
+    }
     const x = this.duels.get(client.sessionId);
     if (x) this.terminerDuel(x, 1 - x.ids.indexOf(client.sessionId), 'depart');   // fuir un duel, c'est le perdre
     this.file = this.file.filter((f) => f.sid !== client.sessionId);
     const j = this.joueurs.get(client.sessionId);
     if (j?.p && ![...this.joueurs.entries()].some(([id, a]) => id !== client.sessionId && a.jeton === j.jeton)) enregistrer(j.jeton, j.p);
     this.joueurs.delete(client.sessionId);
+  }
+  // de retour après une coupure : on renvoie tout ce qu'il faut pour reprendre où il en était
+  reprise(client, j) {
+    const x = this.duels.get(client.sessionId);
+    if (x) { const q = x.ids.indexOf(client.sessionId); if (q >= 0) x.clients[q] = client; }
+    client.send('bienvenue', { id: client.sessionId });
+    client.send('infos', { tout: [...this.joueurs.entries()].filter(([, a]) => a.p).map(([id, a]) => this.infosDe(id, a)) });
+    this.pousserProfil(client, j);
+    client.send('filons', this.listeFilons()); client.send('mondial', this.etatMondial()); client.send('scores', this.scores()); client.send('sanctuaires', this.etatSanctuaires()); client.send('projets', PJ.vue(this.projetsAJour()));
+    const f = this.file.find((e) => e.sid === client.sessionId); if (f) client.send('areneFile', { en: true, depuis: f.t });
+    if (x && !x.fin) this.majDuel(x);
   }
   onDispose() { for (const j of this.joueurs.values()) if (j.p) enregistrer(j.jeton, j.p); }
 
@@ -431,7 +487,7 @@ export class ClansRoom extends Room {
   // 8 fois par seconde : les joueurs proches de lui (positions, en nombres) ;
   // 1 fois par seconde : tout le monde, pour la mini-carte et la liste des clans ;
   // nom, clan, niveau… : seulement quand ça change.
-  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111]; }
+  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '']; }
   envoyer() {
     if (!this.clients.length) return;
     this.tick = (this.tick || 0) + 1;

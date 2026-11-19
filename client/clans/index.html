@@ -28,6 +28,9 @@
       <span id="ressources"></span>
       <span class="espace"></span>
       <button id="btSon" title="Couper / remettre le son (touche M)">🔊</button>
+      <button id="btApparence" title="Apparence de ton personnage">👕<span> Apparence</span></button>
+      <button id="btFamiliers" title="Tes familiers (touche F)">🐾<span> Familiers</span></button>
+      <button id="btPasse" title="Passe de saison (touche P)">🎟️<span> Passe</span><i id="pastilleP" class="cache"></i></button>
       <button id="btQuetes" title="Quêtes du jour et de la semaine (touche J)">📜<span> Quêtes</span><i id="pastilleQ" class="cache"></i></button>
       <button id="btArene" title="Arène classée">🏟️<span> Arène</span></button>
       <button id="btClassement" title="Rivalité des clans">🏆<span> Clans</span></button>
@@ -58,7 +61,7 @@
     <div id="cbTalent" class="talent"></div>
     <div class="arene">
       <div id="cbHeros" class="heros">
-        <div class="combattant"><canvas id="cbSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="combattant"><canvas id="cbFam" class="familier cache" width="12" height="11"></canvas><canvas id="cbSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
         <div class="jauge"><span id="cbBloc" class="bouclier"></span><div class="barre vie"><i id="cbPvF" class="fantome"></i><i id="cbPv"></i><b id="cbPvTxt"></b></div></div>
         <div id="cbStatuts" class="statuts"></div>
       </div>
@@ -104,6 +107,7 @@
     <div id="duBanniere" class="bannScene"></div>
   </section>
 
+  <div id="reseau" class="cache"></div>
   <div id="toasts"></div>
   <script type="module" src="../src/clans/main.js"></script>
 </body>

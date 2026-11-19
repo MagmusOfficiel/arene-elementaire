@@ -7,6 +7,7 @@
 //  Changement de jour et de semaine à minuit UTC (1 h à Paris).
 // =====================================================================
 import { semaineDe } from './mondial.js';
+import { gagner as xpPasse } from './passe.js';
 
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
 const TERRS = ['feu', 'eau', 'plante'];
@@ -22,6 +23,7 @@ const JOUR = [
   { id: 'ameliorer', ev: 'ameliorer', n: 1, ico: '⬆️', txt: 'Améliore une carte', rec: { essence: 80, eclats: 4 } },
   { id: 'sanct1', ev: 'sanctuaire', n: 1, ico: '🏳️', txt: 'Participe à la prise d’un sanctuaire', rec: { essence: 120, eclats: 6 } },
   { id: 'arene1', ev: 'arene', n: 1, ico: '🏟️', txt: 'Gagne un combat d’arène', rec: { essence: 90, eclats: 5 } },
+  { id: 'projet', ev: 'projet', n: 40, ico: '🏗️', txt: 'Donne 40 points au projet de ton clan', rec: { essence: 90, eclats: 5 } },
   { id: 'mondial', ev: 'mondial', n: 50, ico: '☠', txt: 'Inflige 50 dégâts à un boss mondial', rec: { essence: 120, eclats: 6 } },
 ];
 const SEMAINE = [
@@ -67,6 +69,7 @@ function correspond(d, info) {
 }
 // un événement : fait avancer les quêtes concernées. Renvoie celles qui viennent d'être terminées.
 export function evenement(p, ev, n = 1, info = {}, t = Date.now()) {
+  xpPasse(p, ev, n, info, t);   // chaque événement fait aussi avancer le passe de saison (v54)
   const q = aJour(p, t), finies = [];
   for (const x of [...q.j, ...q.s]) {
     const d = DEFS[x.id]; if (!d || d.ev !== ev || x.n >= d.n || !correspond(d, info)) continue;
