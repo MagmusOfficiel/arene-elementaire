@@ -133,9 +133,13 @@ def scenario(b):
     A.wait_for_timeout(300)
     up = A.locator('[data-u]:not([disabled])').first
     if up.count():
+        up = A.locator('[data-u].pret').first if A.locator('[data-u].pret').count() else up
         cid = up.get_attribute('data-u'); niv = etat(A, f"p.collection['{cid}'].niv"); up.click()
-        A.wait_for_function(f"__clans.p.collection['{cid}'].niv > {niv}", timeout=8000)
+        A.wait_for_selector('.panneauAm .changements', timeout=5000)
+        verifier(A.locator('.panneauAm .avantApres .carte').count() == 2 and A.locator('.panneauAm .changements li').count() >= 1, 'le panneau montre la carte avant / après et ce qui change')
+        A.click('#btAmeliorer'); A.wait_for_function(f"__clans.p.collection['{cid}'].niv > {niv}", timeout=8000)
         verifier(True, f'carte améliorée : {cid} niveau {niv} → {niv + 1}')
+        A.click('.fermerAm'); A.wait_for_timeout(300)
     else: verifier(False, 'un bouton d’amélioration disponible')
     fermer(A)
 
@@ -241,6 +245,19 @@ def scenario(b):
     verifier(True, 'l’Eau prend le Sanctuaire des Cendres (au Feu)')
     B.bring_to_front()
     verifier('attaque le Sanctuaire des Cendres' in B.inner_text('#chatMsgs'), 'le Feu a été prévenu de l’attaque')
+
+    etape('Fiche de joueur et hauts faits')
+    A.bring_to_front(); A.keyboard.press('h'); A.wait_for_selector('.hautsFaits', timeout=5000)
+    t = A.evaluate("(() => { const s = document.querySelector('[data-hf]'); return s ? s.querySelector('option[value*=\":\"]')?.value : null; })()")
+    verifier(t is not None, f'Testeur a déjà un haut fait ({t})')
+    A.select_option(f'select[data-hf="{t.split(":")[0]}"]', t)
+    A.wait_for_function(f"__clans.p.titre === '{t}'", timeout=8000)
+    verifier(True, 'il choisit son titre')
+    fermer(A)
+    B.bring_to_front(); B.wait_for_timeout(1500)
+    B.locator('#listeClans [data-fiche]', has_text='Testeur').first.click(); B.wait_for_selector('.titreFiche', timeout=8000)
+    verifier('Testeur' in B.inner_text('#fenetreCorps') and '«' in B.inner_text('.titreFiche'), 'un autre joueur voit sa fiche et son titre')
+    fermer(B)
 
     etape('Sur téléphone')
     T = page(b, 'Mobile', mobile=True); creer(T, 'Mobile', 'plante', 'escrimeur')

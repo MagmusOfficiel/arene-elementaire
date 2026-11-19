@@ -19,6 +19,7 @@ import { pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lirePr
 import crypto from 'node:crypto';
 import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
+import * as HF from '../../shared/clans/hautsfaits.js';
 import * as T from '../../shared/clans/territoires.js';
 import * as A from '../../shared/clans/arene.js';
 import * as AP from '../../shared/clans/apparence.js';
@@ -50,6 +51,15 @@ export class ClansRoom extends Room {
     this.joueurs = new Map();
     const sur = (type, f) => this.onMessage(type, (client, m = {}) => {
       try { const j = this.joueurs.get(client.sessionId); if (j?.p) f(client, m || {}, j); } catch (e) { noterErreur(`clans · ${type}`, e); }
+    });
+    // la fiche publique d'un joueur (v60) : ce que tout le monde peut voir
+    sur('fiche', (c, m) => {
+      const k = this.joueurs.get(String(m.id || '')); if (!k?.p) return;
+      const p = k.p, a = p.arene || {};
+      c.send('fiche', { id: String(m.id), nom: k.nom, clan: k.clan, classe: p.classe, niv: k.niv, app: k.app || '', fam: k.fam || '', titre: k.titre || '',
+        arene: { elo: a.elo || 1000, meilleur: Math.max(a.meilleur || 0, p.stats.areneMax || 0), v: a.v || 0, d: a.d || 0 }, duels: { g: p.duels?.gagnes || 0, p: p.duels?.perdus || 0 },
+        stats: { victoires: p.stats.victoires || 0, boss: p.stats.boss || 0, cauchemar: p.stats.cauchemar || 0, expeditions: p.stats.expeditions || 0 },
+        hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0), statut: k.statut || 'libre' });
     });
     sur('pos', (c, m, j) => {
       const x = Math.max(0, Math.min(MONDE.l, num(m.x, j.x))), y = Math.max(0, Math.min(MONDE.h, num(m.y, j.y)));
@@ -410,7 +420,7 @@ export class ClansRoom extends Room {
   identite(j) {
     const p = j.p; if (!p) return;
     j.nom = p.nom; j.clan = p.clan; j.classe = p.classe || ''; j.niv = P.niveau(p);
-    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || '';
+    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p);
   }
   pousserProfil(client, j) { if (j.p) client.send('profil', { p: j.p, sig: signer(j.p), jeton: j.jeton }); }
 
@@ -487,7 +497,7 @@ export class ClansRoom extends Room {
   // 8 fois par seconde : les joueurs proches de lui (positions, en nombres) ;
   // 1 fois par seconde : tout le monde, pour la mini-carte et la liste des clans ;
   // nom, clan, niveau… : seulement quand ça change.
-  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '']; }
+  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '']; }
   envoyer() {
     if (!this.clients.length) return;
     this.tick = (this.tick || 0) + 1;

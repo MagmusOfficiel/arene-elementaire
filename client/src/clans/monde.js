@@ -9,6 +9,7 @@
 import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
+import * as HF from '../../../shared/clans/hautsfaits.js';
 import { marchandDe, PORTEE as PORTEE_MARCHAND } from '../../../shared/clans/marchand.js';
 import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
 import { PIECES, lireCode } from '../../../shared/clans/apparence.js';
@@ -323,7 +324,7 @@ export function creerMonde(canvas, rappels) {
   let fond = null, mini = null, joueur = { x: 0, y: 0, dir: 'bas', marche: false }, cam = { x: 0, y: 0 }, z = 3, temps = 0, dernier = 0, but = null, actif = false;
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
-  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '';
+  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '', monTitre = '';
   let marchand = marchandDe();   // recalculé chaque seconde (sa place se déduit de l'heure)
   setInterval(() => { const m = marchandDe(); if (m.slot !== marchand.slot) rappels.marchandBouge?.(m); marchand = m; }, 1000);
   const suiveurs = new Map();   // les familiers qui suivent chaque joueur : clé → { x, y, gauche, bouge }
@@ -380,6 +381,8 @@ export function creerMonde(canvas, rappels) {
     if (!actif || !rappels.libre()) return;
     const r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
     const x = ((e.clientX - r.left) * k - ox) / z, y = ((e.clientY - r.top) * k - oy) / z;
+    // un clic sur un autre joueur : sa fiche (v60)
+    for (const [id, a] of autres) if (Math.abs(x - a.x) < 10 && y > a.y - 30 && y < a.y + 4) { rappels.fiche?.(id); return; }
     const m = maisonDe(monClan, monNom);
     const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, { x: marchand.x, y: marchand.y - 12, r: 26, id: 'marchand', nom: 'le marchand ambulant', action: 'marchand' }, ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
     but = { x, y, lieu: l || null };
@@ -477,11 +480,11 @@ export function creerMonde(canvas, rappels) {
   function majMaParcelle(pc) { if (pc) maParcelle = pc.maison * 100 + pc.autel * 10 + pc.atelier; }
   function majAutres(liste, monId) {
     const vus = new Set();
-    for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle, app, fam] of liste) {
+    for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle, app, fam, titre] of liste) {
       if (id === monId) continue; vus.add(id);
       const a = autres.get(id);
-      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam });
-      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam });
+      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre) });
+      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre) });
     }
     for (const id of [...autres.keys()]) if (!vus.has(id)) { autres.delete(id); suiveurs.delete(id); }
   }
@@ -632,7 +635,7 @@ export function creerMonde(canvas, rappels) {
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
     const gens = [...autres.values()].map((a) => { a.x += (a.tx - a.x) * Math.min(1, dt * 10); a.y += (a.ty - a.y) * Math.min(1, dt * 10); return { ...a, dir: ['bas', 'haut', 'gauche', 'droite'][a.dir] || a.dir, marche: Math.hypot(a.tx - a.x, a.ty - a.y) > 1 }; });
-    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, moi: true, id: 'moi' });
+    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, titre: monTitre, moi: true, id: 'moi' });
     for (const p of gens) if (p.fam && p.statut !== 'expedition') {
       const f = suivre(p.id, p, dt), saut = f.bouge ? Math.floor(temps * 8) % 2 : Math.floor(temps * 1.5) % 2;
       objets.push({ y: f.y, f: () => dessinerFamilier(ctx, p.fam, f.x, f.y, f.gauche, saut) });
@@ -650,24 +653,49 @@ export function creerMonde(canvas, rappels) {
       else if (t === 'plante' && Math.sin(temps * 2 + i * 1.7) > 0.2) { ctx.fillStyle = 'rgba(230,255,150,.9)'; ctx.fillRect(R(px + Math.sin(temps + i) * 6), R(y0 + py0 + Math.cos(temps * 0.8 + i) * 6), 1, 1); }
       else if (t === 'eau' && i % 4 === 0) { ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(R(px), R(y0 + py0), 1, 1); }
     }
+    // l'ombre des nuages qui passent lentement (v61) : de la profondeur, sans gêner la lecture
+    if (!leger) {
+      ctx.fillStyle = 'rgba(10,14,30,.075)';
+      for (let i = 0; i < 7; i++) {
+        const v = 6 + (i % 3) * 3, cx = ((alea(i + 300) * MONDE.l + temps * v) % (MONDE.l + 400)) - 200, cy = alea(i + 400) * MONDE.h + Math.sin(temps * 0.05 + i) * 30;
+        if (cx < x0 - 220 || cx > x1 + 220 || cy < y0 - 160 || cy > y1 + 160) continue;
+        ctx.beginPath();   // un seul tracé par nuage : les morceaux qui se chevauchent ne foncent pas
+        for (let k = 0; k < 5; k++) { const ex2 = cx + (alea(i * 9 + k) - 0.5) * 220, ey2 = cy + (alea(i * 7 + k + 50) - 0.5) * 90, rx = 70 + alea(i + k) * 60; ctx.moveTo(ex2 + rx, ey2); ctx.ellipse(ex2, ey2, rx, 40 + alea(i * 3 + k) * 26, 0, 0, Math.PI * 2); }
+        ctx.fill('nonzero');
+      }
+    }
     // textes, à l'échelle de l'écran
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const s = dpr(), ex = (x) => ox + x * z, ey = (y) => oy + y * z;
-    const etiquette = (txt, x, y, coul = '#f0e6d0', barre = null, gras = false) => {
-      ctx.font = `${gras ? 'bold ' : ''}${R(11 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const w = ctx.measureText(txt).width + 10 * s, h = 15 * s;
-      ctx.fillStyle = 'rgba(10,8,14,.78)'; ctx.fillRect(R(x - w / 2), R(y - h / 2), R(w), R(h));
-      if (barre) { ctx.fillStyle = barre; ctx.fillRect(R(x - w / 2), R(y - h / 2), R(2 * s), R(h)); }
-      ctx.fillStyle = coul; ctx.fillText(txt, x, y + s);
-    };
+    // les étiquettes ne se chevauchent plus (v61) : on les range par importance, chacune cherche une
+    // place libre un peu plus haut, et les moins importantes disparaissent s'il n'y a pas de place
+    const etiq = [];
+    const etiquette = (txt, x, y, coul = '#f0e6d0', barre = null, gras = false, prio = 2, sous = null) => etiq.push({ txt, x, y, coul, barre, gras, prio, sous });
+    function poserEtiquettes() {
+      const poses = [], h = 15 * s, chevauche = (a) => poses.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const e of etiq.sort((a, b) => b.prio - a.prio)) {
+        ctx.font = `${e.gras ? 'bold ' : ''}${R(11 * s)}px ${POLICE}`;
+        const w = ctx.measureText(e.txt).width + 10 * s, hh = e.sous ? h * 2 : h;
+        let y = e.y, r = null;
+        for (let k = 0; k < 4; k++) { const c = { x0: e.x - w / 2, x1: e.x + w / 2, y0: y - hh + h / 2, y1: y + h / 2 }; if (!chevauche(c)) { r = c; break; } y -= h + 2 * s; }
+        if (!r) { if (e.prio < 3) continue; r = { x0: e.x - w / 2, x1: e.x + w / 2, y0: e.y - hh + h / 2, y1: e.y + h / 2 }; y = e.y; }
+        poses.push(r);
+        if (y !== e.y) { ctx.fillStyle = 'rgba(240,230,208,.35)'; ctx.fillRect(R(e.x), R(y + h / 2), R(s), R(e.y - y - h / 2)); }   // un fil vers l'objet
+        ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(R(e.x - w / 2), R(y - h / 2), R(w), R(h));
+        if (e.barre) { ctx.fillStyle = e.barre; ctx.fillRect(R(e.x - w / 2), R(y - h / 2), R(2 * s), R(h)); }
+        ctx.fillStyle = e.coul; ctx.fillText(e.txt, e.x, y + s);
+        if (e.sous) { ctx.font = `italic ${R(10.5 * s)}px ${POLICE}`; ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillText(e.sous, e.x + s, y - h + 2 * s); ctx.fillStyle = '#ffd870'; ctx.fillText(e.sous, e.x, y - h + s); }
+      }
+    }
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 && p.y < y1 + 40) etiquette(p.nom, ex(p.x), ey(p.y + 18), '#ffe8b0');
     for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 && d.y < y1 + 60) {
       const st = sanct[d.id] || { prop: d.terr };
       etiquette(`🏳 ${d.nom}`, ex(d.x), ey(d.y + 16), '#ffe8b0', COUL[st.prop]);
-      if (st.conteste) etiquette('⚔ Contesté !', ex(d.x), ey(d.y + 30), '#ffb0a0', '#e8402a', true);
+      if (st.conteste) etiquette('⚔ Contesté !', ex(d.x), ey(d.y + 30), '#ffb0a0', '#e8402a', true, 3);
       else if (st.capt) etiquette(`Capture ${st.capt.p} %`, ex(d.x), ey(d.y + 30), '#fff4c8', COUL[st.capt.clan], true);
     }
-    for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) { ctx.font = `bold ${R(16 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(NOMS_TERR[k], ex(vx) + 2 * s, ey(vy + 56) + 2 * s); ctx.fillStyle = '#f8ecd0'; ctx.fillText(NOMS_TERR[k], ex(vx), ey(vy + 56)); }
+    for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) etiquette(`Village · ${NOMS_TERR[k]}`, ex(vx), ey(vy + 64), '#f8ecd0', COUL[k], true, 0);
     if (marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 && marchand.y < y1 + 50) {
       const min = Math.max(1, Math.ceil((marchand.part - Date.now()) / 60000));
       etiquette(`🛒 Marchand ambulant · encore ${min} min`, ex(marchand.x - 10), ey(marchand.y - 48), '#ffe0a0', '#c8502a', false);
@@ -676,13 +704,14 @@ export function creerMonde(canvas, rappels) {
       const pr = projets.clans[k], fini = pr.pts >= pr.objectif, pc = Math.min(100, Math.floor((pr.pts / pr.objectif) * 100));
       etiquette(`${PROJETS[k].ico} ${PROJETS[k].nom} · ${fini ? 'terminé ✓' : `${pc} %`}`, ex(o.x), ey(o.y - 84), fini ? '#ffe070' : '#f0e6d0', COUL[k], fini);
     }
-    for (const a of autres.values()) { const m = maisonDe(a.clan, a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan]); }
-    if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true);
-    const ma = maisonDe(monClan, monNom); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true);
+    for (const a of autres.values()) { const m = maisonDe(a.clan, a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan], false, 0); }
+    if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true, 4);
+    const ma = maisonDe(monClan, monNom); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true, 3);
     for (const p of gens) {
       const txt = `${p.nom}${p.niv ? ` · ${p.niv}` : ''}${p.statut === 'expedition' ? ' ⚔' : p.statut === 'duel' ? ' ⚔⚔' : ''}`;
-      etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi);
+      etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi, p.moi ? 6 : 5, p.titre ? `« ${p.titre} »` : null);
     }
+    poserEtiquettes();
     ctx.textBaseline = 'alphabetic';
     // (le vignettage est une couche CSS fixe : #ecranMonde::after — le recalculer à chaque image coûtait cher sur téléphone)
     // l'action possible
@@ -747,5 +776,5 @@ export function creerMonde(canvas, rappels) {
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t) => { monTitre = t || ''; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

@@ -2,6 +2,7 @@
 //  LES CLANS ÉLÉMENTAIRES — la scène de combat, ses animations et le boss mondial
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import * as RQ from '../../../shared/clans/reliques.js';
 import * as F from '../../../shared/clans/familiers.js';
 import { feuilleFamilier } from './familiersArt.js';
 import { CARTES, CLASSES, RARES, STATUTS } from '../../../shared/clans/cartes.js';
@@ -114,12 +115,46 @@ export function lancerCombat(def, type) {
   banniere('cbBanniere', `${type === 'boss' || type === 'mondial' ? '☠ ' : ''}${$('cbTitre').textContent}<small>${esc(combat.ennemis.map((e) => e.nom).join(' · '))}</small>`, type === 'boss' || type === 'mondial' ? 'rouge' : '', 1300);
   if (type === 'boss' || type === 'mondial') sfx.rugissement?.();
 }
+// ce que l'ennemi va faire, en toutes lettres (au survol de son intention) — v61
+const TITRES_INTENTION = {
+  attaque: (t) => { const [d, n] = t.split('×'); return `Au prochain tour, il t'attaque : ${d} dégâts${n ? `, ${n} fois` : ''}. Ton bouclier absorbe d'abord les dégâts.`; },
+  defense: (t) => `Il va se protéger : ${t} de bouclier.`,
+  buff: (t) => `Il se renforce : ${t} de force (ses attaques feront plus mal).`,
+  epines: (t) => `Il se couvre d'épines : chaque attaque que tu lui portes te renvoie ${t} dégâts.`,
+  malus: (t) => (t === '❓' ? 'Brouillard : ses intentions sont cachées.' : `Il va t'infliger un mauvais statut : ${t.replace('🔥', 'brûlure ').replace('💧', 'trempé ').replace('🥀', 'affaibli ')}.`),
+};
+// voir le contenu de la pioche (dans le désordre) ou de la défausse
+function voirPile(quoi) {
+  if (!combat) return;
+  const l = quoi === 'pioche' ? combat.pioche : quoi === 'defausse' ? combat.defausse : combat.epuisees, n = {};
+  for (const k of l) n[k.id] = (n[k.id] || 0) + 1;
+  const ids = Object.keys(n).sort((a, b) => CARTES[a].cout - CARTES[b].cout || CARTES[a].nom.localeCompare(CARTES[b].nom));
+  document.querySelector('#combat .voirPile')?.remove();
+  const d = document.createElement('div'); d.className = 'voirPile';
+  d.innerHTML = `<div class="boitePile"><b>${{ pioche: '🂠 Pioche', defausse: '♻ Défausse', epuisees: '🔥 Cartes épuisées' }[quoi]} — ${l.length} carte${l.length > 1 ? 's' : ''}</b><small>${quoi === 'pioche' ? 'Dans le désordre : l’ordre de pioche reste un secret.' : quoi === 'defausse' ? 'Quand la pioche est vide, la défausse est mélangée et redevient la pioche.' : 'Elles ne reviendront pas avant le prochain combat.'}</small>
+    <div class="lignesPile">${ids.map((id) => `<span><i>${CARTES[id].cout}</i>${CARTES[id].ico} ${esc(CARTES[id].nom)}<em>×${n[id]}</em></span>`).join('') || '<span>Vide</span>'}</div><button class="bouton">Fermer</button></div>`;
+  d.onclick = (e) => { if (e.target === d || e.target.tagName === 'BUTTON') d.remove(); };
+  $('combat').append(d);
+}
+$('cbPioche').onclick = () => voirPile('pioche'); $('cbDefausse').onclick = () => voirPile('defausse'); $('cbEpuisees').onclick = () => voirPile('epuisees');
+$('cbPioche').title = 'Ta pioche — cliquer pour voir ce qu’il reste'; $('cbDefausse').title = 'Ta défausse — cliquer pour la voir';
+// ce que je vais perdre si je finis mon tour maintenant
+function majMenace(c) {
+  let total = 0;
+  for (const e of c.ennemis) if (e.pv > 0) for (const it of C.decrireIntention(c, e)) if (it.type === 'attaque') { const [d, n] = it.txt.split('×').map(Number); if (!Number.isNaN(d)) total += d * (n || 1); }
+  const el = $('cbMenace'); if (!el) return;
+  if (!total || c.fini) { el.className = 'menace'; el.textContent = ''; return; }
+  const perte = Math.max(0, total - c.joueur.bloc);
+  el.className = `menace vu ${perte ? (perte >= c.joueur.pv ? 'mortelle' : '') : 'bloquee'}`;
+  el.innerHTML = perte ? `${perte >= c.joueur.pv ? '☠ ' : ''}Au prochain tour : <b>−${perte} PV</b>${c.joueur.bloc ? ` <small>(${total} − 🛡${c.joueur.bloc})</small>` : ''}` : `🛡 Tu bloques tout (${total})`;
+  el.title = 'Somme des attaques annoncées par les ennemis, moins ton bouclier actuel.';
+}
 export function dessinerCombat(donner = false, entree = false) {
   const c = combat;
   $('cbEnnemis').innerHTML = c.ennemis.map((e, n) => {
     const its = C.decrireIntention(c, e), illus = ILLUS_MONSTRES.has(e.id);
     return `<div class="ennemi ${e.rang || ''} ${e.maudit ? 'maudit' : ''} ${typeCombat === 'mondial' ? 'mondial' : ''} ${e.pv <= 0 ? 'parti' : ''} ${carteChoisie != null ? 'ciblable' : ''} ${entree ? 'entreeD' : ''}" data-e="${e.uid}" style="${entree ? `animation-delay:${150 + n * 120}ms` : ''}">
-      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
+      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}" title="${esc(TITRES_INTENTION[it.type](it.txt))}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
       <div class="corps"><div class="portrait" style="${illus ? `background-image:url(${import.meta.env.BASE_URL}clans/monstres/${e.id}.webp)` : ''}">${illus ? '' : e.ico}</div><div class="ombre"></div></div>
       <div class="nomE">${e.maudit ? '<span class="tagMaudit">MAUDIT</span> ' : ''}${esc(e.nom)}</div>
       <div class="jauge" data-pv="${e.pv}"><span class="bouclier ${e.bloc ? 'vu' : ''}">${e.bloc || ''}</span><div class="barre vie ${e.bloc ? 'protege' : ''}"><i class="fantome" style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><i style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><b>${Math.max(0, e.pv)} / ${e.pvMax}</b></div></div>
@@ -128,6 +163,8 @@ export function dessinerCombat(donner = false, entree = false) {
   const j = c.joueur;
   majJauge($('cbHeros').querySelector('.jauge'), j.pv, j.pvMax, j.bloc);
   $('cbStatuts').innerHTML = statutsHTML(j);
+  majMenace(c); $('cbTour').textContent = c.fini ? '' : `Tour ${c.tour}`;
+  $('cbReliques').innerHTML = (c.reliques || []).map((id) => `<i title="${esc(RQ.RELIQUES[id].nom)} : ${esc(RQ.RELIQUES[id].desc)}">${RQ.RELIQUES[id].ico}</i>`).join('');
   $('cbEnergieTxt').textContent = `${c.energie}/${c.energieMax}`;
   $('cbEnergie').classList.toggle('vide', c.energie === 0);
   const cl = CLASSES[p.classe];

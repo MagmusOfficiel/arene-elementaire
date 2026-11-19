@@ -7,6 +7,7 @@
 // =====================================================================
 import { CARTES, effetsDe } from './cartes.js';
 import { FAMILIERS } from './familiers.js';
+import * as RQ from './reliques.js';
 
 export function alea(graine) {
   let a = graine >>> 0;
@@ -17,11 +18,11 @@ const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, 
 
 // deck : [{ id, niv }] ; joueur : { pv, pvMax } ; ennemis : modèles de monstres.js ; palier : { pv, deg }
 // classe : son talent s'applique pendant le combat (Endurci, Arcanes, Visée, Enchaînement)
-export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, mods = null, familier = null }) {
+export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, mods = null, familier = null, reliques = null }) {
   const r = alea(graine);
   let n = 0;
   const c = {
-    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, tirs: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, mods: mods && mods.length ? mods.slice() : null,
+    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, tirs: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, reliques: Array.isArray(reliques) ? reliques.filter(RQ.valide) : [], mods: mods && mods.length ? mods.slice() : null,
     joueur: { pv: joueur.pv, pvMax: joueur.pvMax, ...statuts() },
     ennemis: ennemis.map((m, i) => ({ uid: `e${i}`, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, maudit: !!m.maudit, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: Math.floor(r() * m.intentions.length), deg: palier.deg, ...statuts() })),
     pioche: melanger(deck.map((x) => ({ uid: `c${n++}`, id: x.id, niv: x.niv || 1 })), r), main: [], defausse: [], epuisees: [],
@@ -42,6 +43,9 @@ export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 
     if (f.pioche) piocher(c, f.pioche);
     if (f.regen) c.joueur.regen += f.regen;
   }
+  // les reliques de l'expédition (v59)
+  RQ.debutCombat(c, c.reliques);
+  if (RQ.a(c.reliques, 'besace')) piocher(c, 2);
   return c;
 }
 const vivants = (c) => c.ennemis.filter((e) => e.pv > 0);
@@ -68,6 +72,8 @@ function debutTour(c) {
   if (j.affaibli > 0) j.affaibli--;
   c.energie = c.energieMax; c.attaquesTour = 0; c.arcanes = false;
   piocher(c, c.tour === 1 && c.mods?.includes('epuisement') ? 4 : 5);
+  if (RQ.a(c.reliques, 'pierre_lune')) j.bloc += 3;
+  if (RQ.a(c.reliques, 'sablier') && c.tour % 3 === 0) c.energie += 1;
   ev(c, { t: 'tour', n: c.tour });
 }
 // dégâts d'une attaque : force, affaibli (−25 %), trempé (+50 %)
@@ -127,6 +133,7 @@ export function jouerCarte(c, i, cible) {
   let bonus = 0, mult = 1;
   if (carte.type === 'attaque') {
     if (c.classe === 'escrimeur' && c.attaquesTour > 0) bonus = 2;
+    if (RQ.a(c.reliques, 'pointe')) bonus += 1;
     if (c.classe === 'tireur') { c.tirs++; if (c.tirs % 3 === 0) mult = 2; }
     c.attaquesTour++;
   }

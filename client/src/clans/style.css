@@ -140,9 +140,13 @@ button { font: inherit; cursor: pointer; }
 .statut { font-size: 12px; background: rgba(0,0,0,.6); border-radius: 8px; padding: 1px 6px; cursor: help; }
 @keyframes monte { to { transform: translateY(-60px); opacity: 0; } }
 
-#toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
-.toast { background: rgba(8,6,12,.92); border: 1px solid var(--or); padding: 8px 16px; border-radius: 10px; animation: toast 3.2s forwards; }
-@keyframes toast { 0% { opacity: 0; transform: translateY(-10px); } 10%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+/* messages éphémères : en bas au centre, ils ne cachent plus le titre des fenêtres ni la barre (v61) */
+#toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(560px, 92vw); }
+.toast { pointer-events: auto; cursor: pointer; background: linear-gradient(rgba(22,16,30,.96), rgba(10,8,16,.96)); border: 1px solid rgba(232,192,96,.7); box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06); padding: 9px 18px; border-radius: 12px; text-align: center; line-height: 1.4; animation: toast var(--duree, 3.2s) forwards; }
+.toast.rejoue { animation: toastRejoue .3s, toast var(--duree, 3.2s) forwards; }
+@keyframes toast { 0% { opacity: 0; transform: translateY(12px) scale(.97); } 6%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes toastRejoue { 50% { transform: scale(1.04); } }
+body.tactile #toasts { bottom: 168px; }
 
 /* ---------- classes ---------- */
 .etape { margin: 4px 0 -4px; color: var(--or); letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
@@ -431,3 +435,116 @@ body.tactile #menuListe small { display: none; }
 .offre.prise { opacity: .55; }
 .offre .echange { display: flex; align-items: center; gap: 12px; font-size: 16px; flex-wrap: wrap; }
 .offre .echange i { color: var(--or); font-style: normal; font-size: 20px; }
+
+/* ---------- reliques d'expédition (v59) ---------- */
+.reliquesExpe { display: inline-flex; gap: 4px; }
+.reliquesExpe i { font-style: normal; font-size: 18px; background: rgba(232,192,96,.14); border: 1px solid rgba(232,192,96,.45); border-radius: 6px; padding: 1px 4px; cursor: help; }
+.choixReliques { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0; }
+.relique { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 16px 12px; border-radius: 12px; border: 2px solid rgba(232,192,96,.5); background: radial-gradient(circle at 50% 20%, rgba(232,192,96,.18), rgba(10,8,16,.6)); color: var(--papier); cursor: pointer; transition: transform .12s, box-shadow .2s; }
+.relique:hover { transform: translateY(-4px); box-shadow: 0 0 22px rgba(232,192,96,.45); }
+.relique .ico { font-size: 44px; filter: drop-shadow(0 0 8px rgba(255,220,140,.6)); }
+.relique small { font-size: 13px; line-height: 1.35; }
+.relique em { font-size: 11px; color: #a89c84; }
+button.lien { background: none; border: none; color: #a89c84; text-decoration: underline; cursor: pointer; font-size: 13px; }
+@media (max-width: 760px) { .choixReliques { grid-template-columns: 1fr; } .relique { flex-direction: row; text-align: left; } .relique .ico { font-size: 32px; } }
+
+/* ---------- fiche de joueur et hauts faits (v60) ---------- */
+.lienFiche { cursor: pointer; } .lienFiche:hover { text-decoration: underline; }
+.ficheHaut { display: flex; gap: 18px; align-items: center; margin-bottom: 12px; }
+.ficheHaut h2 { margin: 0; }
+.portraitFiche { image-rendering: pixelated; width: 80px; height: 130px; background: radial-gradient(circle at 50% 60%, rgba(232,192,96,.18), transparent 70%); border-radius: 12px; }
+.titreFiche { margin: 2px 0 6px; color: #ffd870; font-style: italic; }
+.famFiche { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 13px; color: #c8bca4; }
+.famFiche canvas { image-rendering: pixelated; width: 24px; height: 22px; }
+.ficheStats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.ficheStats div { background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 8px 10px; text-align: center; }
+.ficheStats b { display: block; font-size: 17px; } .ficheStats small { color: #a89c84; font-size: 12px; }
+.hautsFaits { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.hf { display: flex; gap: 10px; align-items: flex-start; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 8px 10px; flex-wrap: wrap; }
+.hf.aucun { opacity: .7; } .hf.p1 { border-color: rgba(205,127,50,.6); } .hf.p2 { border-color: rgba(200,200,215,.7); } .hf.p3 { border-color: rgba(255,210,80,.85); box-shadow: 0 0 12px rgba(255,210,80,.25); }
+.hfIco { font-size: 24px; } .hf > div { flex: 1; min-width: 0; }
+.hf small { display: block; font-size: 12px; color: #c8bca4; margin-top: 2px; }
+.hfPal i { font-style: normal; filter: grayscale(1) opacity(.35); font-size: 13px; } .hfPal i.ok { filter: none; }
+.hfBarre { display: block; height: 5px; background: rgba(255,255,255,.1); border-radius: 3px; margin-top: 5px; overflow: hidden; } .hfBarre b { display: block; height: 100%; background: linear-gradient(90deg, #c89020, #ffd870); }
+.hf select { width: 100%; background: rgba(0,0,0,.4); color: var(--papier); border: 1px solid rgba(232,192,96,.4); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+@media (max-width: 760px) { .ficheStats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- chat discret (v61) : sur ordinateur, il se fait oublier tant qu'on ne s'en sert pas ---------- */
+body:not(.tactile) #chat { transition: background .25s, border-color .25s; }
+body:not(.tactile) #chat:not(:hover):not(:focus-within) { background: transparent; border-color: transparent; }
+body:not(.tactile) #chat:not(:hover):not(:focus-within) #chatOnglets { visibility: hidden; }
+body:not(.tactile) #chat:not(:hover):not(:focus-within) #chatMsgs { -webkit-mask-image: linear-gradient(transparent, #000 45%); mask-image: linear-gradient(transparent, #000 45%); text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+body:not(.tactile) #chat:not(:hover):not(:focus-within) #chatTexte { background: rgba(0,0,0,.35); border-color: rgba(255,255,255,.12); }
+
+/* =====================================================================
+   v61 — passe de qualité : cartes, deck et amélioration
+   ===================================================================== */
+/* mots-clés expliqués au survol, chiffres en évidence */
+.carte .cd .mot { color: #ffe39a; font-weight: 600; text-decoration: underline dotted rgba(255,227,154,.6); text-underline-offset: 2px; cursor: help; }
+.carte .cd .nb { color: #fff; font-weight: 800; }
+.carte .cniv { position: absolute; bottom: 3px; right: 6px; font-size: 10px; letter-spacing: 1px; color: #ffd870; text-shadow: 0 0 4px rgba(255,200,80,.8), 0 1px 1px #000; }
+.carte.niv2 { box-shadow: 0 0 0 1px rgba(255,216,112,.35), 0 6px 14px rgba(0,0,0,.5); }
+.carte.niv3 { box-shadow: 0 0 0 2px rgba(255,216,112,.6), 0 0 16px rgba(255,216,112,.35), 0 6px 14px rgba(0,0,0,.5); }
+.carte .ruban { position: absolute; left: -4px; bottom: 6px; background: linear-gradient(90deg, #2e8a3a, #4ab854); color: #fff; font-size: 10px; font-weight: bold; padding: 1px 8px 1px 6px; border-radius: 0 6px 6px 0; box-shadow: 0 2px 4px rgba(0,0,0,.5); z-index: 2; }
+.carte .amPossible { position: absolute; top: 24px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(#ffe48a, #c88a10); color: #2a1606; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; border: 2px solid #2a1606; z-index: 3; animation: pastille 1.6s ease-in-out infinite; }
+.carteCol.enDeck .carte { outline: 2px solid rgba(74,184,84,.55); outline-offset: 2px; }
+.carteCol .actions button.pret { background: linear-gradient(#ffe48a, #d8a028); color: #2a1606; border-color: #8a5a10; font-weight: bold; }
+.pastilleAm { margin-left: auto; align-self: center; font-size: 12px; color: #ffd870; background: rgba(232,192,96,.12); border: 1px solid rgba(232,192,96,.45); border-radius: 12px; padding: 3px 10px; }
+
+/* statistiques du deck */
+.statsDeck { display: flex; gap: 14px; align-items: stretch; margin: 6px 0 12px; flex-wrap: wrap; }
+.statsDeck > div { background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 12px; }
+.sdNombre { text-align: center; min-width: 96px; } .sdNombre b { display: block; font-size: 26px; line-height: 1; color: #ffd870; } .sdNombre small { color: #a89c84; font-size: 11px; }
+.sdNombre.manque b { color: #ff7a5a; }
+.sdCourbe { display: flex; gap: 8px; align-items: flex-end; height: 64px; }
+.sdCourbe div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 24px; }
+.sdCourbe i { width: 16px; min-height: 2px; background: linear-gradient(#ffd870, #c89020); border-radius: 3px 3px 0 0; }
+.sdCourbe b { font-size: 11px; } .sdCourbe small { font-size: 10px; color: #a89c84; }
+.sdTypes { display: flex; flex-direction: column; justify-content: center; gap: 2px; font-size: 13px; }
+.sdTypes b { color: #ffd870; }
+
+/* la liste du deck */
+.colDeck h3 { margin-top: 0; }
+.listeDeck .ligne { border-left: 3px solid rgba(255,255,255,.15); }
+.listeDeck .ligne.feu { border-left-color: #e0552a; } .listeDeck .ligne.eau { border-left-color: #2a8ae0; } .listeDeck .ligne.plante { border-left-color: #3aa84a; }
+.listeDeck .nomL { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.listeDeck .nivL { color: #ffd870; font-size: 10px; letter-spacing: 1px; }
+.listeDeck .nbL { color: #c8bca4; }
+.listeDeck .moins { opacity: 0; color: #ff8a70; font-weight: bold; transition: opacity .15s; }
+.listeDeck .ligne:hover .moins { opacity: 1; }
+
+/* le panneau d'amélioration */
+.panneauAm { position: fixed; inset: 0; z-index: 60; background: rgba(6,4,10,.82); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fondu .15s; }
+.boiteAm { position: relative; width: min(620px, 100%); background: linear-gradient(rgba(30,22,40,.98), rgba(14,10,20,.98)); border: 2px solid rgba(232,192,96,.65); border-radius: 14px; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.6); text-align: center; }
+.boiteAm h3 { margin: 0 0 12px; color: #ffd870; }
+.fermerAm { position: absolute; top: 8px; right: 10px; background: none; border: none; color: #c8bca4; font-size: 18px; cursor: pointer; }
+.avantApres { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 12px; }
+.avantApres > div { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.avantApres small { color: #ffd870; }
+.avantApres .fleche { font-size: 30px; color: #ffd870; animation: fleche 1.2s ease-in-out infinite; }
+@keyframes fleche { 50% { transform: translateX(5px); } }
+.avantApres .suivante .carte { box-shadow: 0 0 0 2px #ffd870, 0 0 26px rgba(255,216,112,.55); }
+.avantApres .suivante.apparait .carte { animation: apparaitCarte .35s ease-out; }
+@keyframes apparaitCarte { from { opacity: 0; transform: translateX(-14px) scale(.96); } }
+.avantApres .carte.ameliore { animation: ameliore .7s ease-out; }
+@keyframes ameliore { 0% { filter: brightness(2.2) saturate(1.4); transform: scale(1.06); } 100% { filter: none; transform: none; } }
+.maxAtteint { font-size: 18px; color: #ffd870; padding: 20px; }
+.changements { text-align: left; background: rgba(0,0,0,.28); border-radius: 10px; padding: 8px 14px; margin: 0 auto 12px; max-width: 420px; }
+.changements ul { margin: 6px 0 0; padding-left: 18px; } .changements li { margin: 2px 0; }
+.changements li.mieux { color: #b8ffa8; } .changements li.mieux::marker { content: '▲ '; color: #6ad85a; }
+.changements li.pareil { color: #a89c84; }
+.coutAm { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.coutAm span { background: rgba(0,0,0,.3); border-radius: 8px; padding: 5px 10px; border: 1px solid rgba(255,255,255,.1); }
+.coutAm .ok { border-color: rgba(106,216,90,.5); } .coutAm .manque { border-color: rgba(255,106,80,.6); color: #ffb0a0; }
+.coutAm small { color: #a89c84; }
+@keyframes fondu { from { opacity: 0; } }
+@media (max-width: 760px) { .avantApres { gap: 6px; } .avantApres .carte { transform: scale(.82); margin: -18px -12px; } .statsDeck { gap: 8px; } .sdTypes { font-size: 12px; } }
+.changements s { color: #a89c84; } .changements em { color: #8ad0ff; font-size: 12px; }
+.boiteAm { max-height: calc(100vh - 32px); overflow: auto; }
+
+/* ---------- l'aide (v61) ---------- */
+.aide { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; margin-top: 6px; }
+.aideL { display: flex; gap: 12px; align-items: flex-start; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 10px 12px; }
+.aideL > span { font-size: 24px; line-height: 1; min-width: 30px; text-align: center; }
+.aideL b { color: #ffd870; } .aideL p { margin: 3px 0 0; font-size: 13.5px; line-height: 1.45; color: #e0d6c2; }
+kbd { display: inline-block; min-width: 18px; text-align: center; font: bold 11px system-ui, sans-serif; color: #f0e6d0; background: linear-gradient(#3a3248, #241e30); border: 1px solid #5a4e6a; border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; margin: 0 1px; }

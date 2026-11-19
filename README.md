@@ -617,3 +617,65 @@ Mesuré avec 40 joueurs simulés et un téléphone moyen (processeur ralenti 4×
   Le matériau des autres clans servait jusqu'ici surtout à améliorer les cartes des autres éléments.
 - **Sans réseau ni état serveur** : sa place et ses offres se déduisent de l'heure (`shared/clans/marchand.js`), donc le client et le serveur sont toujours d'accord. Le serveur vérifie que le joueur est à côté du marchand, et garde les échanges faits dans le profil (`p.marchand`).
 - **Fichiers** : fenêtre dans `client/src/clans/ui-marchand.js`, tests dans `tests/clansmarchand.test.mjs`, et une nouvelle étape du test de bout en bout.
+
+## Les Clans Élémentaires : reliques d'expédition (v59)
+- **Des objets passifs, comme dans Slay the Spire.** Après chaque **élite** vaincu, on choisit **une relique parmi trois**, ou on passe et on prend 40 essences à la place. Tant qu'on n'a pas choisi, on n'avance pas sur la carte. Chaque **trésor** contient aussi une relique tirée au hasard.
+- **Les reliques ne durent qu'une expédition**, et une même relique ne revient pas deux fois.
+- **14 reliques** :
+  - au début de chaque combat : ⚓ 8 de bouclier, 🏮 +1 énergie, 🎒 +2 cartes, 🦴 +1 force, 🌿 3 épines, 🕯️ 3 brûlures aux ennemis, 💧 ennemis trempés 2 tours ;
+  - pendant le combat : 🌙 3 de bouclier à chaque tour, ⏳ +1 énergie tous les 3 tours, 📌 +1 dégât par coup d'attaque ;
+  - pour l'expédition : 🫗 soigne 5 PV après chaque victoire, 👛 +30 % d'essence par combat, 🧪 +10 PV max, ⛺ feux de camp 50 % plus efficaces.
+- **Côté code** :
+  - les effets de combat passent par le moteur (`def.reliques`), donc le serveur les rejoue à l'identique, et l'aperçu des dégâts de la v57 en tient compte ;
+  - le tirage dépend de la graine de l'expédition ; le serveur valide le choix (action `expeRelique`) ;
+  - les reliques sont affichées sur la carte de l'expédition et dans la scène de combat (détail au survol).
+- **Fichiers** : `shared/clans/reliques.js`, tests dans `tests/clansreliques.test.mjs`.
+
+## Les Clans Élémentaires : fiche de joueur et hauts faits (v60)
+- **Fiche de joueur** :
+  - pour voir celle d'un autre joueur, on clique sur son personnage sur la carte, ou sur son nom dans la liste « En ligne » ;
+  - on y voit son portrait avec son apparence, son titre, son clan, sa classe, son niveau et son familier ;
+  - et aussi son rang d'arène actuel et son meilleur rang, ses duels, ses combats et boss, et ses hauts faits ;
+  - le serveur n'envoie que ces données publiques (message `fiche`).
+- **Ma fiche** : menu ☰ → « Ma fiche et hauts faits », ou touche **H**. Elle montre la progression de chaque haut fait et permet de choisir son titre.
+- **13 hauts faits à 3 paliers** (🥉 🥈 🥇), soit 39 au total. Ils sont calculés d'après le profil, donc il n'y a rien à stocker ni à réclamer :
+  - combats gagnés, boss vaincus, Cauchemar, expéditions ;
+  - quêtes, sanctuaires, duels, meilleur rang d'arène ;
+  - tirages, collection, cartes au niveau max, dons aux projets, familiers.
+
+  Le record d'arène est gardé d'une saison à l'autre (`stats.areneMax`). Un nouveau palier est annoncé à l'écran.
+- **Titres** : chaque palier atteint débloque un titre (par exemple « Fléau des boss » ou « Maître de l'arène »). Celui qu'on choisit s'affiche **sous son nom sur la carte** et sur sa fiche. Le serveur vérifie qu'il est mérité (action `titreChoisir`).
+- **Fichiers** : `shared/clans/hautsfaits.js`, `client/src/clans/ui-fiche.js`, tests dans `tests/clanshautsfaits.test.mjs`, et une nouvelle étape du test de bout en bout (choisir un titre, puis le voir depuis un autre joueur).
+
+## Les Clans Élémentaires : passe de qualité générale (v61)
+- **Cartes** :
+  - les mots-clés (brûlure, trempé, affaibli, épines, force, régénération, bouclier, épuisée) sont soulignés et expliqués au survol, et les chiffres sont en gras ;
+  - le niveau s'affiche en étoiles (★★☆), et les cartes de niveau 2 ou 3 ont un liseré doré ;
+  - le type (Attaque / Défense / Pouvoir) est écrit en toutes lettres.
+- **Deck** :
+  - un tableau de bord : nombre de cartes (de 10 à 25), courbe des coûts en énergie, attaques, défenses, pouvoirs et coût moyen ;
+  - sur chaque carte, un ruban « Deck ×N » et une pastille ⬆ quand on peut l'améliorer, plus un compteur des cartes améliorables ;
+  - « + Deck » grisé explique pourquoi (deck plein, 4 exemplaires au maximum, ou tous les exemplaires déjà dans le deck) ;
+  - la liste du deck est triée par coût, avec la couleur de l'élément, les étoiles et un « − » au survol pour retirer.
+- **Amélioration, un vrai panneau** :
+  - la carte au niveau actuel et au niveau suivant, côte à côte ;
+  - ce qui change, ligne par ligne (« Inflige ~~4~~ → 5 dégâts ») ;
+  - le coût, avec ce qu'on possède et ce qui manque, et où trouver la ressource ;
+  - le bouton « Améliorer au niveau N », suivi d'une animation.
+- **Combat** :
+  - sous le héros, le total des **dégâts prévus au prochain tour**, bouclier déduit : « −7 PV », « 🛡 Tu bloques tout », ou ☠ si le coup est mortel ;
+  - chaque intention ennemie est expliquée en toutes lettres au survol ;
+  - le numéro du tour est affiché ;
+  - un clic sur la pioche, la défausse ou les cartes épuisées en montre le contenu (la pioche dans le désordre, pour ne pas révéler l'ordre).
+- **Carte du monde** :
+  - les étiquettes ne se chevauchent plus : elles sont rangées par importance, se décalent avec un petit fil vers leur objet, et les moins importantes s'effacent ;
+  - le titre d'un joueur s'affiche dans son étiquette ;
+  - le nom du village devient une étiquette discrète au lieu d'un texte posé sur la place ;
+  - l'ombre des nuages passe lentement (désactivée en mode léger).
+- **Interface** :
+  - les messages éphémères s'affichent en bas, 3 au plus, sans doublon ; leur durée dépend de leur longueur, et un clic les ferme. Ils ne cachent plus le titre des fenêtres ;
+  - sur ordinateur, le chat s'efface tant qu'on ne s'en sert pas ;
+  - une nouvelle fenêtre **« Comment jouer »** (menu ☰ ou touche **?**) présente en 4 onglets les commandes et raccourcis, chaque ressource (à quoi elle sert, où la trouver), les statuts de combat et les systèmes du monde.
+- **Bugs corrigés en route** :
+  - un conflit de style entre les reliques d'expédition (v59) et la grille de la forge, qui partageaient le même nom de classe ;
+  - un empilement de calques qui aurait pu rendre le bouton ✕ des fenêtres impossible à cliquer.

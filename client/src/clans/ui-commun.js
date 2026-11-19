@@ -2,7 +2,7 @@
 //  LES CLANS ÉLÉMENTAIRES — l’état partagé (profil, connexion, combat) et les petits outils de l’interface
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
-import { CARTES, ELEMENTS, CLASSES, RARETES, STATUTS, decrire } from '../../../shared/clans/cartes.js';
+import { CARTES, ELEMENTS, CLASSES, RARETES, STATUTS, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
 import * as P from '../../../shared/clans/profil.js';
 import { creerCompte } from '../compte.js';
 
@@ -17,7 +17,16 @@ export let p = null;
 export let room = null, monId = null;
 export let combat = null, cible = null, carteChoisie = null;
 export const niveau = () => P.niveau(p);
-export function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.innerHTML = t; $('toasts').append(d); setTimeout(() => d.remove(), 3300); }
+// les messages éphémères (v61) : 3 au plus à l'écran, pas deux fois le même, et le temps de les lire
+export function toast(t) {
+  const box = $('toasts');
+  for (const x of box.children) if (x.dataset.t === t) { x.classList.remove('rejoue'); void x.offsetWidth; x.classList.add('rejoue'); return; }
+  while (box.children.length >= 3) box.firstElementChild.remove();
+  const d = document.createElement('div'), duree = Math.min(8000, 2600 + String(t).replace(/<[^>]+>/g, '').length * 45);
+  d.className = 'toast'; d.dataset.t = t; d.innerHTML = t; d.style.setProperty('--duree', `${duree}ms`);
+  d.onclick = () => d.remove();
+  box.append(d); setTimeout(() => d.remove(), duree);
+}
 export const ILLUS = new Set(['lance_magma', 'dragon', 'coeur_volcan', 'leviathan', 'ocean', 'arbre_monde', 'coeur_phenix', 'perle_abysses', 'trident', 'seve_doree', 'titan', 'archimage', 'fleche_lourde', 'maitre_armes', 'colere', 'couronne',
   'frappe', 'garde', 'coup_double', 'second_souffle', 'etincelle', 'flamme', 'tison', 'cendres', 'boule_de_feu',
   'incendie', 'combustion', 'phenix', 'meteore', 'jet', 'vague', 'bulle', 'maree', 'tsunami',
@@ -27,12 +36,25 @@ export const ILLUS = new Set(['lance_magma', 'dragon', 'coeur_volcan', 'leviatha
   'savoir', 'transmutation', 'rayon', 'tir', 'piege', 'tir_rapide', 'volee', 'fleche_poison', 'repli', 'pluie_fleches',
   'oeil_faucon', 'tir_precis', 'estoc', 'parade', 'botte', 'fente', 'garde_haute', 'elan', 'danse_lames', 'coup_grace', 'concentration', 'rage_ardente', 'feinte', 'coup_bouclier']);
 export const ILLUS_MONSTRES = new Set(['seigneur_magma', 'hydre', 'reine_epine', 'salamandre', 'diablotin', 'golem_cendre', 'feu_follet', 'phenix_cendre', 'chimere', 'crabe', 'meduse', 'sirene', 'anguille', 'tortue_dragon', 'kraken', 'champignon', 'loup_ronces', 'treant', 'guepe', 'cerf_emeraude', 'mante', 'titan_magma', 'leviathan_abyssal', 'ancien_sylvain']);
+// les mots-clés des cartes sont soulignés et expliqués au survol (v61)
+const MOTS = [
+  [/(Brûlure|brûlure)( \d+)?/g, STATUTS.brulure], [/Trempés?( \d+)?/g, STATUTS.trempe], [/Affaiblis?( \d+)?/g, STATUTS.affaibli],
+  [/Épines( \d+)?/g, STATUTS.epines], [/Régénération( \d+)?/g, STATUTS.regen], [/Force/g, STATUTS.force],
+  [/Épuisée/g, { nom: 'Épuisée', desc: 'Une fois jouée, la carte quitte le combat (elle ne revient pas dans la pioche).' }],
+  [/bouclier/g, { nom: 'Bouclier', desc: 'Absorbe les dégâts reçus jusqu’au début de ton prochain tour.' }],
+];
+export function texteCarte(txt) {
+  let h = esc(txt);
+  for (const [re, d] of MOTS) h = h.replace(re, (m) => `<b class="mot" title="${esc(d.nom)} : ${esc(d.desc)}">${m}</b>`);
+  return h.replace(/(\d+)(?![^<]*>)/g, '<b class="nb">$1</b>');
+}
+export const etoiles = (niv) => '★'.repeat(niv) + '☆'.repeat(Math.max(0, NIV_MAX - niv));
 export function carteHTML(id, niv = 1, extra = '') {
   const c = CARTES[id];
-  return `<div class="carte ${c.element} r-${c.rarete}${ILLUS.has(id) ? ' aIllus' : ''}" data-id="${id}" title="${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)}">
-    <span class="cc">${c.cout}</span><div class="cn">${esc(c.nom)}${niv > 1 ? ` ${'+'.repeat(niv - 1)}` : ''}</div>
-    ${ILLUS.has(id) ? `<div class="ci illus" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${id}.webp)"></div>` : `<div class="ci">${c.ico}</div>`}<div class="ct">${c.type} · ${RARETES[c.rarete].nom}</div>
-    <div class="cd">${esc(decrire(id, niv))}</div>${c.classe ? `<span class="cclasse" title="Carte de ${esc(CLASSES[c.classe].nom)}">${CLASSES[c.classe].ico}</span>` : ''}${extra}</div>`;
+  return `<div class="carte ${c.element} r-${c.rarete}${ILLUS.has(id) ? ' aIllus' : ''}${niv > 1 ? ` niv${niv}` : ''}" data-id="${id}" title="${esc(c.nom)} — ${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)} · niveau ${niv}/${NIV_MAX}">
+    <span class="cc">${c.cout}</span><div class="cn">${esc(c.nom)}</div>
+    ${ILLUS.has(id) ? `<div class="ci illus" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${id}.webp)"></div>` : `<div class="ci">${c.ico}</div>`}<div class="ct">${{ attaque: 'Attaque', defense: 'Défense', pouvoir: 'Pouvoir' }[c.type] || c.type} · ${RARETES[c.rarete].nom}</div>
+    <div class="cd">${texteCarte(decrire(id, niv))}</div>${niv > 1 ? `<span class="cniv" title="Niveau ${niv} sur ${NIV_MAX}">${etoiles(niv)}</span>` : ''}${c.classe ? `<span class="cclasse" title="Carte de ${esc(CLASSES[c.classe].nom)}">${CLASSES[c.classe].ico}</span>` : ''}${extra}</div>`;
 }
 export const coutHTML = (cout) => Object.entries(cout).map(([k, v]) => `<span class="${(p.ress[k] || 0) < v ? 'manque' : ''}">${nf(v)} ${ICO_RESS[k]}</span>`).join(' · ');
 export const ICO_RESS = { essence: '✨', braises: '🔥', perles: '🫧', seve: '🍃', eclats: '💠', cristal: '💎', perle_noire: '⚫', graine_or: '🌰' };

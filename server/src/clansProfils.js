@@ -20,6 +20,7 @@ import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
 import * as PS from '../../shared/clans/passe.js';
 import * as MA from '../../shared/clans/marchand.js';
+import * as HF from '../../shared/clans/hautsfaits.js';
 import { alea } from '../../shared/clans/combat.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
@@ -89,7 +90,7 @@ export const ACTIONS = {
   expeEntrer(p, m) {
     if (p.expedition?.combatEnCours) return { ok: false, raison: 'Un combat est en cours.' };
     const r = X.entrer(p, String(m.salle || ''));
-    return r.ok ? { ok: true, res: { type: r.type, soin: r.soin, gain: r.gain } } : { ok: false, raison: 'Salle inaccessible.' };
+    return r.ok ? { ok: true, res: { type: r.type, soin: r.soin, gain: r.gain, relique: r.relique } } : { ok: false, raison: r.raison || 'Salle inaccessible.' };
   },
   // le client envoie ses coups ; on rejoue le combat et on garde CE résultat
   expeCombat(p, m, ctx) {
@@ -113,6 +114,10 @@ export const ACTIONS = {
   // l'apparence : acheter une pièce, ou porter une pièce qu'on a
   apparenceAcheter(p, m) { return AP.acheter(p, m.id); },
   apparencePorter(p, m) { return AP.porter(p, m.id); },
+  // une relique à choisir après un élite (id, ou null pour passer)
+  expeRelique(p, m) { if (m.id !== null && typeof m.id !== 'string') return { ok: false }; return X.choisirRelique(p, m.id); },
+  // le titre affiché sous le nom (un haut fait atteint), ou aucun
+  titreChoisir(p, m) { return HF.choisirTitre(p, m.t ?? null); },
   // le marchand ambulant : prendre une de ses 3 offres (il faut être à côté de lui)
   marchandAcheter(p, m, ctx) { return MA.acheter(p, m.i, ctx?.pos); },
   // le passe de saison : réclamer les récompenses des niveaux atteints

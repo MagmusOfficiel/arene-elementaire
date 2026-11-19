@@ -15,6 +15,8 @@ import { afficherDuel, fermerDuel, finDuel } from './ui-duel.js';
 import { dansMonde, ecranClan, entrerMonde, majBarre, monde } from './ui-monde.js';
 import { majProjets } from './ui-projets.js';
 import { suivrePasse } from './ui-passe.js';
+import { fenetreFiche, suivreHautsFaits } from './ui-fiche.js';
+import * as HF from '../../../shared/clans/hautsfaits.js';
 import { afficherClassement, alerteSanctuaire, classArene, enFile, fenetreArene, majBandeauArene, sanctEtat, setClassArene, setEnFile, setSanctEtat, vueFenetre } from './ui-social.js';
 
 export function lireStockage() {
@@ -32,9 +34,9 @@ export function recevoirProfil(m) {
   if (m.p) { setP(P.completer(m.p)); try { localStorage.setItem(CLE, JSON.stringify({ p: m.p, sig: m.sig, jeton: m.jeton })); } catch { /* plein */ } }
   else try { localStorage.setItem(CLE, JSON.stringify({ jeton: m.jeton, sig: 'aucun', p: null })); } catch { /* plein */ }
   clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 2000);
-  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); if (dansMonde) monde.majMaParcelle(p.parcelle); }
+  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); if (dansMonde) monde.majMaParcelle(p.parcelle); }
   if (p && avant) annoncerQuetes(avant);
-  if (p) suivrePasse();
+  if (p) { suivrePasse(); suivreHautsFaits(); }
   if (p && gagneesAvant) for (const id of piecesGagnees()) if (!gagneesAvant.has(id)) { sfx.fanfare(); toast(`🎨 Nouvelle apparence débloquée : <b>${esc(AP.PIECES[id].nom)}</b> ! (bouton 👕)`); }
 }
 export const piecesGagnees = () => new Set(Object.keys(AP.PIECES).filter((id) => AP.PIECES[id].cond && AP.possede(p, id)));
@@ -109,6 +111,7 @@ export function brancher(room) {
     room.onMessage('classement', afficherClassement);
     room.onMessage('sanctuaires', (l) => { setSanctEtat(l); monde.majSanctuaires(l); });
     room.onMessage('projets', (v) => majProjets(v));
+    room.onMessage('fiche', (f) => fenetreFiche(f));
     room.onMessage('alerte', alerteSanctuaire);
     room.onMessage('areneFile', (m) => { setEnFile(m.en ? m.depuis : null); majBandeauArene(); if (vueFenetre() === 'arene') fenetreArene(false); });
     room.onMessage('areneClassement', (c) => { setClassArene(c); if (vueFenetre() === 'arene') fenetreArene(false); });
@@ -143,16 +146,16 @@ export const infosJ = new Map(), posJ = new Map();
 export let presents = new Set();
 export function listeJoueurs() {
   const l = [];
-  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '']); }
+  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '']); }
   return l;
 }
 export function listeEnLigne(liste) {
   derniereListe = liste; if (!p) return;
   const par = { feu: [], eau: [], plante: [] };
-  for (const [id, nom, clan, , , , statut, niv, classe] of liste) par[clan]?.push({ nom, niv, statut, classe, moi: id === monId });
+  for (const [id, nom, clan, , , , statut, niv, classe] of liste) par[clan]?.push({ id, nom, niv, statut, classe, moi: id === monId });
   if (!liste.length) par[p.clan].push({ nom: p.nom, niv: niveau(), classe: p.classe, moi: true });
   $('nbEnLigne').textContent = `(${Math.max(1, liste.length)})`;
-  $('listeClans').innerHTML = CLANS.map((k) => `<div class="groupeClan"><b class="${k}">${scores?.champion === k ? '👑 ' : ''}${ELEMENTS[k].ico} ${ELEMENTS[k].clan} · ${par[k].length}${scores ? ` <em class="pts">${nf(scores.clans[k])} pts</em>` : ''}</b>${par[k].map((j) => `<span>${j.moi ? '★ ' : ''}${CLASSES[j.classe]?.ico || ''} ${esc(j.nom)} <i>niv. ${j.niv}${j.statut === 'expedition' ? ' · en expédition' : j.statut === 'duel' ? ' · ⚔️ en duel' : j.statut === 'combat' ? ' · ☠ contre le boss' : ''}</i></span>`).join('')}</div>`).join('');
+  $('listeClans').innerHTML = CLANS.map((k) => `<div class="groupeClan"><b class="${k}">${scores?.champion === k ? '👑 ' : ''}${ELEMENTS[k].ico} ${ELEMENTS[k].clan} · ${par[k].length}${scores ? ` <em class="pts">${nf(scores.clans[k])} pts</em>` : ''}</b>${par[k].map((j) => `<span class="lienFiche" data-fiche="${j.moi ? 'moi' : esc(j.id || 'moi')}" title="Voir la fiche">${j.moi ? '★ ' : ''}${CLASSES[j.classe]?.ico || ''} ${esc(j.nom)} <i>niv. ${j.niv}${j.statut === 'expedition' ? ' · en expédition' : j.statut === 'duel' ? ' · ⚔️ en duel' : j.statut === 'combat' ? ' · ☠ contre le boss' : ''}</i></span>`).join('')}</div>`).join('');
 }
 export let canal = 'tous';
 document.querySelectorAll('#chatOnglets button').forEach((b) => b.onclick = () => { canal = b.dataset.c; document.querySelectorAll('#chatOnglets button').forEach((x) => x.classList.toggle('actif', x === b)); });

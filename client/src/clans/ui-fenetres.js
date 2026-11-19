@@ -2,7 +2,8 @@
 //  LES CLANS ÉLÉMENTAIRES — les fenêtres : parcelle, deck, tirages, expédition, apparence, quêtes
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
-import { CARTES, ELEMENTS, CLASSES, RARES, NIV_MAX } from '../../../shared/clans/cartes.js';
+import * as RQ from '../../../shared/clans/reliques.js';
+import { CARTES, ELEMENTS, CLASSES, RARES, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES, PALIERS, MALEDICTIONS, BOSS_CAUCHEMAR } from '../../../shared/clans/monstres.js';
 import * as P from '../../../shared/clans/profil.js';
 import * as X from '../../../shared/clans/expedition.js';
@@ -14,7 +15,7 @@ import { feuillePerso, dessinerAura } from './monde.js';
 import { sfx } from '../sfx.js';
 import { progress } from '../progress.js';
 import { lancerCombat } from './ui-combat.js';
-import { $, ICO_RESS, carteHTML, coutHTML, esc, nf, p, statut, toast } from './ui-commun.js';
+import { $, ICO_RESS, carteHTML, coutHTML, esc, etoiles, nf, p, statut, texteCarte, toast } from './ui-commun.js';
 import { dansMonde, fermer, guide, ouvrir } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
 import { propsSanct } from './ui-social.js';
@@ -44,24 +45,89 @@ export function fenetreParcelle() {
   });
 }
 export let filtreDeck = 'tous';
+// ---------- le deck et l'amélioration des cartes (refaits en v61) ----------
+const TYPES = { attaque: '⚔️ Attaques', defense: '🛡️ Défenses', pouvoir: '✨ Pouvoirs' };
+function statsDeck() {
+  const cartes = p.deck.map((id) => CARTES[id]), n = cartes.length, courbe = [0, 0, 0, 0];
+  for (const c of cartes) courbe[Math.min(3, c.cout)]++;
+  const types = Object.fromEntries(Object.keys(TYPES).map((t) => [t, cartes.filter((c) => c.type === t).length]));
+  const moy = n ? cartes.reduce((x, c) => x + c.cout, 0) / n : 0, max = Math.max(1, ...courbe);
+  return `<div class="statsDeck">
+    <div class="sdNombre ${n < P.DECK_MIN ? 'manque' : ''}"><b>${n}</b><small>cartes (${P.DECK_MIN} à ${P.DECK_MAX})</small></div>
+    <div class="sdCourbe" title="Combien de cartes coûtent 0, 1, 2 ou 3+ énergie">${courbe.map((k, i) => `<div><i style="height:${(k / max) * 100}%"></i><b>${k}</b><small>${i === 3 ? '3+' : i}⚡</small></div>`).join('')}</div>
+    <div class="sdTypes">${Object.entries(types).map(([t, k]) => `<span>${TYPES[t]} <b>${k}</b></span>`).join('')}<span>Coût moyen <b>${moy.toFixed(1)}</b> ⚡</span></div>
+  </div>`;
+}
+// pourquoi « + Deck » est grisé
+function raisonAjout(id) {
+  const c = p.collection[id], k = p.deck.filter((x) => x === id).length;
+  if (p.deck.length >= P.DECK_MAX) return `Ton deck est plein (${P.DECK_MAX} cartes) : retire une carte d'abord.`;
+  if (k >= P.COPIES_MAX) return `Déjà ${P.COPIES_MAX} exemplaires dans le deck (le maximum).`;
+  if (k >= c.n) return `Tous tes exemplaires (×${c.n}) sont déjà dans le deck. Tire-en d'autres à l'autel.`;
+  return '';
+}
+const peutPayer = (cout) => Object.entries(cout).every(([k, v]) => (p.ress[k] || 0) >= v);
 export function fenetreDeck() {
   guide.vu('deck');
   const ids = Object.keys(p.collection).filter((id) => p.collection[id].n > 0 && (filtreDeck === 'tous' || (filtreDeck === 'classe' ? !!CARTES[id].classe : filtreDeck === 'neutre' ? CARTES[id].element === 'neutre' && !CARTES[id].classe : CARTES[id].element === filtreDeck)))
     .sort((a, b) => CARTES[a].element.localeCompare(CARTES[b].element) || CARTES[a].cout - CARTES[b].cout);
-  const dansDeck = (id) => p.deck.filter((x) => x === id).length;
-  const lignes = [...new Set(p.deck)].sort((a, b) => CARTES[a].cout - CARTES[b].cout).map((id) => `<div class="ligne" data-r="${id}" title="Cliquer pour retirer"><span class="cout1">${CARTES[id].cout}</span>${CARTES[id].ico} ${esc(CARTES[id].nom)}${p.collection[id].niv > 1 ? ' +'.repeat(p.collection[id].niv - 1) : ''}<span style="margin-left:auto">×${dansDeck(id)}</span></div>`).join('');
-  ouvrir(`<h2>🃏 Ta collection et ton deck</h2><p class="sousTitre">Ton deck : de ${P.DECK_MIN} à ${P.DECK_MAX} cartes, ${P.COPIES_MAX} exemplaires d'une même carte au plus. Améliore tes cartes avec des éclats 💠 (tes doublons) et des matériaux.${bonusProjet('remise') ? ` <b>${PJ.PROJETS[p.clan].ico} Forge géante : −${Math.round(bonusProjet('remise') * 100)} % sur les améliorations cette semaine.</b>` : ''}</p>
-    <div class="filtres">${['tous', 'classe', 'feu', 'eau', 'plante', 'neutre'].map((f) => `<button data-f="${f}" class="${f === filtreDeck ? 'actif' : ''}">${f === 'tous' ? 'Toutes' : f === 'classe' ? `${CLASSES[p.classe].ico} Classes` : `${ELEMENTS[f].ico} ${ELEMENTS[f].nom}`}</button>`).join('')}</div>
+  const dansDeck = (id) => p.deck.filter((x) => x === id).length, remise = bonusProjet('remise');
+  const lignes = [...new Set(p.deck)].sort((a, b) => CARTES[a].cout - CARTES[b].cout || CARTES[a].nom.localeCompare(CARTES[b].nom)).map((id) => `<div class="ligne ${CARTES[id].element}" data-r="${id}" title="Retirer un exemplaire du deck"><span class="cout1">${CARTES[id].cout}</span><span class="nomL">${CARTES[id].ico} ${esc(CARTES[id].nom)}</span>${p.collection[id].niv > 1 ? `<span class="nivL">${etoiles(p.collection[id].niv)}</span>` : ''}<span class="nbL">×${dansDeck(id)}</span><span class="moins">−</span></div>`).join('');
+  const nbAmeliorables = ids.filter((id) => { const c = p.collection[id]; return c.niv < NIV_MAX && peutPayer(P.coutAmelioration(id, c.niv, remise)); }).length;
+  ouvrir(`<h2>🃏 Ta collection et ton deck</h2>
+    <p class="sousTitre">Clique sur <b>+ Deck</b> pour jouer une carte en combat, sur une ligne du deck pour la retirer. <b>Améliore</b> tes cartes avec des éclats 💠 (tes doublons) et des matériaux : elles deviennent plus fortes partout (expéditions, arène, duels).${remise ? ` <b>${PJ.PROJETS[p.clan].ico} Forge géante : −${Math.round(remise * 100)} % cette semaine.</b>` : ''}</p>
+    ${statsDeck()}
+    <div class="filtres">${['tous', 'classe', 'feu', 'eau', 'plante', 'neutre'].map((f) => `<button data-f="${f}" class="${f === filtreDeck ? 'actif' : ''}">${f === 'tous' ? 'Toutes' : f === 'classe' ? `${CLASSES[p.classe].ico} Classes` : `${ELEMENTS[f].ico} ${ELEMENTS[f].nom}`}</button>`).join('')}${nbAmeliorables ? `<span class="pastilleAm">⬆ ${nbAmeliorables} carte${nbAmeliorables > 1 ? 's' : ''} améliorable${nbAmeliorables > 1 ? 's' : ''}</span>` : ''}</div>
     <div class="deckZone"><div class="grilleCartes">${ids.map((id) => {
-      const c = p.collection[id], cout = c.niv < NIV_MAX ? P.coutAmelioration(id, c.niv, bonusProjet('remise')) : null;
-      return `<div class="carteCol">${carteHTML(id, c.niv, `<span class="cnb">×${c.n}</span>`)}<div class="actions"><button data-a="${id}" ${dansDeck(id) >= Math.min(c.n, P.COPIES_MAX) || p.deck.length >= P.DECK_MAX ? 'disabled' : ''}>+ Deck</button><button data-u="${id}" ${cout ? '' : 'disabled'} title="${cout ? Object.entries(cout).map(([k, v]) => `${v} ${k}`).join(', ') : 'Niveau max'}">⬆ ${cout ? coutHTML(cout) : 'max'}</button></div></div>`;
+      const c = p.collection[id], cout = c.niv < NIV_MAX ? P.coutAmelioration(id, c.niv, remise) : null, k = dansDeck(id), raison = raisonAjout(id), ok = cout && peutPayer(cout);
+      return `<div class="carteCol ${k ? 'enDeck' : ''}">${carteHTML(id, c.niv, `<span class="cnb" title="Exemplaires possédés">×${c.n}</span>${k ? `<span class="ruban">Deck ×${k}</span>` : ''}${ok ? '<span class="amPossible" title="Tu peux l’améliorer">⬆</span>' : ''}`)}
+        <div class="actions"><button data-a="${id}" ${raison ? `disabled title="${esc(raison)}"` : 'title="Ajouter un exemplaire au deck"'}>+ Deck</button><button data-u="${id}" class="${ok ? 'pret' : ''}" ${cout ? '' : 'disabled title="Niveau maximum atteint"'}>${cout ? '⬆ Améliorer' : `${etoiles(c.niv)} max`}</button></div></div>`;
     }).join('') || '<p>Aucune carte de ce type. Va faire des tirages !</p>'}</div>
-    <div><h3>Ton deck (${p.deck.length})</h3><div class="listeDeck">${lignes}</div></div></div>`, () => {
+    <div class="colDeck"><h3>Ton deck</h3><div class="listeDeck">${lignes || '<p>Ton deck est vide.</p>'}</div></div></div>`, () => {
+    $('fenetreCorps').dataset.vue = 'deck';
     $('fenetreCorps').querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtreDeck = b.dataset.f; fenetreDeck(); });
     $('fenetreCorps').querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => { const r = await faire('deckAjouter', { id: b.dataset.a }); if (!r.ok) return r.raison && toast(esc(r.raison)); fenetreDeck(); });
     $('fenetreCorps').querySelectorAll('[data-r]').forEach((b) => b.onclick = async () => { const r = await faire('deckRetirer', { id: b.dataset.r }); if (!r.ok) return toast(esc(r.raison || 'Impossible.')); fenetreDeck(); });
-    $('fenetreCorps').querySelectorAll('[data-u]').forEach((b) => b.onclick = async () => { const r = await faire('ameliorer', { id: b.dataset.u }); if (!r.ok) return r.raison && toast(esc(r.raison)); sfx.niveau(); toast(`${CARTES[b.dataset.u].nom} passe au niveau ${r.res.niv} !`); fenetreDeck(); });
+    $('fenetreCorps').querySelectorAll('[data-u]').forEach((b) => b.onclick = () => panneauAmelioration(b.dataset.u));
   });
+}
+// le panneau d'amélioration : la carte maintenant → au niveau suivant, ce qui change, ce que ça coûte
+function panneauAmelioration(id, juste = false) {
+  const c = p.collection[id], niv = c.niv, cout = niv < NIV_MAX ? P.coutAmelioration(id, niv, bonusProjet('remise')) : null;
+  const avant = decrire(id, niv), apres = cout ? decrire(id, niv + 1) : null;
+  // ce qui change : on compare les phrases une à une
+  const pa = avant.split(/(?<=\.) /), pb = apres ? apres.split(/(?<=\.) /) : [];
+  // même phrase avec d'autres nombres : on montre « 4 → 5 »
+  const forme = (x) => x.replace(/\d+/g, '#');
+  const diff = pb.map((x) => {
+    if (pa.includes(x)) return `<li class="pareil">${texteCarte(x)}</li>`;
+    const y = pa.find((z) => forme(z) === forme(x));
+    if (y) { const na = y.match(/\d+/g), nb = x.match(/\d+/g); let i = 0; return `<li class="mieux">${esc(x).replace(/\d+/g, (n) => { const k = i++; return na[k] !== nb[k] ? `<s>${na[k]}</s> → <b class="nb">${n}</b>` : n; })}</li>`; }
+    return `<li class="mieux">${texteCarte(x)} <em>(nouveau)</em></li>`;
+  }).join('');
+  const fond = document.createElement('div'); fond.className = 'panneauAm';
+  fond.innerHTML = `<div class="boiteAm"><button class="fermerAm" title="Fermer">✕</button>
+    <h3>⬆ Améliorer ${esc(CARTES[id].nom)}</h3>
+    <div class="avantApres"><div>${carteHTML(id, niv)}<small>Niveau ${niv} ${etoiles(niv)}</small></div>
+      ${cout ? `<span class="fleche">➜</span><div class="suivante ${juste ? '' : 'apparait'}">${carteHTML(id, niv + 1)}<small>Niveau ${niv + 1} ${etoiles(niv + 1)}</small></div>` : '<div class="maxAtteint">🏆 Niveau maximum atteint</div>'}</div>
+    ${cout ? `<div class="changements"><b>Au niveau ${niv + 1} :</b><ul>${diff}</ul></div>
+      <div class="coutAm">${Object.entries(cout).map(([k, v]) => { const a = p.ress[k] || 0; return `<span class="${a >= v ? 'ok' : 'manque'}">${ICO_RESS[k]} <b>${nf(v)}</b> <small>(tu as ${nf(a)})</small></span>`; }).join('')}</div>
+      <button class="bouton" id="btAmeliorer" ${peutPayer(cout) ? '' : 'disabled'}>${peutPayer(cout) ? `Améliorer au niveau ${niv + 1}` : 'Ressources insuffisantes'}</button>
+      ${peutPayer(cout) ? '' : `<p class="cout">Les éclats 💠 viennent de tes doublons aux tirages ; les matériaux, de ta parcelle et des expéditions${CARTES[id].element !== 'neutre' && CARTES[id].element !== p.clan ? ` (ou du marchand ambulant, qui échange les matériaux des autres clans)` : ''}.</p>`}` : ''}
+  </div>`;
+  $('fenetreCorps').querySelector('.panneauAm')?.remove();
+  $('fenetreCorps').append(fond);
+  const fermerP = () => { fond.remove(); fenetreDeck(); };
+  fond.querySelector('.fermerAm').onclick = fermerP;
+  fond.onclick = (e) => { if (e.target === fond) fermerP(); };
+  const bt = fond.querySelector('#btAmeliorer');
+  if (bt) bt.onclick = async () => {
+    bt.disabled = true;
+    const r = await faire('ameliorer', { id }); if (!r.ok) { bt.disabled = false; return r.raison && toast(esc(r.raison)); }
+    sfx.niveau(); toast(`⬆ <b>${esc(CARTES[id].nom)}</b> passe au niveau ${r.res.niv} ${etoiles(r.res.niv)} !`);
+    panneauAmelioration(id, true);
+    fond.querySelector('.avantApres .carte')?.classList.add('ameliore');
+  };
 }
 export function fenetreTirages(resultat = null) {
   statut('tirage');
@@ -93,15 +159,28 @@ export function fenetreExpedition(terr) {
     });
   }
   statut('expedition');
+  if (x.choixRelique) return fenetreRelique(x);
   const poss = X.choixPossibles(x), etages = [...x.carte.etages, [x.carte.boss]];
   ouvrir(`<h2>${TERRITOIRES[x.territoire].ico} ${esc(TERRITOIRES[x.territoire].nom)} — ${PALIERS[x.palier - 1].nom}</h2>
     ${x.mods?.length ? `<div class="malsExpe">${x.mods.map((k) => `<span class="malediction">${MALEDICTIONS[k].ico} <b>${MALEDICTIONS[k].nom}</b> — ${esc(MALEDICTIONS[k].desc)}</span>`).join('')}</div>` : ''}
-    <div class="etatExpe"><span>❤️ ${x.pv} / ${x.pvMax}</span><span>Butin : ${nf(x.butin.essence)} ✨ · ${nf(x.butin.mat)} ${ICO_RESS[ELEMENTS[x.territoire].materiau]}</span><span class="espace" style="flex:1"></span><button class="bouton second" id="btAbandon">Abandonner (moitié du butin)</button></div>
+    <div class="etatExpe"><span>❤️ ${x.pv} / ${x.pvMax}</span><span>Butin : ${nf(x.butin.essence)} ✨ · ${nf(x.butin.mat)} ${ICO_RESS[ELEMENTS[x.territoire].materiau]}</span>${reliquesHTML(x.reliques)}<span class="espace" style="flex:1"></span><button class="bouton second" id="btAbandon">Abandonner (moitié du butin)</button></div>
     <p class="sousTitre">Choisis ta prochaine salle (elles brillent). ⚔️ combat · 🌟 monstre rare (${RARES[x.territoire].ico}) · 💀 élite · 🏕️ feu de camp · 💎 trésor · 👑 boss</p>
     <div class="carteExpe" id="carteExpe"><svg id="liensExpe"></svg>${etages.map((et) => `<div class="etage">${et.map((s) => `<button class="salle ${s.type === 'boss' ? 'boss' : ''} ${poss.includes(s.id) ? 'possible' : ''} ${x.position === s.id ? 'ici' : ''}" data-s="${s.id}" ${poss.includes(s.id) ? '' : 'disabled'} title="${X.SALLES[s.type].nom}">${X.SALLES[s.type].ico}</button>`).join('')}</div>`).join('')}</div>`, () => {
     $('fenetreCorps').querySelectorAll('[data-s]').forEach((b) => b.onclick = () => entrerSalle(b.dataset.s));
     $('btAbandon').onclick = async () => { if (!confirm('Abandonner l’expédition ? Tu gardes la moitié du butin.')) return; const r = await faire('expeAbandon'); if (!r.ok) return r.raison && toast(esc(r.raison)); bilanExpedition(r.res); };
     requestAnimationFrame(tracerLiens);
+  });
+}
+// ---------- les reliques d'expédition (v59) ----------
+export const reliquesHTML = (l) => (l?.length ? `<span class="reliquesExpe">${l.map((id) => `<i title="${esc(RQ.RELIQUES[id].nom)} : ${esc(RQ.RELIQUES[id].desc)}">${RQ.RELIQUES[id].ico}</i>`).join('')}</span>` : '');
+function fenetreRelique(x) {
+  ouvrir(`<h2>🏺 Une relique pour la route</h2>
+    <p class="sousTitre">L'élite vaincu gardait un trésor. Choisis <b>une</b> relique : elle t'accompagne jusqu'à la fin de cette expédition.${x.reliques?.length ? ` Tu as déjà : ${reliquesHTML(x.reliques)}` : ''}</p>
+    <div class="choixReliques">${x.choixRelique.map((id) => { const rq = RQ.RELIQUES[id]; return `<button class="relique" data-rq="${id}"><span class="ico">${rq.ico}</span><b>${esc(rq.nom)}</b><small>${esc(rq.desc)}</small><em>${rq.quand === 'combat' ? 'en combat' : 'pour l’expédition'}</em></button>`; }).join('')}</div>
+    <p class="cout"><button class="lien" id="btPasserRelique">Passer (40 ✨ à la place)</button></p>`, () => {
+    const choisir = async (id) => { const r = await faire('expeRelique', { id }); if (!r.ok) return toast(esc(r.raison || 'Impossible.')); if (id) { sfx.fanfare(); toast(`🏺 <b>${RQ.RELIQUES[id].ico} ${esc(RQ.RELIQUES[id].nom)}</b> t'accompagne.`); } fenetreExpedition(x.territoire); };
+    $('fenetreCorps').querySelectorAll('[data-rq]').forEach((b) => b.onclick = () => choisir(b.dataset.rq));
+    $('btPasserRelique').onclick = () => choisir(null);
   });
 }
 export function tracerLiens() {
@@ -116,7 +195,7 @@ export async function entrerSalle(id) {
   const rep = await faire('expeEntrer', { salle: id }); if (!rep.ok) return rep.raison && toast(esc(rep.raison));
   const r = rep.res;
   if (r.type === 'repos') { toast(`🏕️ Tu te reposes : +${r.soin} PV`); return fenetreExpedition(p.expedition.territoire); }
-  if (r.type === 'tresor') { toast(`💎 Trésor : +${r.gain.essence} ✨, +${r.gain.mat} matériaux`); return fenetreExpedition(p.expedition.territoire); }
+  if (r.type === 'tresor') { const rq = r.relique && RQ.RELIQUES[r.relique]; toast(`💎 Trésor : +${r.gain.essence} ✨, +${r.gain.mat} matériaux${rq ? `, et une relique : <b>${rq.ico} ${esc(rq.nom)}</b> — ${esc(rq.desc)}` : ''}`); if (rq) sfx.fanfare(); return fenetreExpedition(p.expedition.territoire); }
   lancerCombat(X.combatDe(p, id), r.type);
 }
 export function bilanExpedition(r) {

@@ -54,6 +54,7 @@ export function resultat(p, eloAdv, issue, reflet, jour) {
   const a = p.arene, score = issue === 'victoire' ? 1 : issue === 'nul' ? 0.5 : 0;
   const delta = variation(a.elo, eloAdv, score, reflet);
   a.elo = Math.max(0, a.elo + delta); a.meilleur = Math.max(a.meilleur, a.elo);
+  if (p.stats) p.stats.areneMax = Math.max(p.stats.areneMax || 0, a.meilleur);   // le record de toutes les saisons (hauts faits, v60)
   if (issue === 'victoire') a.v++; else if (issue === 'defaite') a.d++;
   if (a.jour !== jour) { a.jour = jour; a.payees = 0; }
   let gain = { essence: 0, eclats: 0 };

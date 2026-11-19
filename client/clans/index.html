@@ -34,10 +34,12 @@
       <div id="menuBarre">
         <button id="btMenu" title="Plus : apparence, familiers, arène, clans, son" aria-haspopup="true" aria-expanded="false">☰<span> Plus</span></button>
         <div id="menuListe" class="cache" role="menu">
+          <button id="btFiche" role="menuitem">🏅 Ma fiche et hauts faits <small>H</small></button>
           <button id="btApparence" role="menuitem">👕 Apparence</button>
           <button id="btFamiliers" role="menuitem">🐾 Familiers <small>F</small></button>
           <button id="btArene" role="menuitem">🏟️ Arène classée</button>
           <button id="btClassement" role="menuitem">🏆 Rivalité des clans</button>
+          <button id="btAide" role="menuitem">❓ Comment jouer <small>?</small></button>
           <button id="btSon" role="menuitem">🔊 Son <small>M</small></button>
         </div>
       </div>
@@ -51,7 +53,7 @@
     <div id="chat"><div id="chatOnglets"><button data-c="tous" class="actif">Tous</button><button data-c="clan">Mon clan</button></div><div id="chatMsgs"></div><input id="chatTexte" maxlength="140" placeholder="Écrire… (Entrée)"></div>
     <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guideOk" class="cache">Compris</button><button id="guidePasser" title="Masquer le guide et ses astuces">Passer</button></div>
     <div id="tactile" class="cache"><div id="joy"><i id="joyBouton"></i></div><button id="btAgir">✋</button><button id="btChatMobile">💬</button></div>
-    <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir</div>
+    <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir · <b>?</b> aide</div>
   </section>
 
   <!-- Fenêtres -->
@@ -63,9 +65,12 @@
     <canvas id="cbAmbiance" class="ambiance"></canvas>
     <div class="voile"></div>
     <div id="cbHaut" class="haut"><span id="cbTitre"></span><span id="cbInfo"></span></div>
+    <div id="cbTour" class="tourCb"></div>
     <div id="cbTalent" class="talent"></div>
+    <div id="cbReliques" class="reliquesCb"></div>
     <div class="arene">
       <div id="cbHeros" class="heros">
+        <div id="cbMenace" class="menace"></div>
         <div class="combattant"><canvas id="cbFam" class="familier cache" width="12" height="11"></canvas><canvas id="cbSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
         <div class="jauge"><span id="cbBloc" class="bouclier"></span><div class="barre vie"><i id="cbPvF" class="fantome"></i><i id="cbPv"></i><b id="cbPvTxt"></b></div></div>
         <div id="cbStatuts" class="statuts"></div>
@@ -77,7 +82,7 @@
     <div id="cbDefausse" class="pile defausse" title="Défausse"><i></i><b></b></div>
     <span id="cbEpuisees" class="epuisees" title="Cartes épuisées"></span>
     <div id="cbMain" class="main"></div>
-    <button id="btFinTour" class="finTour">Fin du tour</button>
+    <button id="btFinTour" class="finTour" title="Finir ton tour : les ennemis agissent (touche E)">Fin du tour</button>
     <button id="btVitesse" class="vitesse" title="Vitesse des animations (touche V)">⏩ ×1</button>
     <div id="cbAide" class="aide"></div>
     <canvas id="cbFx" class="fx"></canvas>

@@ -15,6 +15,7 @@ import { etatChargement, faire, majPastille } from './ui-reseau.js';
 import { cibleAlerte } from './ui-social.js';
 import { fenetreProjet } from './ui-projets.js';
 import { fenetreMarchand, marchandBouge } from './ui-marchand.js';
+import { voirFiche } from './ui-fiche.js';
 import * as PJ from '../../../shared/clans/projets.js';
 import * as F from '../../../shared/clans/familiers.js';
 import * as PS from '../../../shared/clans/passe.js';
@@ -81,6 +82,7 @@ export let derniereTerr = undefined;
 export const monde = creerMonde($('monde'), {
   libre: () => $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
   marchandBouge: (m) => marchandBouge(m),
+  fiche: (id) => voirFiche(id),
   agir: (l) => {
     if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle();
     else if (l.action === 'projet') fenetreProjet();
@@ -200,7 +202,7 @@ export const guide = (() => {
     if (!p || !dansMonde || etat.off) { g.classList.add('cache'); monde.guider(cibleAlerte()); return; }
     while (etat.n < ETAPES.length && ETAPES[etat.n].fait()) {
       etat.n++; garder();
-      if (etat.n >= ETAPES.length) { sfx.fanfare(); toast('🎓 <b>Premiers pas terminés !</b> Le guide te montrera encore quelques astuces au fil du jeu.'); attente = Date.now() + 30000; return maj(); }
+      if (etat.n >= ETAPES.length) { sfx.fanfare(); toast('🎓 <b>Premiers pas terminés !</b> Le guide te montrera encore quelques astuces, et le menu ☰ → <b>Comment jouer</b> explique tout.'); attente = Date.now() + 30000; return maj(); }
       sfx.orb();
     }
     let e, titre;
