@@ -9,7 +9,7 @@ import * as PS from '../../../shared/clans/passe.js';
 import { saisonDe } from '../../../shared/clans/arene.js';
 import { sfx } from '../sfx.js';
 import { $, ICO_RESS, esc, nf, p, toast } from './ui-commun.js';
-import { dansMonde, ouvrir } from './ui-monde.js';
+import { dansMonde, guide, ouvrir } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
 import { codeAvec, dureeAvant, vignette } from './ui-fenetres.js';
 
@@ -20,6 +20,7 @@ const etat = () => (p.passe?.s === saisonDe().id ? p.passe : { s: saisonDe().id,
 const texteRec = (r) => [r.essence && `${nf(r.essence)} ✨`, r.eclats && `${r.eclats} 💠`, r.rare && `${r.rare} ${ICO_RESS[RARES[p.clan].id]}`, r.piece && `🎨 ${esc(AP.PIECES[r.piece].nom)}`].filter(Boolean).join(' + ');
 
 export function fenetrePasse() {
+  guide.vu('a_passe');
   const x = etat(), niv = PS.niveauDe(x.xp), lot = PS.lotDe(x.s), dans = x.xp - niv * PS.XP_NIVEAU, fini = niv >= PS.NIVEAUX, n = PS.aReclamer(p);
   ouvrir(`<h2>🎟️ Passe de saison — ${esc(nomSaison(x.s))}</h2>
     <p class="sousTitre">Gratuit pour tous : chaque activité fait gagner de l'XP. 30 niveaux, ${PS.XP_NIVEAU} XP chacun. La saison se termine dans <b>${dureeAvant(PS.finSaison())}</b> (les récompenses atteintes et pas réclamées sont données d'office). Ce mois-ci, le lot exclusif est « <b>${esc(lot.nom)}</b> » : une tenue, une couleur de cheveux et une aura, introuvables ailleurs.</p>

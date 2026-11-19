@@ -214,6 +214,8 @@ button { font: inherit; cursor: pointer; }
 #guide.cache { display: none; }
 #guideEtape { color: var(--or); font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 13px; margin-bottom: 4px; }
 #guidePasser { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #8a8070; font-size: 12px; text-decoration: underline; }
+#guideOk { margin-top: 8px; background: var(--or); color: #1a1208; border: none; border-radius: 6px; padding: 4px 12px; font-weight: bold; font-size: 13px; cursor: pointer; }
+#guideOk.cache { display: none; }
 
 /* ---------- contrôles tactiles ---------- */
 #tactile.cache { display: none; }
@@ -375,7 +377,7 @@ body.tactile #bandeauSanct { bottom: 180px; }
 .famNouveau .vignetteFam { width: 96px; height: 88px; animation: sautille2 .8s steps(2) infinite; }
 @keyframes sautille2 { 50% { transform: translateY(-4px); } }
 /* barre du haut : sur les écrans moyens, les boutons n'affichent que leur icône (le nom est dans l'infobulle) */
-@media (max-width: 1500px) and (min-width: 761px) { #barre button span { display: none; } #barre button { padding: 7px 11px; } }
+@media (max-width: 1500px) and (min-width: 761px) { #barre button span { display: none; } #barre button { padding: 7px 11px; } #barre { gap: 10px; } #ressources { gap: 8px; } }
 
 /* ---------- passe de saison (v54) ---------- */
 .passeHaut { display: flex; align-items: center; gap: 14px; margin: 8px 0 12px; }
@@ -398,3 +400,34 @@ body.tactile #bandeauSanct { bottom: 180px; }
 .pnv.recu { opacity: .9; }
 .pnv i { position: absolute; top: 4px; right: 6px; color: #7ac860; font-style: normal; font-weight: bold; }
 @media (max-width: 760px) { .passeHaut { flex-wrap: wrap; justify-content: space-between; } .passeJauge { flex-basis: 100%; order: 3; } .passeExclu .piece { width: 100px; } }
+
+/* ---------- menu « Plus » de la barre du haut (v56) ---------- */
+#menuBarre { position: relative; }
+#menuListe { position: absolute; right: 0; top: calc(100% + 6px); min-width: 210px; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: rgba(14,10,22,.97); border: 1px solid rgba(232,192,96,.5); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.6); z-index: 20; }
+#menuListe.cache { display: none; }
+#barre #menuListe button { text-align: left; border: none; background: none; padding: 9px 12px; border-radius: 6px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+#barre #menuListe button:hover { background: rgba(232,192,96,.16); }
+#menuListe small { color: #8a8070; font-size: 11px; border: 1px solid #5a5040; border-radius: 4px; padding: 0 5px; }
+body.tactile #menuListe small { display: none; }
+
+@media (max-width: 760px) {
+  /* deux lignes au plus : identité + boutons, puis les ressources qui défilent sur une ligne */
+  #barre { flex-wrap: wrap; row-gap: 5px; }
+  #moi { min-width: 0; flex: 0 1 auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+  #moi .nomClan { display: none; }
+  #barre .espace { flex: 1 0 0; }
+  #ressources { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+  #ressources::-webkit-scrollbar { display: none; }
+  #ressources span { flex: 0 0 auto; }
+  #barre button { padding: 6px 8px; }
+  #menuListe { position: fixed; right: 8px; top: calc(var(--hautBarre, 80px) + 4px); }
+}
+#moi .nomClan { font-style: normal; }
+#barre.menuOuvert { z-index: 40; }   /* le menu passe au-dessus d'une fenêtre ouverte */
+
+/* ---------- marchand ambulant (v58) ---------- */
+.marchand { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.offre { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(0,0,0,.28); border: 1px solid rgba(232,192,96,.35); border-radius: 10px; padding: 10px 14px; }
+.offre.prise { opacity: .55; }
+.offre .echange { display: flex; align-items: center; gap: 12px; font-size: 16px; flex-wrap: wrap; }
+.offre .echange i { color: var(--or); font-style: normal; font-size: 20px; }

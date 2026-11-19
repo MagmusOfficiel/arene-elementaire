@@ -26,6 +26,7 @@ import './ui-duel.js';
 import './ui-projets.js';
 import './ui-familiers.js';
 import './ui-passe.js';
+import './ui-marchand.js';
 import { coups, etatMondial, lancerCombat } from './ui-combat.js';
 import { $, combat, p, room } from './ui-commun.js';
 import { monde } from './ui-monde.js';

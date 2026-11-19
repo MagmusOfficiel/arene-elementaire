@@ -156,11 +156,19 @@ def scenario(b):
     verifier(True, 'la barre du projet est mise à jour par le serveur')
     fermer(A)
 
+    etape('Marchand ambulant')
+    m = etat(A, '({ x: c.monde.marchand.x, y: c.monde.marchand.y, slot: c.monde.marchand.slot })')
+    aller(A, m['x'], m['y'] + 20); A.keyboard.press('e'); A.wait_for_selector('[data-offre]', timeout=5000)
+    verifier(A.locator('.offre').count() == 3, 'le marchand propose 3 échanges')
+    A.click('[data-offre="0"]'); A.wait_for_function(f"__clans.p.marchand?.slot === {m['slot']} && __clans.p.marchand.l.includes(0)", timeout=8000)
+    verifier(A.locator('.offre.prise').count() == 1, 'un échange conclu, il ne se refait pas avant le prochain passage')
+    fermer(A)
+
     etape('Quêtes et apparence')
     A.keyboard.press('j'); A.wait_for_timeout(400)
     verifier(A.locator('.quete').count() >= 6, 'la fenêtre des quêtes s’ouvre (3 du jour + bonus + 2 de la semaine)')
     fermer(A)
-    A.click('#btApparence'); A.wait_for_timeout(400); A.click('.garde .onglets button[data-o="chapeau"]'); A.wait_for_timeout(300)
+    A.click('#btMenu'); A.click('#btApparence'); A.wait_for_timeout(400); A.click('.garde .onglets button[data-o="chapeau"]'); A.wait_for_timeout(300)
     A.click('[data-acheter="h_paille"]'); A.wait_for_function("__clans.AP.code(__clans.p).includes('h_paille')", timeout=8000)
     verifier(True, 'chapeau de paille acheté et porté')
     A.click('.garde .onglets button[data-o="tenue"]'); A.wait_for_timeout(300); A.click('[data-acheter="t_nuit"]')
@@ -184,6 +192,13 @@ def scenario(b):
     A.locator('.salle.possible').first.click(force=True)
     A.wait_for_selector('#combat:not(.cache)', timeout=10000)
     verifier(A.locator('#cbFam:not(.cache)').count() == 1 and etat(A, 'c.combat.ennemis.every((e) => e.brulure >= 2)'), 'la Salamandre est dans le combat et brûle les ennemis')
+    A.wait_for_timeout(1200); vu = False
+    for i in range(A.locator('#cbMain .carte').count()):
+        A.hover(f'#cbMain .carte[data-i="{i}"]'); A.wait_for_timeout(150)
+        if A.locator('#combat .apercu').count(): vu = True; break
+    verifier(vu, 'au survol d’une carte, l’aperçu de ses effets réels s’affiche')
+    A.mouse.move(5, 5); A.wait_for_timeout(150)
+    verifier(A.locator('#combat .apercu').count() == 0, 'l’aperçu disparaît quand la souris quitte la carte')
     jouer_combat(A)
     A.wait_for_function(f'__clans.p.stats.combats > {v0}', timeout=10000)
     verifier(True, 'le combat est fini et validé par le serveur (le serveur a rejoué les coups)')
@@ -199,7 +214,7 @@ def scenario(b):
     fermer(A)
 
     etape('Arène contre un Reflet, et coupure réseau en plein duel')
-    A.click('#btArene'); A.wait_for_timeout(500); A.click('#btFile')
+    A.click('#btMenu'); A.click('#btArene'); A.wait_for_timeout(500); A.click('#btFile')
     A.wait_for_selector('#duel:not(.cache)', timeout=15000)
     verifier('Arène' in A.inner_text('#duTitre'), 'un adversaire est trouvé (Reflet)')
     A.wait_for_timeout(2000)

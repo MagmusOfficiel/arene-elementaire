@@ -10,7 +10,7 @@ import * as PJ from '../../../shared/clans/projets.js';
 import { NOMS_CLANS } from '../../../shared/clans/mondial.js';
 import { sfx } from '../sfx.js';
 import { $, ICO_RESS, esc, nf, p, toast } from './ui-commun.js';
-import { monde, ouvrir } from './ui-monde.js';
+import { guide, monde, ouvrir } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
 import { dureeAvant } from './ui-fenetres.js';
 
@@ -25,6 +25,7 @@ export const bonusProjet = (cle) => (p ? PJ.bonusDe(projets, p.clan, cle) : 0);
 const DONS = [{ essence: 100 }, { essence: 500 }, { essence: 2000 }, { materiau: 10 }, { materiau: 50 }, { materiau: 200 }];
 export function fenetreProjet() {
   if (!p || !projets) return toast('Le chantier se prépare…');
+  guide.vu('a_projet');
   const k = p.clan, def = PJ.PROJETS[k], pr = projets.clans[k], km = PJ.MATERIAUX[k];
   const pc = Math.min(100, (pr.pts / pr.objectif) * 100), fini = pr.pts >= pr.objectif, moi = p.projet?.s === projets.semaine ? p.projet.pts : 0;
   const actif = PJ.bonusActif(projets, k);

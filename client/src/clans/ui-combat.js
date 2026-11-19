@@ -79,7 +79,7 @@ export async function voler(el, cible, element, fx, { duree = 380, petite = 0.35
 export async function defausserMain(mainEl, pile) {
   const cartes = [...mainEl.querySelectorAll('.carte')];
   cartes.forEach((k, i) => setTimeout(() => voler(k, pile, null, null, { duree: 260, petite: 0.25 }), i * 45));
-  if (cartes.length) { await pause(260 + cartes.length * 45); rejouerAnim(pile, 'recoit'); }
+  if (cartes.length) { await pauseCb(260 + cartes.length * 45); rejouerAnim(pile, 'recoit'); }
 }
 export function distribuer(mainEl, pile, delai = 0) {
   const pc = centre(pile);
@@ -142,10 +142,67 @@ export function dessinerCombat(donner = false, entree = false) {
   $('cbEpuisees').textContent = c.epuisees.length ? `🔥 ${c.epuisees.length}` : '';
   $('btFinTour').classList.toggle('invite', !c.fini && !c.main.some((_, i) => C.jouable(c, i)));
   $('cbAide').textContent = carteChoisie != null ? (monde.tactile ? 'Touche un ennemi pour le viser' : 'Choisis une cible (clic droit ou Échap pour annuler)') : '';
-  $('cbMain').querySelectorAll('.carte').forEach((d) => d.onclick = (ev) => { ev.stopPropagation(); choisirCarte(+d.dataset.i); });
+  $('cbMain').querySelectorAll('.carte').forEach((d) => {
+    d.onclick = (ev) => { ev.stopPropagation(); if (appuiLong) { appuiLong = false; return; } choisirCarte(+d.dataset.i); };
+    // aperçu au survol (souris) ; au doigt : appui long (la carte n'est alors pas jouée en relâchant)
+    d.onpointerenter = (ev) => { if (ev.pointerType === 'mouse' && carteChoisie == null && !animCb) apercu(+d.dataset.i); };
+    d.onpointerleave = (ev) => { clearTimeout(minuterieAppui); if (ev.pointerType === 'mouse' && carteChoisie == null) effacerApercu(); };
+    d.onpointerdown = (ev) => { if (ev.pointerType === 'mouse' || animCb) return; appuiLong = false; clearTimeout(minuterieAppui); minuterieAppui = setTimeout(() => { appuiLong = true; apercu(+d.dataset.i); d.classList.add('inspectee'); }, 320); };
+    d.onpointerup = d.onpointercancel = (ev) => { if (ev.pointerType === 'mouse') return; clearTimeout(minuterieAppui); if (appuiLong) { d.classList.remove('inspectee'); setTimeout(() => { if (carteChoisie == null) effacerApercu(); }, 900); } };
+    d.oncontextmenu = (ev) => { if (ev.pointerType !== 'mouse') ev.preventDefault(); };
+  });
+  if (carteChoisie != null) apercu(carteChoisie); else effacerApercu();
   $('cbEnnemis').querySelectorAll('.ennemi').forEach((d) => d.onclick = () => { if (carteChoisie != null) jouer(carteChoisie, d.dataset.e); });
   if (donner) distribuer($('cbMain'), $('cbPioche'), entree ? 450 : 0);
 }
+// ---------- vitesse des animations (v57) : ×1, ×2 ou ×3, gardée d'une partie à l'autre ----------
+let vitesseCb = (() => { try { return [1, 2, 3].includes(+localStorage.getItem('clansVitesse')) ? +localStorage.getItem('clansVitesse') : 1; } catch { return 1; } })();
+const pauseCb = (ms) => pause(ms / vitesseCb);
+function majVitesse() { $('btVitesse').textContent = `⏩ ×${vitesseCb}`; $('btVitesse').classList.toggle('rapide', vitesseCb > 1); document.documentElement.style.setProperty('--vitesseCb', vitesseCb); }
+function changerVitesse() { vitesseCb = vitesseCb % 3 + 1; try { localStorage.setItem('clansVitesse', vitesseCb); } catch { /* rien */ } majVitesse(); }
+$('btVitesse').onclick = (e) => { e.stopPropagation(); changerVitesse(); };
+addEventListener('keydown', (e) => { if ((e.key === 'v' || e.key === 'V') && e.target.tagName !== 'INPUT' && !$('combat').classList.contains('cache')) changerVitesse(); });
+majVitesse();
+
+// ---------- aperçu des effets réels d'une carte (v57) ----------
+// on joue la carte sur une copie du combat : force, affaibli, trempé, talents, bouclier ennemi… tout est compté.
+function simuler(i, cible) {
+  const k = structuredClone({ ...combat, _r: undefined, ev: undefined });
+  k._r = () => 0.5; k.journal = [];
+  if (!C.jouerCarte(k, i, cible)) return null;
+  return k;
+}
+export function apercu(i) {
+  effacerApercu();
+  if (i == null || !combat || combat.fini || !C.jouable(combat, i)) return;
+  const k = combat.main[i], vivants = combat.ennemis.filter((e) => e.pv > 0), cible = C.besoinCible(k.id) && vivants.length > 1;
+  const resultats = cible ? vivants.map((e) => [e.uid, simuler(i, e.uid)]) : [[null, simuler(i, vivants[0]?.uid)]];
+  let heros = null;
+  for (const [uid, s] of resultats) {
+    if (!s) continue;
+    for (const e of combat.ennemis) {
+      if (e.pv <= 0 || (uid && e.uid !== uid)) continue;
+      const apres = s.ennemis.find((x) => x.uid === e.uid), pv = e.pv - Math.max(0, apres.pv), bloc = e.bloc - apres.bloc;
+      const st = ['brulure', 'trempe', 'affaibli'].filter((x) => apres[x] > e[x]).map((x) => `${STATUTS[x].ico}+${apres[x] - e[x]}`);
+      if (!pv && !bloc && !st.length) continue;
+      const d = document.createElement('div'); d.className = `apercu ${apres.pv <= 0 ? 'mortel' : ''}`;
+      d.innerHTML = `${apres.pv <= 0 ? '☠ ' : ''}${pv ? `−${pv}` : ''}${bloc > 0 ? ` <small>🛡−${bloc}</small>` : ''}${st.length ? ` <small>${st.join(' ')}</small>` : ''}`;
+      elEnnemi(e.uid)?.append(d);
+    }
+    heros ||= s;
+  }
+  if (heros) {
+    const j = combat.joueur, h = heros.joueur, parts = [];
+    if (h.bloc > j.bloc) parts.push(`🛡+${h.bloc - j.bloc}`);
+    if (h.pv > j.pv) parts.push(`❤+${h.pv - j.pv}`);
+    if (h.force > j.force) parts.push(`💪+${h.force - j.force}`);
+    if (heros.energie > combat.energie - C.coutDe(combat, i)) parts.push(`⚡+${heros.energie - (combat.energie - C.coutDe(combat, i))}`);
+    if (parts.length) { const d = document.createElement('div'); d.className = 'apercu soi'; d.textContent = parts.join(' '); $('cbHeros').append(d); }
+  }
+}
+let appuiLong = false, minuterieAppui = null;
+export function effacerApercu() { document.querySelectorAll('#combat .apercu').forEach((d) => d.remove()); }
+
 export function choisirCarte(i) {
   if (animCb) return;
   if (!C.jouable(combat, i)) return toast("Pas assez d'énergie.");
@@ -175,44 +232,44 @@ export async function jouerEvenements(evs) {
         if (e.bloque > 0) nombre(z, `🛡 ${e.bloque}`, 'bloque', 34);
         majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), e.bloc);
         if (e.a === 'j') { secouer(sc, e.deg >= 10); if (e.deg) flash(sc, 'rgba(220,30,20,.32)'); sfx.hurt(); } else { sfx.coup(); if (e.deg >= 15) secouer(sc, false); }
-        await pause(e.de === 'j' ? 210 : 300); break;
+        await pauseCb(e.de === 'j' ? 210 : 300); break;
       }
       case 'epines': {
         if (!z) break; const c = centre(z);
         fx.eclats(c.x, c.y, PALETTES.plante, 14, { vitesse: 200 }); nombre(z, `🌵 −${e.deg}`, 'deg'); rejouerAnim(blocDe(e.a), 'touche');
-        majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), e.bloc); await pause(220); break;
+        majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), e.bloc); await pauseCb(220); break;
       }
       case 'mort': {
         const el = elEnnemi(e.a); if (!el) break; const c = centre(el.querySelector('.portrait'));
         fx.eclats(c.x, c.y, PALETTES.mort, 56, { vitesse: 360, g: 90, taille: 5, vie: 1.2 }); fx.anneau(c.x, c.y, '#d8c8ff', 150, { ep: 10, vie: 0.6 }); fx.eclair(c.x, c.y, '#ffffff', 160);
-        el.classList.remove('touche'); el.classList.add('mort'); sfx.orb(); await pause(380); break;
+        el.classList.remove('touche'); el.classList.add('mort'); sfx.orb(); await pauseCb(380); break;
       }
       case 'bloc': {
         if (!z) break; const c = centre(z);
         fx.anneau(c.x, c.y, '#8ac8ff', 95, { ep: 9 }); fx.eclats(c.x, c.y, PALETTES.bloc, 16, { vitesse: 170, g: 0 });
-        nombre(z, `+${e.n} 🛡`, 'bloc'); const j = jaugeDe(e.a); majJauge(j, +j.dataset.pv, pvMaxDe(e.a), e.bloc); sfx.bouclier(); await pause(220); break;
+        nombre(z, `+${e.n} 🛡`, 'bloc'); const j = jaugeDe(e.a); majJauge(j, +j.dataset.pv, pvMaxDe(e.a), e.bloc); sfx.bouclier(); await pauseCb(220); break;
       }
       case 'soin': {
         if (!z || !e.n) break; const c = centre(z);
-        fx.monte(c.x, c.y + 20, PALETTES.soin, 22, 70); nombre(z, `+${e.n}`, 'soin'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); sfx.heal(); await pause(240); break;
+        fx.monte(c.x, c.y + 20, PALETTES.soin, 22, 70); nombre(z, `+${e.n}`, 'soin'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); sfx.heal(); await pauseCb(240); break;
       }
       case 'statut': {
         if (!z) break; const c = centre(z), st = STATUTS[e.k];
         const pal = { brulure: PALETTES.feu, trempe: PALETTES.eau, affaibli: PALETTES.mort, epines: PALETTES.plante, regen: PALETTES.soin, force: PALETTES.or }[e.k] || PALETTES.neutre;
         if (e.k === 'force' || e.k === 'regen') fx.monte(c.x, c.y + 20, pal, 14, 60); else fx.eclats(c.x, c.y, pal, 12, { vitesse: 140, g: -40 });
-        nombre(z, `${st?.ico || ''}+${e.n}`, 'statut', -10); await pause(170); break;
+        nombre(z, `${st?.ico || ''}+${e.n}`, 'statut', -10); await pauseCb(170); break;
       }
       case 'brule': {
         if (!z) break; const c = centre(z);
         fx.eclats(c.x, c.y + 10, PALETTES.feu, 24, { vitesse: 160, g: -260, angle: -1.57, ecart: 1.4 }); nombre(z, `🔥 −${e.deg}`, 'brule');
-        rejouerAnim(blocDe(e.a), 'touche'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); if (e.a === 'j') sfx.hurt(); await pause(300); break;
+        rejouerAnim(blocDe(e.a), 'touche'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); if (e.a === 'j') sfx.hurt(); await pauseCb(300); break;
       }
       case 'energie': rejouerAnim($('cbEnergie'), 'change'); break;
-      case 'tourEnnemi': banniere('cbBanniere', 'Tour ennemi', 'rouge', 950); await pause(700); break;
+      case 'tourEnnemi': banniere('cbBanniere', 'Tour ennemi', 'rouge', 950); await pauseCb(700); break;
       case 'agit': {
         const el = elEnnemi(e.a); if (!el) break;
         el.classList.add('agit'); setTimeout(() => el.classList.remove('agit'), 600);
-        if (e.attaque) { rejouerAnim(el, 'frappe'); await pause(160); } else await pause(240);
+        if (e.attaque) { rejouerAnim(el, 'frappe'); await pauseCb(160); } else await pauseCb(240);
         break;
       }
       default: break;
@@ -221,6 +278,7 @@ export async function jouerEvenements(evs) {
 }
 export async function jouer(i, cibleUid) {
   if (animCb || !combat) return;
+  effacerApercu();
   const el = $('cbMain').querySelector(`[data-i="${i}"]`), k = CARTES[combat.main[i]?.id];
   setCarteChoisie(null);
   combat.ev = [];
@@ -265,7 +323,7 @@ export async function finCombatAnim() {
     sfx.victory();
   } else sfx.defaite();
   banniere('cbBanniere', gagne ? 'Victoire !' : 'Défaite…', `fin ${gagne ? 'victoire' : 'defaite'}`, 0);
-  await pause(1600);
+  await pauseCb(1600);
   finCombat();
 }
 $('combat').addEventListener('contextmenu', (e) => { e.preventDefault(); if (animCb || !combat) return; setCarteChoisie(null); dessinerCombat(); });

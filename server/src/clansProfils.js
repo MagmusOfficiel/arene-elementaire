@@ -19,6 +19,7 @@ import * as AP from '../../shared/clans/apparence.js';
 import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
 import * as PS from '../../shared/clans/passe.js';
+import * as MA from '../../shared/clans/marchand.js';
 import { alea } from '../../shared/clans/combat.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
@@ -112,6 +113,8 @@ export const ACTIONS = {
   // l'apparence : acheter une pièce, ou porter une pièce qu'on a
   apparenceAcheter(p, m) { return AP.acheter(p, m.id); },
   apparencePorter(p, m) { return AP.porter(p, m.id); },
+  // le marchand ambulant : prendre une de ses 3 offres (il faut être à côté de lui)
+  marchandAcheter(p, m, ctx) { return MA.acheter(p, m.i, ctx?.pos); },
   // le passe de saison : réclamer les récompenses des niveaux atteints
   passeReclamer(p) { const r = PS.reclamer(p); return r.ok ? { ok: true, res: r.total } : r; },
   // les familiers : en fabriquer un, ou choisir celui qui nous suit

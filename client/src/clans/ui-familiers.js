@@ -6,11 +6,12 @@ import { TERRITOIRES } from '../../../shared/clans/monstres.js';
 import * as F from '../../../shared/clans/familiers.js';
 import { sfx } from '../sfx.js';
 import { $, coutHTML, esc, p, toast } from './ui-commun.js';
-import { dansMonde, ouvrir } from './ui-monde.js';
+import { dansMonde, guide, ouvrir } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
 import { vignetteFamilier } from './familiersArt.js';
 
 export function fenetreFamiliers() {
+  guide.vu('a_familiers');
   const l = F.possedes(p), actif = F.actif(p);
   ouvrir(`<h2>🐾 Tes familiers</h2>
     <p class="sousTitre">Un familier te suit sur la carte et t'accompagne dans les combats contre les monstres (expéditions et boss mondial, jamais en duel ni dans l'arène). Au début de chaque combat, il te donne un petit coup de pouce. On en trouve en battant le boss d'un territoire (${F.CHANCE_BOSS.map((x) => `${x * 100} %`).join(' / ')} de chances selon le palier), ou on les fabrique avec les ressources rares du territoire.</p>

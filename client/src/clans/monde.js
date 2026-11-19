@@ -9,6 +9,7 @@
 import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
+import { marchandDe, PORTEE as PORTEE_MARCHAND } from '../../../shared/clans/marchand.js';
 import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
 import { PIECES, lireCode } from '../../../shared/clans/apparence.js';
 export { MONDE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe };
@@ -323,6 +324,8 @@ export function creerMonde(canvas, rappels) {
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
   let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '';
+  let marchand = marchandDe();   // recalculé chaque seconde (sa place se déduit de l'heure)
+  setInterval(() => { const m = marchandDe(); if (m.slot !== marchand.slot) rappels.marchandBouge?.(m); marchand = m; }, 1000);
   const suiveurs = new Map();   // les familiers qui suivent chaque joueur : clé → { x, y, gauche, bouge }
   // résolution du dessin : celle de l'écran (×2 au plus)… sauf si l'appareil n'arrive pas à suivre,
   // auquel cas on dessine en ×1 (le pixel art agrandi reste net grâce à image-rendering: pixelated)
@@ -356,6 +359,7 @@ export function creerMonde(canvas, rappels) {
     const m = maisonDe(monClan, monNom);
     if (Math.hypot(joueur.x - m.x, joueur.y - (m.y + 16)) < 50) best = { id: 'maison', nom: 'Ta maison', action: 'parcelle' };
     { const o = OUVRAGES[monClan]; if (Math.hypot(joueur.x - o.x, joueur.y - (o.y + 12)) < 52) best = { id: 'projet', nom: PROJETS[monClan].nom, action: 'projet', x: o.x, y: o.y }; }
+    if (Math.hypot(joueur.x - marchand.x, joueur.y - marchand.y) < PORTEE_MARCHAND) best = { id: 'marchand', nom: 'le marchand ambulant', action: 'marchand', x: marchand.x, y: marchand.y };
     for (const f of filons) if (Math.hypot(joueur.x - f.x, joueur.y - f.y) < 36) best = { ...f, nom: 'un filon rare', action: 'filon' };
     for (const [id, a] of autres) if (a.clan !== monClan && territoireDe(a.x, a.y) === monClan && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
     // près du boss mondial, on l'affronte (prioritaire : pas de duel par erreur)
@@ -377,7 +381,7 @@ export function creerMonde(canvas, rappels) {
     const r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
     const x = ((e.clientX - r.left) * k - ox) / z, y = ((e.clientY - r.top) * k - oy) / z;
     const m = maisonDe(monClan, monNom);
-    const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
+    const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, { x: marchand.x, y: marchand.y - 12, r: 26, id: 'marchand', nom: 'le marchand ambulant', action: 'marchand' }, ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
     but = { x, y, lieu: l || null };
   });
 
@@ -521,6 +525,24 @@ export function creerMonde(canvas, rappels) {
     }
     ctx.drawImage(PORTAIL[p.terr], p.x - 26, p.y - 46);
   }
+  // le marchand ambulant : une roulotte bâchée, un âne, le marchand et sa lanterne
+  function dessinerMarchand(m) {
+    const x = R(m.x), y = R(m.y), r = (c, a, b, w, h) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); };
+    ombre(x - 2, y, 40);
+    // la roulotte
+    r('#5a3a1e', -26, -10, 34, 4); r('#7a5230', -26, -24, 34, 14); r('#94683c', -26, -24, 34, 2);
+    for (let i = -24; i < 8; i += 6) r('#5e3e22', i, -22, 1, 12);
+    r('#c8502a', -28, -38, 38, 14); r('#e87040', -28, -38, 38, 3); for (let i = -26; i < 10; i += 8) r('#f0d8a0', i, -36, 4, 12);   // la bâche rayée
+    r('#3a2412', -22, -8, 8, 8); r('#6a4426', -20, -6, 4, 4); r('#3a2412', -2, -8, 8, 8); r('#6a4426', 0, -6, 4, 4);                // les roues
+    // l'âne
+    r('#8a8078', 12, -16, 14, 7); r('#a89e94', 12, -16, 14, 2); r('#8a8078', 23, -22, 6, 8); r('#6a6058', 24, -26, 2, 4); r('#1a1410', 27, -20, 1, 1);
+    r('#5a524a', 13, -9, 2, 8); r('#5a524a', 23, -9, 2, 8);
+    // le marchand, sa lanterne qui se balance
+    r('#3a5a8a', -40, -18, 8, 10); r('#e8c09a', -39, -24, 6, 6); r('#6a3a8a', -41, -27, 10, 4); r('#2a2a3a', -39, -8, 2, 8); r('#2a2a3a', -35, -8, 2, 8);
+    const l = R(Math.sin(temps * 2) * 2);
+    r('#2a2016', -31 + l, -22, 1, 4); r('#ffd870', -32 + l, -18, 3, 4);
+    ctx.fillStyle = `rgba(255,216,112,${0.18 + Math.sin(temps * 5) * 0.06})`; ctx.fillRect(x - 38 + l, y - 24, 15, 14);
+  }
   function dessinerFilon(f) {
     const h = R(Math.sin(temps * 3 + f.x) * 1.5), a = 0.35 + Math.sin(temps * 4 + f.y) * 0.2;
     ctx.fillStyle = `rgba(255,250,210,${a})`; ctx.fillRect(f.x - 10, f.y - 18, 20, 20); ctx.fillRect(f.x - 13, f.y - 13, 26, 10);
@@ -604,6 +626,7 @@ export function creerMonde(canvas, rappels) {
     }
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 - 20 && p.y < y1 + 80) objets.push({ y: p.y + 6, f: () => (p.action === 'tirage' ? dessinerAutel(p) : dessinerPortail(p)) });
     for (const [k, o] of Object.entries(OUVRAGES)) if (o.x > x0 - 90 && o.x < x1 + 90 && o.y > y0 - 30 && o.y < y1 + 120) objets.push({ y: o.y + 8, f: () => dessinerOuvrage(k, o) });
+    if (marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 - 10 && marchand.y < y1 + 50) objets.push({ y: marchand.y, f: () => dessinerMarchand(marchand) });
     for (const f of filons) objets.push({ y: f.y, f: () => dessinerFilon(f) });
     for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 - 20 && d.y < y1 + 60) objets.push({ y: d.y + 6, f: () => dessinerSanctuaire(d) });
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
@@ -645,6 +668,10 @@ export function creerMonde(canvas, rappels) {
       else if (st.capt) etiquette(`Capture ${st.capt.p} %`, ex(d.x), ey(d.y + 30), '#fff4c8', COUL[st.capt.clan], true);
     }
     for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) { ctx.font = `bold ${R(16 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(NOMS_TERR[k], ex(vx) + 2 * s, ey(vy + 56) + 2 * s); ctx.fillStyle = '#f8ecd0'; ctx.fillText(NOMS_TERR[k], ex(vx), ey(vy + 56)); }
+    if (marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 && marchand.y < y1 + 50) {
+      const min = Math.max(1, Math.ceil((marchand.part - Date.now()) / 60000));
+      etiquette(`🛒 Marchand ambulant · encore ${min} min`, ex(marchand.x - 10), ey(marchand.y - 48), '#ffe0a0', '#c8502a', false);
+    }
     for (const [k, o] of Object.entries(OUVRAGES)) if (o.x > x0 - 90 && o.x < x1 + 90 && o.y > y0 && o.y < y1 + 120 && projets?.clans?.[k]) {
       const pr = projets.clans[k], fini = pr.pts >= pr.objectif, pc = Math.min(100, Math.floor((pr.pts / pr.objectif) * 100));
       etiquette(`${PROJETS[k].ico} ${PROJETS[k].nom} · ${fini ? 'terminé ✓' : `${pc} %`}`, ex(o.x), ey(o.y - 84), fini ? '#ffe070' : '#f0e6d0', COUL[k], fini);
@@ -662,7 +689,7 @@ export function creerMonde(canvas, rappels) {
     const l = rappels.libre() && lieuProche();
     if (l) {
       const E = tactile ? '✋ ' : 'E : ';
-      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — il est sur ton territoire` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
+      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — il est sur ton territoire` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : l.action === 'marchand' ? 'E : voir les échanges du marchand ambulant' : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
       const txt2 = txt.replace(/^E : /, E);
       ctx.font = `${R(15 * s)}px ${POLICE}`; ctx.textAlign = 'center';
       const w = ctx.measureText(txt2).width + 30 * s, h = 34 * s, y = canvas.height * (tactile ? 0.66 : 0.78);
@@ -714,10 +741,11 @@ export function creerMonde(canvas, rappels) {
     for (const p of LIEUX) { ctx.fillStyle = p.action === 'tirage' ? '#ffe070' : COUL[p.terr]; ctx.fillRect(R(x0 + p.x * kx - 3 * s), R(y0 + p.y * ky - 3 * s), R(6 * s), R(6 * s)); }
     if (mondial && Math.floor(temps * 3) % 2) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(R(x0 + mondial.x * kx - 5 * s), R(y0 + mondial.y * ky - 5 * s), R(10 * s), R(10 * s)); ctx.fillStyle = '#fff'; ctx.fillRect(R(x0 + mondial.x * kx - 2 * s), R(y0 + mondial.y * ky - 2 * s), R(4 * s), R(4 * s)); }
     for (const d of SANCTUAIRES) { const st = sanct[d.id] || { prop: d.terr }, mx = R(x0 + d.x * kx), my = R(y0 + d.y * ky), t = R(3 * s); ctx.fillStyle = '#000'; ctx.fillRect(mx - t - s, my - s, 2 * t + 2 * s, 2 * s + s); ctx.fillRect(mx - s, my - t - s, 3 * s, 2 * t + 2 * s); ctx.fillStyle = st.conteste || st.capt ? (Math.floor(temps * 4) % 2 ? '#fff' : COUL[st.prop]) : COUL[st.prop]; ctx.fillRect(mx - t, my, 2 * t + s, s); ctx.fillRect(mx, my - t, s, 2 * t + s); ctx.fillRect(mx - s, my - s, 3 * s, 3 * s); }
+    { ctx.fillStyle = Math.floor(temps * 2) % 2 ? '#ff9a50' : '#ffe0a0'; ctx.fillRect(R(x0 + marchand.x * kx - 2 * s), R(y0 + marchand.y * ky - 2 * s), R(4 * s), R(4 * s)); }
     for (const f of filons) { ctx.fillStyle = '#fff8c0'; ctx.fillRect(R(x0 + f.x * kx - 1.5 * s), R(y0 + f.y * ky - 1.5 * s), R(3 * s), R(3 * s)); }
     if (cible && Math.floor(temps * 3) % 2) { ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 2 * s; ctx.strokeRect(R(x0 + cible.x * kx - 5 * s), R(y0 + cible.y * ky - 5 * s), R(10 * s), R(10 * s)); }
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

@@ -564,3 +564,56 @@ Mesuré avec 40 joueurs simulés et un téléphone moyen (processeur ralenti 4×
 - **Les lots tournent chaque mois** : Aube (novembre 2026), Abysses, Sève ancienne, Éclipse, puis on recommence. Ces pièces ne s'achètent pas et ne se gagnent pas autrement. Dans la fenêtre d'apparence, on voit celles qu'on a déjà et celles du mois.
 - On réclame tout en un clic. À la fin du mois, ce qui a été atteint mais pas réclamé est donné d'office, puis le passe repart de zéro. Les apparences gagnées restent pour toujours.
 - **Fichiers** : règles dans `shared/clans/passe.js`, fenêtre dans `client/src/clans/ui-passe.js`, tests dans `tests/clanspasse.test.mjs`, et une nouvelle étape du test de bout en bout.
+
+## Les Clans Élémentaires : guide des débuts refait (v55)
+- **Premiers pas** : les 6 étapes d'avant ne changent pas (tirage, deck, expédition, premier combat, parcelle, quêtes).
+- **Ensuite, des astuces**, une à la fois, au moment où elles deviennent utiles :
+
+  | Astuce | Quand elle apparaît | Ce qu'elle présente |
+  |---|---|---|
+  | Projet de clan | 1re victoire | l'ouvrage du village (la flèche le montre) |
+  | Améliorer une carte | 20 éclats ou plus | l'amélioration dans le deck |
+  | Familiers | 3 victoires, ou un premier familier trouvé | les familiers |
+  | Passe de saison | une récompense attend | le passe |
+  | Sanctuaires | 5 victoires | les sanctuaires (la flèche montre le plus proche) |
+  | Arène classée | 8 victoires | l'arène |
+
+- **Une astuce disparaît** dès qu'on a essayé ce qu'elle présente (don, amélioration, fenêtre ouverte, sanctuaire pris, match joué) ou qu'on clique sur « Compris ». Il y a 20 secondes entre deux astuces. « Passer » masque le guide et les astuces pour de bon.
+- **Les joueurs déjà avancés** ne revoient pas les premiers pas, mais reçoivent les astuces des systèmes qu'ils n'ont pas encore essayés.
+
+## Les Clans Élémentaires : barre du haut regroupée (v56)
+- **Toujours visibles** : 🎟️ Passe et 📜 Quêtes (avec leur pastille), 🏠 Parcelle, 🃏 Deck.
+- **Dans le menu ☰ « Plus »** : Apparence, Familiers (F), Arène classée, Rivalité des clans, Son (M). Le menu se ferme au clic ailleurs ou avec Échap, et il passe au-dessus d'une fenêtre ouverte. Les raccourcis clavier n'ont pas changé.
+- **Sur ordinateur** : la barre tient sur une seule ligne dès 1 280 px de large. Jusqu'à 1 500 px, les boutons n'affichent que leur icône.
+- **Sur téléphone, deux lignes au lieu de trois** :
+  - en haut : le nom, l'icône du clan et les 5 boutons ;
+  - en dessous : les ressources, sur une seule ligne qui défile au doigt.
+
+  Le menu s'ouvre dans l'écran, aligné à droite.
+
+## Les Clans Élémentaires : confort de combat (v57)
+- **Aperçu des effets réels** :
+  - **avec la souris**, au survol d'une carte ;
+  - **au doigt**, par un appui long (la carte n'est alors pas jouée en relâchant) ;
+  - quand on choisit une cible, l'aperçu s'affiche sur chaque ennemi possible.
+
+  On voit les PV que l'ennemi va perdre, le bouclier ennemi entamé, ☠ si le coup l'achève et les statuts posés (🔥 brûlure, trempé, affaibli). Sur le héros s'affichent le bouclier, les soins, la force et l'énergie gagnés.
+- **Tout est compté**, car on joue la carte sur une copie du combat avec le même moteur : force, affaibli, trempé, bouclier ennemi, Visée, Enchaînement, Arcanes, cibles multiples. L'aperçu est donc toujours juste.
+- **Vitesse des animations** : bouton ⏩ ×1 / ×2 / ×3 dans la scène, ou touche V. Le choix est gardé d'une partie à l'autre.
+- Le clic droit et Échap annulaient déjà une cible choisie : rien ne change là-dessus.
+
+## Les Clans Élémentaires : marchand ambulant (v58)
+- **Un marchand ambulant change de place toutes les 20 minutes**, pour toujours. Ce n'est pas un événement limité : c'est une raison de circuler entre les villages.
+- **Ses 7 places** : près du Carrefour, à mi-chemin sur les trois routes, et à l'entrée de chaque village (même ceux des autres clans, où l'on peut se faire défier). Il passe par toutes les places dans un ordre mélangé, jamais deux fois de suite au même endroit.
+- **Sur la carte** : sa roulotte bâchée, un âne et le marchand avec sa lanterne, une étiquette qui donne le temps restant, et un point clignotant sur la mini-carte. Un message annonce chaque nouvelle place, et le guide propose une astuce qui y mène.
+- **3 échanges par passage**, chacun une fois par joueur, tirés parmi ces genres :
+  - matériau d'un clan contre celui d'un autre (60 → 40) ;
+  - essence contre matériau (500 → 45) ;
+  - essence contre ressource rare (1 100 → 2) ;
+  - matériau contre éclats (90 → 18) ;
+  - éclats contre essence (30 → 650) ;
+  - une ressource rare contre une autre (3 → 2).
+
+  Le matériau des autres clans servait jusqu'ici surtout à améliorer les cartes des autres éléments.
+- **Sans réseau ni état serveur** : sa place et ses offres se déduisent de l'heure (`shared/clans/marchand.js`), donc le client et le serveur sont toujours d'accord. Le serveur vérifie que le joueur est à côté du marchand, et garde les échanges faits dans le profil (`p.marchand`).
+- **Fichiers** : fenêtre dans `client/src/clans/ui-marchand.js`, tests dans `tests/clansmarchand.test.mjs`, et une nouvelle étape du test de bout en bout.

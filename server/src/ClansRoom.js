@@ -81,7 +81,7 @@ export class ClansRoom extends Room {
         const t = Date.now(); j.seau = Math.min(15, (j.seau ?? 15) + ((t - (j.seauT || t)) / 1000) * 10); j.seauT = t;
         if (j.seau < 1) return rep({ ok: false, raison: 'Doucement !' });
         j.seau--;
-        const ctx = { points: (k) => this.points(j, POINTS[k]), sanctuaires: j.p ? T.tenus(this.props(), j.p.clan) : 0, projets: this.projetsAJour(), cle: empreinte(j.jeton), projetDon: (d) => this.apresDon(j, d) };
+        const ctx = { points: (k) => this.points(j, POINTS[k]), sanctuaires: j.p ? T.tenus(this.props(), j.p.clan) : 0, projets: this.projetsAJour(), cle: empreinte(j.jeton), projetDon: (d) => this.apresDon(j, d), pos: { x: j.x, y: j.y } };
         const r = f(j.p, m, ctx) || { ok: false };
         if (ctx.p) { j.p = ctx.p; this.arriver(c, j); }
         if (r.ok) { j.sale = true; this.identite(j); }

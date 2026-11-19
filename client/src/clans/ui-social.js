@@ -11,7 +11,7 @@ import * as A from '../../../shared/clans/arene.js';
 import { sfx } from '../sfx.js';
 import { $, esc, nf, p, room, toast } from './ui-commun.js';
 import { dureeAvant } from './ui-fenetres.js';
-import { dansMonde, fermer, monde, ouvrir } from './ui-monde.js';
+import { dansMonde, fermer, guide, monde, ouvrir } from './ui-monde.js';
 import { ajouterChat } from './ui-reseau.js';
 
 export function fenetreClassement() {
@@ -81,6 +81,7 @@ setInterval(() => { if (enFile) majBandeauArene(); }, 1000);
 export function fenetreArene(demander = true) {
   if (!room) return toast('L’arène vit dans le monde en ligne : connexion au serveur…');
   if (demander) room.send('areneClassement');
+  guide.vu('a_arene');
   const a = monArene(), r = A.rangDe(a.elo), suivant = A.RANGS[A.RANGS.indexOf(r) + 1], fin = A.saisonDe().fin;
   const c = classArene;
   ouvrir(`<h2>🏟️ Arène classée</h2>

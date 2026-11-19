@@ -215,3 +215,18 @@
 .combattant .familier { position: absolute; left: calc(-11px * var(--z)); bottom: 0; width: calc(12px * var(--z)); height: calc(11px * var(--z)); image-rendering: pixelated; z-index: 2; animation: sautille 1.2s steps(2) infinite; }
 .combattant .familier.cache { display: none; }
 @keyframes sautille { 50% { transform: translateY(calc(-1px * var(--z))); } }
+
+/* ---------- confort de combat (v57) ---------- */
+/* aperçu des effets réels de la carte survolée ou choisie */
+.scene .apercu { position: absolute; left: 50%; top: 38%; transform: translateX(-50%); z-index: 7; pointer-events: none; white-space: nowrap; padding: 3px 10px; border-radius: 8px; font: bold 18px var(--pix); color: #ffe0d0; background: rgba(120,16,10,.85); border: 2px solid #ff7a5a; box-shadow: 0 0 14px rgba(255,80,40,.5); animation: apparaitApercu .15s ease-out; }
+.scene .apercu small { font-size: 13px; color: #ffd0a0; }
+.scene .apercu.mortel { background: rgba(30,6,6,.92); border-color: #ffd040; color: #ffd040; }
+.scene .apercu.soi { top: auto; bottom: 108%; background: rgba(16,50,90,.88); border-color: #6ac0ff; color: #d8f0ff; box-shadow: 0 0 14px rgba(80,160,255,.45); }
+@keyframes apparaitApercu { from { opacity: 0; transform: translate(-50%, 6px); } }
+/* vitesse des animations */
+.scene .vitesse { position: absolute; right: 18px; bottom: 192px; z-index: 6; padding: 5px 12px; font: bold 14px var(--pix); color: #f0e6d0; background: rgba(10,8,16,.7); border: 2px solid rgba(232,192,96,.5); border-radius: 8px; cursor: pointer; }
+.scene .vitesse.rapide { color: #1a1006; background: linear-gradient(#ffe48a, #e0a830); }
+.scene .main .carte.inspectee { transform: translateY(-40px) scale(1.12) !important; z-index: 9; }
+.scene .main .carte { -webkit-touch-callout: none; user-select: none; }
+@media (max-aspect-ratio: 4/5) { .scene .vitesse { right: 8px; bottom: 224px; padding: 4px 9px; font-size: 13px; } }
+@media (max-height: 500px) { .scene .vitesse { right: 8px; bottom: 146px; padding: 3px 8px; font-size: 12px; } }

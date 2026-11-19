@@ -27,15 +27,20 @@
       <span id="moi"></span>
       <span id="ressources"></span>
       <span class="espace"></span>
-      <button id="btSon" title="Couper / remettre le son (touche M)">🔊</button>
-      <button id="btApparence" title="Apparence de ton personnage">👕<span> Apparence</span></button>
-      <button id="btFamiliers" title="Tes familiers (touche F)">🐾<span> Familiers</span></button>
       <button id="btPasse" title="Passe de saison (touche P)">🎟️<span> Passe</span><i id="pastilleP" class="cache"></i></button>
       <button id="btQuetes" title="Quêtes du jour et de la semaine (touche J)">📜<span> Quêtes</span><i id="pastilleQ" class="cache"></i></button>
-      <button id="btArene" title="Arène classée">🏟️<span> Arène</span></button>
-      <button id="btClassement" title="Rivalité des clans">🏆<span> Clans</span></button>
       <button id="btParcelle" title="Ta parcelle">🏠<span> Parcelle</span></button>
       <button id="btDeck" title="Ta collection et ton deck">🃏<span> Deck</span></button>
+      <div id="menuBarre">
+        <button id="btMenu" title="Plus : apparence, familiers, arène, clans, son" aria-haspopup="true" aria-expanded="false">☰<span> Plus</span></button>
+        <div id="menuListe" class="cache" role="menu">
+          <button id="btApparence" role="menuitem">👕 Apparence</button>
+          <button id="btFamiliers" role="menuitem">🐾 Familiers <small>F</small></button>
+          <button id="btArene" role="menuitem">🏟️ Arène classée</button>
+          <button id="btClassement" role="menuitem">🏆 Rivalité des clans</button>
+          <button id="btSon" role="menuitem">🔊 Son <small>M</small></button>
+        </div>
+      </div>
     </header>
     <div id="bandeau" class="cache"></div>
     <div id="bandeauMondial" class="cache"></div>
@@ -44,7 +49,7 @@
     <div id="bandeauArene" class="cache"></div>
     <aside id="enLigne"><h3>En ligne <span id="nbEnLigne"></span></h3><div id="listeClans"></div></aside>
     <div id="chat"><div id="chatOnglets"><button data-c="tous" class="actif">Tous</button><button data-c="clan">Mon clan</button></div><div id="chatMsgs"></div><input id="chatTexte" maxlength="140" placeholder="Écrire… (Entrée)"></div>
-    <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guidePasser" title="Masquer le guide">Passer</button></div>
+    <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guideOk" class="cache">Compris</button><button id="guidePasser" title="Masquer le guide et ses astuces">Passer</button></div>
     <div id="tactile" class="cache"><div id="joy"><i id="joyBouton"></i></div><button id="btAgir">✋</button><button id="btChatMobile">💬</button></div>
     <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir</div>
   </section>
@@ -73,6 +78,7 @@
     <span id="cbEpuisees" class="epuisees" title="Cartes épuisées"></span>
     <div id="cbMain" class="main"></div>
     <button id="btFinTour" class="finTour">Fin du tour</button>
+    <button id="btVitesse" class="vitesse" title="Vitesse des animations (touche V)">⏩ ×1</button>
     <div id="cbAide" class="aide"></div>
     <canvas id="cbFx" class="fx"></canvas>
     <div id="cbBanniere" class="bannScene"></div>
