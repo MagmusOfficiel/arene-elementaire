@@ -166,6 +166,7 @@ test('classes : deck de départ, PV, tirages et ancien profil', () => {
 import * as D from '../shared/clans/duel.js';
 import { RARES } from '../shared/clans/cartes.js';
 import { territoireDe, obstacles, praticable, CENTRES, CARREFOUR, MAISONS, LIEUX, NT } from '../shared/clans/geo.js';
+import { SANCTUAIRES } from '../shared/clans/territoires.js';
 
 const joueurDuel = (nom, clan, classe) => { const p = P.nouveauProfil(clan, nom, 0, classe); return { nom, clan, classe, pvMax: P.pvMax(p), deck: P.deckCombat(p) }; };
 function duelAuto(d) {
@@ -219,6 +220,7 @@ test('ressources rares : monstres rares, cartes exclusives, géographie', () => 
   const accessible = (x, y) => vu[Math.floor(y / 16) * L + Math.floor(x / 16)] === 1;
   for (const k in MAISONS) for (const m of MAISONS[k]) assert.ok(accessible(m.x, m.y + 40) && praticable(m.x, m.y + 40, o), `maison ${k}`);
   for (const l of LIEUX) assert.ok(accessible(l.x, l.y + 50), l.id);
+  for (const l of SANCTUAIRES) for (const [dx, dy] of [[0, 40], [40, 0], [-40, 0], [0, -40]]) assert.ok(accessible(l.x + dx, l.y + dy) && praticable(l.x + dx, l.y + dy, o), `sanctuaire ${l.id}`);
   assert.ok(Object.values(RARES).every((r) => r.id && r.ico));
 });
 

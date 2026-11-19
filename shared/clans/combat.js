@@ -31,6 +31,11 @@ export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 
   return c;
 }
 const vivants = (c) => c.ennemis.filter((e) => e.pv > 0);
+// ---------- journal d'événements (pour les animations) ----------
+// Seulement si l'appelant a mis c.ev = [] : le serveur, qui rejoue les combats, ne le fait pas.
+// Ne change JAMAIS les règles : on note ce qui se passe, c'est tout.
+const ev = (c, x) => { if (c.ev) c.ev.push(x); };
+const qui = (x) => x.uid || 'j';
 export const intention = (e) => e.intentions[e.i % e.intentions.length];
 
 function piocher(c, k) {
@@ -44,11 +49,12 @@ function debutTour(c) {
   c.tour++;
   const j = c.joueur;
   j.bloc = 0;
-  if (j.brulure > 0) { blesser(c, j, j.brulure, true); c.journal.push(`Tu brûles : −${j.brulure} PV.`); j.brulure--; if (verifierFin(c)) return; }
+  if (j.brulure > 0) { const [d] = blesser(c, j, j.brulure, true); ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv }); c.journal.push(`Tu brûles : −${j.brulure} PV.`); j.brulure--; if (verifierFin(c)) return; }
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
   c.energie = c.energieMax; c.attaquesTour = 0; c.arcanes = false;
   piocher(c, 5);
+  ev(c, { t: 'tour', n: c.tour });
 }
 // dégâts d'une attaque : force, affaibli (−25 %), trempé (+50 %)
 export function calculerDegats(base, attaquant, cible) {
@@ -57,15 +63,23 @@ export function calculerDegats(base, attaquant, cible) {
   if (cible.trempe > 0) d *= 1.5;
   return Math.max(0, Math.floor(d));
 }
+// renvoie [dégâts subis, dégâts arrêtés par le bouclier]
 function blesser(c, cible, d, direct = false) {
-  if (!direct && cible.bloc > 0) { const a = Math.min(cible.bloc, d); cible.bloc -= a; d -= a; }
+  let b = 0;
+  if (!direct && cible.bloc > 0) { b = Math.min(cible.bloc, d); cible.bloc -= b; d -= b; }
   cible.pv = Math.max(0, cible.pv - d);
-  return d;
+  return [d, b];
 }
 function attaquer(c, att, cible, base, mult = 1) {
   if (cible.pv <= 0) return;
-  blesser(c, cible, calculerDegats(base, att, cible) * mult);
-  if (cible.epines > 0 && att.pv > 0) blesser(c, att, cible.epines);
+  const [d, b] = blesser(c, cible, calculerDegats(base, att, cible) * mult);
+  ev(c, { t: 'coup', de: qui(att), a: qui(cible), deg: d, bloque: b, pv: cible.pv, bloc: cible.bloc, double: mult > 1 });
+  if (cible.pv <= 0 && cible.uid) ev(c, { t: 'mort', a: cible.uid });
+  if (cible.epines > 0 && att.pv > 0) {
+    const [d2] = blesser(c, att, cible.epines);
+    ev(c, { t: 'epines', de: qui(cible), a: qui(att), deg: d2, pv: att.pv, bloc: att.bloc });
+    if (att.pv <= 0 && att.uid) ev(c, { t: 'mort', a: att.uid });
+  }
 }
 function verifierFin(c) {
   if (c.joueur.pv <= 0) { c.fini = 'defaite'; return true; }
@@ -94,6 +108,7 @@ export function jouerCarte(c, i, cible) {
   if (cout < carte.cout) c.arcanes = true;
   c.energie -= cout;
   c.main.splice(i, 1);
+  ev(c, { t: 'carte', id: k.id, cibles: cibles.map((x) => x.uid) });
   // talents des attaques : Enchaînement (+2 par coup après une autre attaque du tour), Visée (une sur trois doublée)
   let bonus = 0, mult = 1;
   if (carte.type === 'attaque') {
@@ -104,13 +119,18 @@ export function jouerCarte(c, i, cible) {
   if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) attaquer(c, j, t, e.degats + bonus, mult);
   if (e.degatsParBrulure) for (const t of cibles) attaquer(c, j, t, t.brulure * e.degatsParBrulure + bonus, mult);
   if (e.bouclierEnDegats) for (const t of cibles) attaquer(c, j, t, j.bloc + bonus, mult);
-  for (const t of cibles) { if (e.brulure) t.brulure += e.brulure; if (e.trempe) t.trempe += e.trempe; if (e.affaibli) t.affaibli += e.affaibli; }
-  if (e.bouclier) j.bloc += e.bouclier;
-  if (e.soin) j.pv = Math.min(j.pvMax, j.pv + e.soin);
-  if (e.epines) j.epines += e.epines;
-  if (e.regen) j.regen += e.regen;
-  if (e.force) j.force += e.force;
-  if (e.energie) c.energie += e.energie;
+  for (const t of cibles) {
+    const vu = t.pv > 0;
+    if (e.brulure) { t.brulure += e.brulure; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'brulure', n: e.brulure }); }
+    if (e.trempe) { t.trempe += e.trempe; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'trempe', n: e.trempe }); }
+    if (e.affaibli) { t.affaibli += e.affaibli; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: e.affaibli }); }
+  }
+  if (e.bouclier) { j.bloc += e.bouclier; ev(c, { t: 'bloc', a: 'j', n: e.bouclier, bloc: j.bloc }); }
+  if (e.soin) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + e.soin); ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); }
+  if (e.epines) { j.epines += e.epines; ev(c, { t: 'statut', a: 'j', k: 'epines', n: e.epines }); }
+  if (e.regen) { j.regen += e.regen; ev(c, { t: 'statut', a: 'j', k: 'regen', n: e.regen }); }
+  if (e.force) { j.force += e.force; ev(c, { t: 'statut', a: 'j', k: 'force', n: e.force }); }
+  if (e.energie) { c.energie += e.energie; ev(c, { t: 'energie', n: e.energie }); }
   (e.epuise ? c.epuisees : c.defausse).push(k);
   if (e.pioche) piocher(c, e.pioche);
   c.journal.push(`Tu joues ${carte.nom}.`);
@@ -123,17 +143,22 @@ export function finTour(c) {
   if (c.fini) return;
   const j = c.joueur;
   c.defausse.push(...c.main); c.main = [];
-  if (j.regen > 0) { j.pv = Math.min(j.pvMax, j.pv + j.regen); j.regen--; }
+  if (j.regen > 0) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + j.regen); j.regen--; ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); }
+  ev(c, { t: 'tourEnnemi' });
   for (const e of vivants(c)) {
     e.bloc = 0;
-    if (e.brulure > 0) { blesser(c, e, e.brulure, true); e.brulure--; if (e.pv <= 0) { c.journal.push(`${e.nom} succombe à ses brûlures.`); continue; } }
+    if (e.brulure > 0) {
+      const [d] = blesser(c, e, e.brulure, true); ev(c, { t: 'brule', a: e.uid, deg: d, pv: e.pv }); e.brulure--;
+      if (e.pv <= 0) { ev(c, { t: 'mort', a: e.uid }); c.journal.push(`${e.nom} succombe à ses brûlures.`); continue; }
+    }
     const it = intention(e);
-    if (it.d) e.bloc += Math.round(it.d * e.deg);
-    if (it.f) e.force += it.f;
-    if (it.e) e.epines += it.e;
-    if (it.b) j.brulure += it.b;
-    if (it.t) j.trempe += it.t;
-    if (it.w) j.affaibli += it.w;
+    ev(c, { t: 'agit', a: e.uid, attaque: !!it.a });
+    if (it.d) { e.bloc += Math.round(it.d * e.deg); ev(c, { t: 'bloc', a: e.uid, n: Math.round(it.d * e.deg), bloc: e.bloc }); }
+    if (it.f) { e.force += it.f; ev(c, { t: 'statut', a: e.uid, k: 'force', n: it.f }); }
+    if (it.e) { e.epines += it.e; ev(c, { t: 'statut', a: e.uid, k: 'epines', n: it.e }); }
+    if (it.b) { j.brulure += it.b; ev(c, { t: 'statut', a: 'j', k: 'brulure', n: it.b }); }
+    if (it.t) { j.trempe += it.t; ev(c, { t: 'statut', a: 'j', k: 'trempe', n: it.t }); }
+    if (it.w) { j.affaibli += it.w; ev(c, { t: 'statut', a: 'j', k: 'affaibli', n: it.w }); }
     if (it.a) for (let k = 0; k < (it.n || 1); k++) attaquer(c, e, j, Math.round(it.a * e.deg));
     e.i++;
     if (e.trempe > 0) e.trempe--;

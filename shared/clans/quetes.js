@@ -20,6 +20,8 @@ const JOUR = [
   { id: 'recolte', ev: 'recolter', n: 2, ico: '🏠', txt: 'Récolte ta parcelle 2 fois', rec: { essence: 70, eclats: 3 } },
   { id: 'filon', ev: 'filon', n: 1, ico: '💎', txt: 'Ramasse un filon rare sur la carte', rec: { essence: 90, eclats: 5 } },
   { id: 'ameliorer', ev: 'ameliorer', n: 1, ico: '⬆️', txt: 'Améliore une carte', rec: { essence: 80, eclats: 4 } },
+  { id: 'sanct1', ev: 'sanctuaire', n: 1, ico: '🏳️', txt: 'Participe à la prise d’un sanctuaire', rec: { essence: 120, eclats: 6 } },
+  { id: 'arene1', ev: 'arene', n: 1, ico: '🏟️', txt: 'Gagne un combat d’arène', rec: { essence: 90, eclats: 5 } },
   { id: 'mondial', ev: 'mondial', n: 50, ico: '☠', txt: 'Inflige 50 dégâts à un boss mondial', rec: { essence: 120, eclats: 6 } },
 ];
 const SEMAINE = [
@@ -28,6 +30,8 @@ const SEMAINE = [
   { id: 'duels', ev: 'duel', n: 3, ico: '🤺', txt: 'Gagne 3 duels contre d’autres clans', rec: { essence: 500, eclats: 30 } },
   { id: 'filons6', ev: 'filon', n: 6, ico: '💎', txt: 'Ramasse 6 filons rares', rec: { essence: 400, eclats: 25 } },
   { id: 'mondial400', ev: 'mondial', n: 400, ico: '☠', txt: 'Inflige 400 dégâts aux boss mondiaux', rec: { essence: 450, eclats: 30 } },
+  { id: 'sanct4', ev: 'sanctuaire', n: 4, ico: '🏳️', txt: 'Participe à la prise de 4 sanctuaires', rec: { essence: 500, eclats: 30 } },
+  { id: 'arene5', ev: 'arene', n: 5, ico: '🏟️', txt: 'Gagne 5 combats d’arène', rec: { essence: 450, eclats: 30 } },
   { id: 'tirages20', ev: 'tirage', n: 20, ico: '🔮', txt: 'Fais 20 tirages', rec: { essence: 350, eclats: 25 } },
 ];
 export const BONUS_JOUR = { essence: 150, eclats: 10 };

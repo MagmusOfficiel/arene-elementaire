@@ -7,13 +7,16 @@
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
 import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, maisonDe, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
+import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
 export { MONDE, CENTRES, CARREFOUR, LIEUX, MAISONS, maisonDe, territoireDe };
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
 const COUL = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a' };
 const POLICE = '"Pixelify Sans", "Courier New", monospace';
 
 // ---------- petits outils ----------
-const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+// couleurs « #rrggbb » → [r, g, b], calculées une seule fois (le sol en demande des millions)
+const HEX = new Map();
+const hex = (h) => { let v = HEX.get(h); if (!v) { v = [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; HEX.set(h, v); } return v; };
 const H = (x, y) => { let n = (x * 374761393 + y * 668265263) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
 const PAL = Object.fromEntries(Object.entries({
   herbe: ['#3f8a3a', '#4a9a42', '#58a84a', '#357a32'], fleurs: ['#3f8a3a', '#4a9a42', '#58a84a', '#357a32'],
@@ -61,37 +64,60 @@ function pixelSol(s, x, y, tx, ty) {
 }
 
 // ---------- le sol, peint une fois ----------
-function peindreSol(obs) {
+// Par bandes de tuiles, en rendant la main au navigateur entre deux bandes (pas d'écran figé),
+// puis gardé sur l'appareil (IndexedDB) : les visites suivantes le relisent en un instant.
+const RENDU_SOL = 1;   // à augmenter quand on change la façon de peindre le sol
+async function peindreSol(obs, progres) {
   const c = document.createElement('canvas'); c.width = MONDE.l; c.height = MONDE.h;
   const g = c.getContext('2d'), img = g.createImageData(MONDE.l, MONDE.h), d = img.data;
   const S = (tx, ty) => obs.sols[Math.max(0, Math.min(NT.h - 1, ty)) * NT.l + Math.max(0, Math.min(NT.l - 1, tx))];
-  for (let ty = 0; ty < NT.h; ty++) for (let tx = 0; tx < NT.l; tx++) {
-    const s = S(tx, ty), liq = LIQUIDE.has(s);
-    const vois = [S(tx - 1, ty), S(tx + 1, ty), S(tx, ty - 1), S(tx, ty + 1)];
-    for (let ly = 0; ly < 16; ly++) for (let lx = 0; lx < 16; lx++) {
-      const x = tx * 16 + lx, y = ty * 16 + ly;
-      let ss = s;
-      // fondu en damier entre deux sols de terre ferme
-      if (!liq) {
-        const h = H(x * 3, y * 5);
-        if (lx < 3 && vois[0] !== s && !LIQUIDE.has(vois[0]) && h < 0.5 - lx * 0.15) ss = vois[0];
-        else if (lx > 12 && vois[1] !== s && !LIQUIDE.has(vois[1]) && h < 0.5 - (15 - lx) * 0.15) ss = vois[1];
-        else if (ly < 3 && vois[2] !== s && !LIQUIDE.has(vois[2]) && h < 0.5 - ly * 0.15) ss = vois[2];
-        else if (ly > 12 && vois[3] !== s && !LIQUIDE.has(vois[3]) && h < 0.5 - (15 - ly) * 0.15) ss = vois[3];
+  let pause = performance.now();
+  for (let ty = 0; ty < NT.h; ty++) {
+    for (let tx = 0; tx < NT.l; tx++) {
+      const s = S(tx, ty), liq = LIQUIDE.has(s);
+      const vois = [S(tx - 1, ty), S(tx + 1, ty), S(tx, ty - 1), S(tx, ty + 1)];
+      for (let ly = 0; ly < 16; ly++) for (let lx = 0; lx < 16; lx++) {
+        const x = tx * 16 + lx, y = ty * 16 + ly;
+        let ss = s;
+        // fondu en damier entre deux sols de terre ferme
+        if (!liq) {
+          const h = H(x * 3, y * 5);
+          if (lx < 3 && vois[0] !== s && !LIQUIDE.has(vois[0]) && h < 0.5 - lx * 0.15) ss = vois[0];
+          else if (lx > 12 && vois[1] !== s && !LIQUIDE.has(vois[1]) && h < 0.5 - (15 - lx) * 0.15) ss = vois[1];
+          else if (ly < 3 && vois[2] !== s && !LIQUIDE.has(vois[2]) && h < 0.5 - ly * 0.15) ss = vois[2];
+          else if (ly > 12 && vois[3] !== s && !LIQUIDE.has(vois[3]) && h < 0.5 - (15 - ly) * 0.15) ss = vois[3];
+        }
+        let col = pixelSol(ss, x, y, tx, ty), k = 1;
+        // bords des liquides : écume ou croûte de lave
+        if (liq) {
+          const bord = (vois[0] !== s && lx < 2) || (vois[1] !== s && lx > 13) || (vois[2] !== s && ly < 2) || (vois[3] !== s && ly > 13);
+          const bord2 = (vois[0] !== s && lx < 4) || (vois[1] !== s && lx > 11) || (vois[2] !== s && ly < 4) || (vois[3] !== s && ly > 11);
+          if (bord) col = s === 'lave' ? hex('#2a1810') : ((x + y) & 1 ? hex('#e8f6ff') : hex('#b8e0f4'));
+          else if (bord2 && s === 'lave') col = hex('#ff9a2a');
+          else if (bord2 && (x * 7 + y * 3) % 5 === 0) col = hex('#cfeeff');
+        } else if ((vois[3] && LIQUIDE.has(vois[3]) && ly > 13) || (vois[2] && LIQUIDE.has(vois[2]) && ly < 1)) k = 0.75;
+        const i = (y * MONDE.l + x) * 4; d[i] = col[0] * k; d[i + 1] = col[1] * k; d[i + 2] = col[2] * k; d[i + 3] = 255;
       }
-      let col = pixelSol(ss, x, y, tx, ty);
-      // bords des liquides : écume ou croûte de lave
-      if (liq) {
-        const bord = (vois[0] !== s && lx < 2) || (vois[1] !== s && lx > 13) || (vois[2] !== s && ly < 2) || (vois[3] !== s && ly > 13);
-        const bord2 = (vois[0] !== s && lx < 4) || (vois[1] !== s && lx > 11) || (vois[2] !== s && ly < 4) || (vois[3] !== s && ly > 11);
-        if (bord) col = s === 'lave' ? hex('#2a1810') : ((x + y) & 1 ? hex('#e8f6ff') : hex('#b8e0f4'));
-        else if (bord2 && s === 'lave') col = hex('#ff9a2a');
-        else if (bord2 && (x * 7 + y * 3) % 5 === 0) col = hex('#cfeeff');
-      } else if ((vois[3] && LIQUIDE.has(vois[3]) && ly > 13) || (vois[2] && LIQUIDE.has(vois[2]) && ly < 1)) col = col.map((v) => v * 0.75);
-      const i = (y * MONDE.l + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
     }
+    if (performance.now() - pause > 14) { progres?.((ty + 1) / NT.h); await new Promise((r) => setTimeout(r, 0)); pause = performance.now(); }
   }
   g.putImageData(img, 0, 0);
+  return c;
+}
+// la petite base de l'appareil où l'on garde le sol déjà peint
+const base = () => new Promise((ok, ko) => { const r = indexedDB.open('clans', 1); r.onupgradeneeded = () => r.result.createObjectStore('cache'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+async function cacheLire(cle) { const db = await base(); return new Promise((ok) => { const r = db.transaction('cache').objectStore('cache').get(cle); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); }); }
+async function cacheEcrire(cle, v) { const db = await base(); return new Promise((ok) => { const t = db.transaction('cache', 'readwrite'); t.objectStore('cache').clear(); t.objectStore('cache').put(v, cle); t.oncomplete = () => ok(); t.onerror = () => ok(); }); }
+// l'empreinte de la carte : si la géographie change, l'ancien sol gardé n'est plus utilisé
+function empreinteSol(obs) { let h = 2166136261 ^ RENDU_SOL; for (const x of obs.sols) for (let i = 0; i < x.length; i++) { h ^= x.charCodeAt(i); h = Math.imul(h, 16777619); } return `sol-${(h >>> 0).toString(36)}`; }
+async function chargerSol(obs, progres) {
+  const cle = empreinteSol(obs);
+  try {
+    const blob = await cacheLire(cle);
+    if (blob) { const bmp = await createImageBitmap(blob); progres?.(1); return bmp; }
+  } catch { /* pas de cache (navigation privée…) : on peint */ }
+  const c = await peindreSol(obs, progres);
+  try { c.toBlob((b) => { if (b) cacheEcrire(cle, b).catch(() => {}); }, 'image/png'); } catch { /* tant pis */ }
   return c;
 }
 // la mini-carte : un pixel par tuile
@@ -150,6 +176,8 @@ function spriteMaison(k) {
   });
 }
 const MAISON_SPR = { feu: spriteMaison('feu'), eau: spriteMaison('eau'), plante: spriteMaison('plante') };
+// le socle d'un sanctuaire (le cristal, à la couleur du clan qui le tient, est dessiné à part)
+const SOCLE = sprite(40, 34, (P) => { P('#3e3a34', 2, 24, 36, 9); P('#5c574e', 4, 22, 32, 4); P('#7a7468', 4, 22, 32, 1); P('#4a453e', 14, 4, 12, 19); P('#6e685c', 14, 4, 3, 19); P('#3a3630', 23, 4, 3, 19); P('#8a8274', 12, 2, 16, 3); P('#5c574e', 6, 26, 4, 2); P('#5c574e', 30, 27, 3, 2); });
 const AUTEL = sprite(52, 40, (P) => { P('#4a4238', 4, 28, 44, 11); P('#6a6052', 8, 20, 36, 10); P('#8a8070', 8, 20, 36, 2); P('#8a8070', 4, 28, 44, 2); P('#5a5246', 16, 8, 20, 13); P('#7a7062', 16, 8, 20, 2); ['#ff7a3a', '#3a9aff', '#5ad06a'].forEach((c, i) => { P(c, 12 + i * 12, 24, 4, 3); P(c, 14 + i * 12, 33, 2, 2); }); P('#ffe070', 24, 13, 4, 4); });
 const BANNIERE = Object.fromEntries(Object.entries(COUL).map(([k, col]) => [k, sprite(16, 40, (P) => { P('#5a3a1a', 2, 2, 2, 37); P('#c8a040', 1, 1, 4, 2); P(col, 4, 4, 10, 14); P('rgba(0,0,0,.25)', 4, 15, 10, 3); for (let x = 4; x < 14; x += 2) P(col, x, 18, 1, 2); P('#fff4d0', 7, 8, 4, 4); P(col, 8, 9, 2, 2); })]));
 const PORTAIL = Object.fromEntries(Object.entries(COUL).map(([k, col]) => [k, sprite(52, 60, (P) => {
@@ -209,7 +237,7 @@ const BOSS_SPR = {
 const PEAU = '#f0c49a', PEAU2 = '#d09a70', OEIL = '#1a1414';
 const TENUE = { feu: ['#c83a1a', '#8a2410', '#e86a2a'], eau: ['#2a6ac8', '#1a4688', '#1a2a5a'], plante: ['#3a9a3a', '#246a26', '#6a4a24'] };
 const CACHE_PERSO = new Map();
-function feuillePerso(clan, classe) {
+export function feuillePerso(clan, classe) {
   const cle = `${clan}|${classe}`; if (CACHE_PERSO.has(cle)) return CACHE_PERSO.get(cle);
   const [ten, ten2, chev] = TENUE[clan] || TENUE.feu;
   const c = document.createElement('canvas'); c.width = 48; c.height = 104; const g = c.getContext('2d');
@@ -249,14 +277,15 @@ export function creerMonde(canvas, rappels) {
   let fond = null, mini = null, joueur = { x: 0, y: 0, dir: 'bas', marche: false }, cam = { x: 0, y: 0 }, z = 3, temps = 0, dernier = 0, but = null, actif = false;
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
-  let monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111;
+  let miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {};
   const dpr = () => Math.min(2, devicePixelRatio || 1);
   let joy = { x: 0, y: 0 }, cible = null;   // joystick tactile (vecteur −1..1) ; flèche du guide (point du monde)
   const tactile = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
+  // à appeler (et attendre) avant demarrer : prépare le sol
+  async function preparer(progres) { if (!fond) { mini = peindreMini(obs); fond = await chargerSol(obs, progres); } }
   function demarrer(clan, nom, classe) {
     monClan = clan; monNom = nom; maClasse = classe || 'combattant';
-    if (!fond) { fond = peindreSol(obs); mini = peindreMini(obs); }
     const m = maisonDe(clan, nom); joueur.x = m.x; joueur.y = m.y + 40; cam = { x: joueur.x, y: joueur.y }; actif = true; redim();
   }
   function redim() { canvas.width = innerWidth * dpr(); canvas.height = innerHeight * dpr(); z = Math.max(2, Math.round(canvas.height / 400)); }
@@ -296,6 +325,31 @@ export function creerMonde(canvas, rappels) {
 
   function majFilons(l) { filons = l; }
   function majMondial(m) { mondial = m; }
+  function majSanctuaires(l) { sanct = Object.fromEntries((l || []).map((x) => [x.id, x])); }
+  // le cercle de capture au sol : pointillés à la couleur du propriétaire, progression de l'assaillant
+  function dessinerCercle(d) {
+    const st = sanct[d.id] || { prop: d.terr }, r = CAPTURE.rayon, n = 56;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2, x = R(d.x + Math.cos(a) * r), y = R(d.y + Math.sin(a) * r * 0.62);
+      const pris = st.capt && i / n < st.capt.p / 100;
+      ctx.fillStyle = st.conteste ? (Math.floor(temps * 4) % 2 ? '#ff4a3a' : '#fff') : pris ? COUL[st.capt.clan] : 'rgba(0,0,0,.35)';
+      ctx.fillRect(x - 1, y - 1, pris || st.conteste ? 3 : 2, pris || st.conteste ? 3 : 2);
+      if (!pris && !st.conteste && i % 2 === 0) { ctx.fillStyle = COUL[st.prop] || '#aaa'; ctx.globalAlpha = 0.65; ctx.fillRect(x - 1, y - 1, 2, 2); ctx.globalAlpha = 1; }
+    }
+  }
+  function dessinerSanctuaire(d) {
+    const st = sanct[d.id] || { prop: d.terr }, col = COUL[st.prop] || '#aaa', c = hex(col);
+    ombre(d.x, d.y + 8, 34);
+    ctx.drawImage(SOCLE, d.x - 20, d.y - 26);
+    // le cristal flottant
+    const h = R(Math.sin(temps * 2.2 + d.x) * 2), cy = d.y - 34 + h, cx = d.x;
+    const lueur = 0.22 + Math.sin(temps * 3 + d.y) * 0.08; ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${lueur})`; ctx.fillRect(cx - 10, cy - 12, 20, 22); ctx.fillRect(cx - 13, cy - 6, 26, 10);
+    for (let y = -8; y <= 8; y++) { const w = 5 - Math.round(Math.abs(y) * 0.6); if (w < 0) continue; for (let x = -w; x <= w; x++) { const k = x < 0 ? 1.35 : x > 1 ? 0.7 : 1, v = c.map((u) => Math.min(255, u * k + (Math.abs(x) + Math.abs(y) < 3 ? 90 : 0))); ctx.fillStyle = `rgb(${v[0]},${v[1]},${v[2]})`; ctx.fillRect(cx + x, cy + y, 1, 1); } }
+    // l'étendard du clan qui le tient
+    const fx = d.x + 16, fy = d.y - 22; ctx.fillStyle = '#3a2a18'; ctx.fillRect(fx, fy, 1, 22);
+    const ond = Math.floor(temps * 4) % 2; ctx.fillStyle = col; ctx.fillRect(fx + 1, fy + ond, 8, 5); ctx.fillRect(fx + 1, fy + 5 + ond, 6, 1);
+    if (st.capt && Math.floor(temps * 6) % 3 === 0) { ctx.fillStyle = COUL[st.capt.clan]; ctx.fillRect(cx - 1 + Math.round(Math.sin(temps * 9) * 8), cy + 10, 2, 2); }
+  }
   function majMaParcelle(pc) { if (pc) maParcelle = pc.maison * 100 + pc.autel * 10 + pc.atelier; }
   function majAutres(liste, monId) {
     const vus = new Set();
@@ -413,6 +467,7 @@ export function creerMonde(canvas, rappels) {
     const t0x = Math.floor(x0 / 16), t0y = Math.floor(y0 / 16), t1x = Math.min(NT.l - 1, Math.floor(x1 / 16)), t1y = Math.min(NT.h - 1, Math.floor(y1 / 16));
     dessinerLiquides(t0x, t0y, t1x, t1y);
     // tout ce qui a de la hauteur, trié par profondeur
+    for (const d of SANCTUAIRES) if (d.x > x0 - 90 && d.x < x1 + 90 && d.y > y0 - 60 && d.y < y1 + 60) dessinerCercle(d);
     const objets = [];
     for (const o of obs) if (o.tx >= t0x - 2 && o.tx <= t1x + 2 && o.ty >= t0y - 1 && o.ty <= t1y + 4) objets.push({ y: o.y + 6, f: () => { const [ax, ay] = ancreDecor[o.type]; ombre(o.x, o.y + 6, 14); ctx.drawImage(DECOR[o.type], o.x - ax, o.y + 7 - ay); } });
     // qui habite où : les joueurs en ligne (et toi) ; leurs bâtiments améliorés se voient
@@ -426,6 +481,7 @@ export function creerMonde(canvas, rappels) {
     }
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 - 20 && p.y < y1 + 80) objets.push({ y: p.y + 6, f: () => (p.action === 'tirage' ? dessinerAutel(p) : dessinerPortail(p)) });
     for (const f of filons) objets.push({ y: f.y, f: () => dessinerFilon(f) });
+    for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 - 20 && d.y < y1 + 60) objets.push({ y: d.y + 6, f: () => dessinerSanctuaire(d) });
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
     const gens = [...autres.values()].map((a) => { a.x += (a.tx - a.x) * Math.min(1, dt * 10); a.y += (a.ty - a.y) * Math.min(1, dt * 10); return { ...a, dir: ['bas', 'haut', 'gauche', 'droite'][a.dir] || a.dir, marche: Math.hypot(a.tx - a.x, a.ty - a.y) > 1 }; });
@@ -454,6 +510,12 @@ export function creerMonde(canvas, rappels) {
       ctx.fillStyle = coul; ctx.fillText(txt, x, y + s);
     };
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 && p.y < y1 + 40) etiquette(p.nom, ex(p.x), ey(p.y + 18), '#ffe8b0');
+    for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 && d.y < y1 + 60) {
+      const st = sanct[d.id] || { prop: d.terr };
+      etiquette(`🏳 ${d.nom}`, ex(d.x), ey(d.y + 16), '#ffe8b0', COUL[st.prop]);
+      if (st.conteste) etiquette('⚔ Contesté !', ex(d.x), ey(d.y + 30), '#ffb0a0', '#e8402a', true);
+      else if (st.capt) etiquette(`Capture ${st.capt.p} %`, ex(d.x), ey(d.y + 30), '#fff4c8', COUL[st.capt.clan], true);
+    }
     for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) { ctx.font = `bold ${R(16 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(NOMS_TERR[k], ex(vx) + 2 * s, ey(vy) + 2 * s); ctx.fillStyle = '#f8ecd0'; ctx.fillText(NOMS_TERR[k], ex(vx), ey(vy)); }
     for (const a of autres.values()) { const m = maisonDe(a.clan, a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan]); }
     if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true);
@@ -478,8 +540,8 @@ export function creerMonde(canvas, rappels) {
       ctx.fillStyle = '#e8c060'; const b = R(2 * s); ctx.fillRect(R(canvas.width / 2 - w / 2), R(y - h / 2), R(w), b); ctx.fillRect(R(canvas.width / 2 - w / 2), R(y + h / 2) - b, R(w), b); ctx.fillRect(R(canvas.width / 2 - w / 2), R(y - h / 2), b, R(h)); ctx.fillRect(R(canvas.width / 2 + w / 2) - b, R(y - h / 2), b, R(h));
       ctx.fillStyle = '#ffe8a8'; ctx.textBaseline = 'middle'; ctx.fillText(txt2, canvas.width / 2, y + s); ctx.textBaseline = 'alphabetic';
     }
-    if (cible) fleche(ex, ey, s);
     miniCarte(gens);
+    if (cible) fleche(ex, ey, s);
   }
   // la flèche du guide : au-dessus du lieu s'il est à l'écran, sinon au bord de l'écran, tournée vers lui
   function fleche(ex, ey, s) {
@@ -492,10 +554,17 @@ export function creerMonde(canvas, rappels) {
     } else {
       const cx = W / 2, cy = H / 2, a = Math.atan2(sy - cy, sx - cx);
       const k = Math.min((W / 2 - m) / Math.abs(Math.cos(a) || 1e-6), (H / 2 - m) / Math.abs(Math.sin(a) || 1e-6));
-      ctx.translate(cx + Math.cos(a) * k, cy + Math.sin(a) * k); ctx.rotate(a);
+      let px = cx + Math.cos(a) * k, py = cy + Math.sin(a) * k;
+      // pas sur la mini-carte : on la contourne par le haut (ou par la gauche si elle est en haut)
+      const mr = miniRect, marge = 34 * s;
+      if (mr && px > mr.x - marge && px < mr.x + mr.w + marge && py > mr.y - marge && py < mr.y + mr.h + marge) { if (mr.y > H / 2) py = mr.y - marge; else px = mr.x - marge; }
+      ctx.translate(px, py); ctx.rotate(a);
       const d = Math.round(Math.hypot(cible.x - joueur.x, cible.y - joueur.y) / 16);
       ctx.save(); ctx.rotate(-a); ctx.font = `bold ${Math.round(12 * s)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(8,6,12,.85)';
-      const t = `${cible.nom || ''} · ${d} pas`, w = ctx.measureText(t).width + 12 * s; ctx.fillRect(-w / 2, 22 * s, w, 18 * s); ctx.fillStyle = coul; ctx.fillText(t, 0, 35 * s); ctx.restore();
+      // l'étiquette reste dans l'écran
+      const t = `${cible.nom || ''} · ${d} pas`, w = ctx.measureText(t).width + 12 * s, dx = Math.max(8 * s - (px - w / 2), Math.min(0, W - 8 * s - (px + w / 2)));
+      const dy = py + 42 * s > H || (mr && px + w / 2 > mr.x && py < mr.y && py + 42 * s > mr.y) ? -60 * s : 0;
+      ctx.fillRect(dx - w / 2, 22 * s + dy, w, 18 * s); ctx.fillStyle = coul; ctx.fillText(t, dx, 35 * s + dy); ctx.restore();
     }
     const p = 1 + Math.sin(temps * 6) * 0.08;
     ctx.scale(s * p, s * p);
@@ -505,6 +574,7 @@ export function creerMonde(canvas, rappels) {
   }
   function miniCarte(gens) {
     const s = dpr(), petit = innerWidth < 760 || innerHeight < 500, w = (petit ? Math.min(130, innerWidth * 0.34) : 200) * s, h = w * (NT.h / NT.l), x0 = canvas.width - w - 12 * s, y0 = petit ? (innerHeight < 500 ? 52 : tactile ? 104 : 96) * s : canvas.height - h - 40 * s, kx = w / MONDE.l, ky = h / MONDE.h;
+    miniRect = { x: x0, y: y0, w, h };
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#1a140e'; ctx.fillRect(x0 - 4 * s, y0 - 4 * s, w + 8 * s, h + 8 * s);
     ctx.drawImage(mini, x0, y0, w, h);
@@ -513,10 +583,11 @@ export function creerMonde(canvas, rappels) {
     ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = s; ctx.strokeRect(x0 + (-ox / z) * kx, y0 + (-oy / z) * ky, (canvas.width / z) * kx, (canvas.height / z) * ky);
     for (const p of LIEUX) { ctx.fillStyle = p.action === 'tirage' ? '#ffe070' : COUL[p.terr]; ctx.fillRect(R(x0 + p.x * kx - 3 * s), R(y0 + p.y * ky - 3 * s), R(6 * s), R(6 * s)); }
     if (mondial && Math.floor(temps * 3) % 2) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(R(x0 + mondial.x * kx - 5 * s), R(y0 + mondial.y * ky - 5 * s), R(10 * s), R(10 * s)); ctx.fillStyle = '#fff'; ctx.fillRect(R(x0 + mondial.x * kx - 2 * s), R(y0 + mondial.y * ky - 2 * s), R(4 * s), R(4 * s)); }
+    for (const d of SANCTUAIRES) { const st = sanct[d.id] || { prop: d.terr }, mx = R(x0 + d.x * kx), my = R(y0 + d.y * ky), t = R(3 * s); ctx.fillStyle = '#000'; ctx.fillRect(mx - t - s, my - s, 2 * t + 2 * s, 2 * s + s); ctx.fillRect(mx - s, my - t - s, 3 * s, 2 * t + 2 * s); ctx.fillStyle = st.conteste || st.capt ? (Math.floor(temps * 4) % 2 ? '#fff' : COUL[st.prop]) : COUL[st.prop]; ctx.fillRect(mx - t, my, 2 * t + s, s); ctx.fillRect(mx, my - t, s, 2 * t + s); ctx.fillRect(mx - s, my - s, 3 * s, 3 * s); }
     for (const f of filons) { ctx.fillStyle = '#fff8c0'; ctx.fillRect(R(x0 + f.x * kx - 1.5 * s), R(y0 + f.y * ky - 1.5 * s), R(3 * s), R(3 * s)); }
     if (cible && Math.floor(temps * 3) % 2) { ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 2 * s; ctx.strokeRect(R(x0 + cible.x * kx - 5 * s), R(y0 + cible.y * ky - 5 * s), R(10 * s), R(10 * s)); }
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { demarrer, majAutres, majFilons, majMondial, majMaParcelle, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => maisonDe(monClan, monNom), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

@@ -9,6 +9,7 @@ import path from 'node:path';
 import { saisonDe, resetDoux, rangDe } from '../../shared/classe.js';
 import { FUSIONS } from '../../shared/data.js';
 import { semaineDe } from '../../shared/clans/mondial.js';
+import { saisonDe as saisonArn } from '../../shared/clans/arene.js';
 
 const FILE = path.resolve(process.env.STATS_FILE || 'data/stats.json');
 const DB_URL = process.env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, '');
@@ -58,18 +59,31 @@ function fusionner(recu) {
 }
 
 // On limite la taille (la base gratuite accepte ~1 Mo par valeur)
-function elaguer() {
+function elaguer(serre = false) {
+  const k = serre ? 0.5 : 1;   // « serre » : la sauvegarde approchait la limite, on garde moitié moins
   const garder = (obj, n, score) => { const e = Object.entries(obj); if (e.length <= n) return obj; return Object.fromEntries(e.sort((a, b) => score(b[1]) - score(a[1])).slice(0, n)); };
-  data.joueurs = garder(data.joueurs, 1500, (j) => (j.victoires || 0) * 50 + (j.kills || 0) + (j.zombies || 0) * 0.1);
-  data.cotes = garder(data.cotes, 3000, (c) => (c.maj || 0) / 1e9 + (c.cote || 0));
-  if (data.conclave) data.conclave.joueurs = garder(data.conclave.joueurs, 2000, (j) => j.parties || 0);
+  if (data.clansArene) data.clansArene.joueurs = garder(data.clansArene.joueurs || {}, 300 * k, (e) => (e.v + e.d > 0 ? 1e13 : 0) + (e.t || 0));
+  if (data.clansSaison) data.clansSaison.joueurs = garder(data.clansSaison.joueurs || {}, 400 * k, (j) => j.pts || 0);
+  if (!serre) return elaguerReste(garder, 1);
+  elaguerReste(garder, k);
+}
+function elaguerReste(garder, k) {
+  data.joueurs = garder(data.joueurs, 1500 * k, (j) => (j.victoires || 0) * 50 + (j.kills || 0) + (j.zombies || 0) * 0.1);
+  data.cotes = garder(data.cotes, 3000 * k, (c) => (c.maj || 0) / 1e9 + (c.cote || 0));
+  if (data.conclave) data.conclave.joueurs = garder(data.conclave.joueurs, 2000 * k, (j) => j.parties || 0);
 }
 
 let enCours = false;
 export async function save() {
   if (!dirty || enCours) return;
   elaguer();
-  const json = JSON.stringify(data);
+  let json = JSON.stringify(data);
+  // filet de sécurité : la base gratuite refuse une valeur de plus de 1 Mo
+  if (json.length > 850000) {
+    const parts = Object.entries(data).map(([k, v]) => [k, JSON.stringify(v ?? null).length]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    console.warn(`⚠️ Stats volumineuses (${Math.round(json.length / 1024)} Ko) : on garde moins d'entrées. Plus gros morceaux : ${parts.map(([k, n]) => `${k} ${Math.round(n / 1024)} Ko`).join(', ')}`);
+    elaguer(true); json = JSON.stringify(data);
+  }
   dirty = false;
   if (persistance === 'base') {
     if (!pret) { dirty = true; return; }       // jamais écraser la base avant de l'avoir lue
@@ -268,4 +282,36 @@ export async function ecrireProfilClans(jeton, p) {
   data.clansProfils ||= {}; data.clansProfils[jeton] = { p, maj: Date.now() }; dirty = true;
   const k = Object.keys(data.clansProfils);
   if (k.length > 5000) k.sort((a, b) => data.clansProfils[a].maj - data.clansProfils[b].maj).slice(0, k.length - 5000).forEach((x) => delete data.clansProfils[x]);
+}
+
+// ---------- Les Clans Élémentaires : qui tient les sanctuaires ----------
+export function lireSanctuaires() { return data.clansSanctuaires || null; }
+export function ecrireSanctuaires(props) { data.clansSanctuaires = { ...props }; dirty = true; }
+
+// ---------- Les Clans Élémentaires : l'arène classée (saison d'un mois) ----------
+// joueurs : { id (empreinte du jeton) : { nom, clan, classe, elo, v, d, deck, pvMax, t } }
+function saisonArene() {
+  const s = saisonArn();
+  let a = data.clansArene;
+  if (!a || a.saison !== s.id) {
+    if (a && Object.keys(a.joueurs || {}).length) {
+      const top = Object.values(a.joueurs).sort((x, y) => y.elo - x.elo).slice(0, 3).map(({ nom, clan, elo }) => ({ nom, clan, elo }));
+      (data.clansArenePalmares ||= []).unshift({ saison: a.saison, top }); data.clansArenePalmares.length = Math.min(data.clansArenePalmares.length, 6);
+    }
+    a = data.clansArene = { saison: s.id, fin: s.fin, joueurs: {} }; dirty = true;
+  }
+  return a;
+}
+// les decks sont gardés en texte court (« frappe,garde:2,… ») : 4 fois moins de place
+const deckEnTexte = (d) => (Array.isArray(d) ? d.map((k) => `${k.id}${(k.niv || 1) > 1 ? `:${k.niv}` : ''}`).join(',') : '');
+const deckDeTexte = (t) => (typeof t === 'string' && t ? t.split(',').map((x) => { const [id, n] = x.split(':'); return { id, niv: +n || 1 }; }) : Array.isArray(t) ? t : []);
+export function areneEnregistrer(id, e) {
+  const a = saisonArene(); a.joueurs[id] = { ...e, deck: deckEnTexte(e.deck), t: Date.now() }; dirty = true;
+  const l = Object.entries(a.joueurs); if (l.length > 400) a.joueurs = Object.fromEntries(l.sort((x, y) => y[1].t - x[1].t).slice(0, 300));
+}
+export function areneJoueurs() { return Object.fromEntries(Object.entries(saisonArene().joueurs).map(([k, e]) => [k, { ...e, deck: deckDeTexte(e.deck) }])); }
+export function classementArene(id) {
+  const a = saisonArene(), l = Object.entries(a.joueurs).filter(([, e]) => e.v + e.d > 0).sort((x, y) => y[1].elo - x[1].elo);
+  const rang = id ? l.findIndex(([k]) => k === id) + 1 : 0;
+  return { saison: a.saison, fin: a.fin, top: l.slice(0, 20).map(([, e]) => ({ nom: e.nom, clan: e.clan, classe: e.classe, elo: e.elo, v: e.v, d: e.d })), rang, total: l.length, palmares: (data.clansArenePalmares || []).slice(0, 3) };
 }

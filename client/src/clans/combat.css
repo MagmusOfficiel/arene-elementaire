@@ -1,0 +1,204 @@
+/* =====================================================================
+   LES CLANS ÉLÉMENTAIRES — la scène des combats et des duels
+   Décor en pixel art, héros face aux monstres, cartes qui volent,
+   impacts, chiffres, bannières. --z (taille des sprites) et --e (taille
+   des portraits) sont réglés par le script selon la place disponible.
+   ===================================================================== */
+.scene { position: fixed; inset: 0; z-index: 30; overflow: hidden; background: #05040a; --z: 7; --e: 150px; --pix: 'Pixelify Sans', 'Trebuchet MS', sans-serif; user-select: none; }
+#duel.scene { z-index: 32; }
+.scene .decor { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 72%; image-rendering: pixelated; }
+.scene .ambiance, .scene .fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.scene .ambiance { z-index: 1; }
+.scene .fx { z-index: 60; }
+.scene .voile { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55)), linear-gradient(transparent 62%, rgba(0,0,0,.72)); }
+
+/* ---------- en-tête ---------- */
+.scene .haut { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; text-align: center; padding: 6px 26px 7px; background: linear-gradient(rgba(10,8,16,.85), rgba(10,8,16,.6)); border: 2px solid rgba(232,192,96,.55); border-radius: 4px; clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); min-width: 260px; }
+.scene .haut span:first-child { display: block; font-family: var(--pix); font-size: 21px; color: var(--or); letter-spacing: .04em; text-shadow: 0 2px 0 #3a2208; }
+.scene .haut span + span { display: block; font-size: 12px; color: #c8bca8; margin-top: 1px; }
+#duTour.moi { color: #ffd870; font-weight: bold; }
+.scene .talent { position: absolute; left: 14px; top: 12px; z-index: 5; width: 270px; font-size: 12px; line-height: 1.35; background: rgba(8,6,12,.78); border: 1px solid rgba(232,192,96,.4); border-radius: 8px; padding: 6px 10px; }
+.scene .talent b { color: var(--or); }
+.scene .talent.pret { box-shadow: 0 0 16px rgba(255,216,112,.75); border-color: #ffd870; }
+
+/* ---------- l'arène : héros à gauche, monstres à droite, posés sur le sol ---------- */
+.scene .arene { position: absolute; left: 0; right: 0; top: 74px; bottom: 250px; z-index: 3; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 7% 0 9%; pointer-events: none; }
+.scene .arene > * { pointer-events: auto; }
+.heros { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+.combattant { position: relative; display: flex; justify-content: center; }
+.sprite { width: calc(16px * var(--z)); height: calc(26px * var(--z)); image-rendering: pixelated; position: relative; z-index: 1; animation: souffle 1.6s steps(2) infinite; transform-origin: bottom center; }
+.adversaire .sprite { animation-delay: -.8s; }
+.combattant .ombre, .ennemi .ombre { position: absolute; bottom: calc(-1px * var(--z)); left: 50%; width: calc(14px * var(--z)); height: calc(3px * var(--z)); transform: translateX(-50%); border-radius: 50%; background: rgba(0,0,0,.45); filter: blur(2px); }
+@keyframes souffle { 50% { transform: scaleY(1.03) translateY(calc(-.5px * var(--z))); } }
+.heros .jauge, .ennemi .jauge { position: relative; width: calc(18px * var(--z)); min-width: 130px; margin-top: 8px; }
+.adversaire .nomAdv { font-family: var(--pix); font-size: 15px; text-shadow: 0 2px 0 #000; margin-top: 6px; }
+.adversaire .mainAdv { font-size: 18px; letter-spacing: -7px; padding-right: 7px; min-height: 22px; color: #e8dcc0; text-shadow: 0 2px 2px #000; }
+
+/* la barre de vie : remplissage, « fantôme » qui suit en retard, texte, bouclier */
+.scene .barre.vie { height: 18px; border-radius: 4px; background: #1a0c0c; border: 2px solid #0a0606; box-shadow: 0 0 0 1px rgba(255,255,255,.18), 0 3px 6px rgba(0,0,0,.6); overflow: hidden; position: relative; margin: 0; }
+.scene .barre.vie i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#ff7a5a, #d8341a 55%, #9a1e10); transition: width .35s ease-out; box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+.scene .barre.vie i.fantome { background: #fff2c0; transition: width .6s ease-in .45s; box-shadow: none; }
+.scene .barre.vie.protege i:not(.fantome) { background: linear-gradient(#9ad0ff, #3a8ae0 55%, #1a4a9a); }
+.scene .barre.vie b { position: relative; z-index: 1; display: block; text-align: center; font: bold 12px/18px var(--pix); text-shadow: 0 1px 0 #000, 0 0 3px #000; color: #fff; }
+.scene .bouclier { position: absolute; left: -16px; top: 50%; transform: translateY(-50%); z-index: 2; width: 30px; height: 32px; display: none; align-items: center; justify-content: center; font: bold 13px var(--pix); color: #fff; text-shadow: 0 1px 0 #000;
+  background: linear-gradient(#6ab0ff, #1a5ab8); clip-path: polygon(50% 0, 100% 18%, 92% 70%, 50% 100%, 8% 70%, 0 18%); }
+.scene .bouclier.vu { display: flex; animation: bouclierPop .35s ease-out; }
+@keyframes bouclierPop { from { transform: translateY(-50%) scale(1.8); filter: brightness(2.2); } }
+.scene .statuts { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; min-height: 20px; margin-top: 4px; }
+.scene .statut { font: 12px var(--pix); background: rgba(8,6,12,.82); border: 1px solid rgba(255,255,255,.2); border-radius: 5px; padding: 1px 6px; cursor: help; }
+.scene .statut.nouveau { animation: statutPop .45s ease-out; }
+@keyframes statutPop { from { transform: scale(2.2); filter: brightness(2); } }
+
+/* ---------- les monstres ---------- */
+.ennemis { display: flex; align-items: flex-end; gap: clamp(14px, 3vw, 44px); }
+.ennemi { display: flex; flex-direction: column; align-items: center; position: relative; cursor: default; --r: #c8bca8; transition: transform .2s, filter .2s; }
+.ennemi.elite { --r: #b46aff; } .ennemi.boss { --r: #ffc040; --e2: 1.3; } .ennemi.mondial { --r: #ff5a3a; --e2: 1.35; }
+.ennemi .portrait { width: calc(var(--e) * var(--e2, 1)); height: calc(var(--e) * var(--e2, 1)); border-radius: 16px; background: #1a1420 center 25% / cover; border: 3px solid var(--r); position: relative;
+  box-shadow: 0 0 0 2px #0a0608, 0 12px 26px rgba(0,0,0,.65), 0 0 22px color-mix(in srgb, var(--r) 45%, transparent); display: flex; align-items: center; justify-content: center; font-size: calc(var(--e) * .5); animation: respireE 3.2s ease-in-out infinite; transform-origin: bottom center; }
+.ennemi .portrait::after { content: ''; position: absolute; inset: 0; border-radius: 13px; background: linear-gradient(160deg, rgba(255,255,255,.22), transparent 40%, rgba(0,0,0,.35)); pointer-events: none; }
+.ennemi.elite .portrait::before, .ennemi.boss .portrait::before, .ennemi.mondial .portrait::before { content: ''; position: absolute; inset: -9px; border-radius: 22px; border: 2px dashed color-mix(in srgb, var(--r) 70%, transparent); animation: tourne 14s linear infinite; }
+.ennemi .ombre { bottom: -10px; width: calc(var(--e) * var(--e2, 1) * .85); height: 16px; }
+@keyframes respireE { 50% { transform: scale(1.025) translateY(-3px); } }
+@keyframes tourne { to { transform: rotate(360deg); } }
+.ennemi .nomE { font-family: var(--pix); font-size: 15px; margin-top: 14px; text-shadow: 0 2px 0 #000; color: #f8ecd8; white-space: nowrap; }
+.ennemi.boss .nomE, .ennemi.mondial .nomE { color: #ffd870; font-size: 17px; }
+.ennemi .jauge { width: calc(var(--e) * var(--e2, 1)); min-width: 0; margin-top: 4px; }
+/* l'intention : ce que le monstre va faire, dans une bulle au-dessus de lui */
+.intention { display: inline-flex; gap: 8px; align-items: center; margin-bottom: 10px; padding: 4px 12px; border-radius: 14px; background: rgba(10,8,14,.88); border: 2px solid rgba(255,255,255,.18); font: bold 15px var(--pix); animation: bulle 1.8s ease-in-out infinite; position: relative; white-space: nowrap; }
+.intention::after { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: rgba(10,8,14,.88); }
+.intention.menace { border-color: #e8402a; box-shadow: 0 0 14px rgba(232,64,42,.5); }
+.intention .attaque { color: #ff8a7a; } .intention .defense { color: #8ac8ff; } .intention .buff { color: #ffd870; } .intention .malus { color: #d8a8ff; } .intention .epines { color: #8ae07a; }
+@keyframes bulle { 50% { transform: translateY(-4px); } }
+.ennemi.ciblable { cursor: crosshair; }
+.ennemi.ciblable .portrait { animation: respireE 3.2s ease-in-out infinite, viser 1s ease-in-out infinite; }
+.ennemi.ciblable:hover .portrait { box-shadow: 0 0 0 3px #ff5a4a, 0 0 34px #ff5a4a; transform: scale(1.05); }
+@keyframes viser { 50% { box-shadow: 0 0 0 2px #ff5a4a, 0 0 26px rgba(255,90,74,.7); } }
+.ennemi.mort { pointer-events: none; animation: meurt .9s ease-in forwards; }
+@keyframes meurt { 30% { filter: brightness(3) saturate(0); transform: scale(1.06); } 100% { filter: brightness(2) blur(6px); transform: scale(.6) translateY(30px); opacity: 0; } }
+.ennemi.parti { visibility: hidden; }
+
+/* ---------- les gestes : arrivée, attaque, coup reçu, secousse ---------- */
+.entreeG { animation: entreeG .6s cubic-bezier(.2,.9,.3,1.2) backwards; }
+.entreeD { animation: entreeD .6s cubic-bezier(.2,.9,.3,1.2) backwards; }
+@keyframes entreeG { from { transform: translateX(-60vw); opacity: 0; } }
+@keyframes entreeD { from { transform: translateX(60vw); opacity: 0; } }
+.ennemi.agit { filter: drop-shadow(0 0 18px var(--r)); z-index: 2; }
+.ennemi.frappe { animation: frappeG .42s ease-in-out; z-index: 3; }
+.heros.frappe .combattant { animation: frappeD .42s ease-in-out; }
+.adversaire.frappe .combattant { animation: frappeG .42s ease-in-out; }
+@keyframes frappeG { 35% { transform: translateX(-70px) scale(1.08); } 55% { transform: translateX(-80px) scale(1.08); } }
+@keyframes frappeD { 35% { transform: translateX(70px) scale(1.06); } 55% { transform: translateX(80px) scale(1.06); } }
+.touche .portrait, .heros.touche .combattant { animation: touche .4s ease-out; }
+@keyframes touche { 0% { filter: brightness(4) saturate(0); } 20% { transform: translateX(-10px) rotate(-2deg); } 45% { transform: translateX(8px) rotate(1.5deg); } 70% { transform: translateX(-4px); } }
+.scene.secousse .arene, .scene.secousse .decor { animation: secousse .35s; }
+.scene.grosseSecousse .arene, .scene.grosseSecousse .decor { animation: secousse .5s; }
+@keyframes secousse { 15% { transform: translate(-6px, 3px); } 35% { transform: translate(5px, -4px); } 55% { transform: translate(-4px, 2px); } 75% { transform: translate(2px, -1px); } }
+.scene .flash { position: absolute; inset: 0; z-index: 55; pointer-events: none; animation: flash .35s ease-out forwards; }
+@keyframes flash { from { opacity: .55; } to { opacity: 0; } }
+
+/* ---------- chiffres qui sautent ---------- */
+.nombre { position: fixed; z-index: 70; pointer-events: none; font: bold 34px var(--pix, sans-serif); color: #fff; -webkit-text-stroke: 2px #1a0806; paint-order: stroke fill; text-shadow: 0 3px 0 #1a0806; animation: nombre 1.1s cubic-bezier(.2,.8,.3,1) forwards; white-space: nowrap; font-family: 'Pixelify Sans', sans-serif; }
+.nombre.deg { color: #ff6a4a; } .nombre.gros { font-size: 48px; color: #ffd84a; } .nombre.soin { color: #6af07a; } .nombre.bloc { color: #8ac8ff; font-size: 26px; }
+.nombre.bloque { color: #b8d8ff; font-size: 20px; } .nombre.statut { font-size: 22px; color: #f0e0ff; } .nombre.brule { color: #ffa040; }
+@keyframes nombre { 0% { transform: translate(-50%, 0) scale(.3); opacity: 0; } 15% { transform: translate(-50%, -26px) scale(1.25); opacity: 1; } 30% { transform: translate(-50%, -30px) scale(1); } 100% { transform: translate(calc(-50% + var(--dx, 0px)), -95px) scale(.9); opacity: 0; } }
+
+/* ---------- bannières (tour, victoire, défaite) ---------- */
+.scene .bannScene { position: absolute; left: 0; right: 0; top: 38%; z-index: 65; display: flex; justify-content: center; pointer-events: none; }
+.scene .bannScene > div { font: bold 44px var(--pix); letter-spacing: .08em; padding: 10px 70px; color: #fff4d0; text-shadow: 0 3px 0 #3a2208; background: linear-gradient(90deg, transparent, rgba(10,8,16,.9) 18%, rgba(10,8,16,.9) 82%, transparent); border-top: 2px solid rgba(232,192,96,.7); border-bottom: 2px solid rgba(232,192,96,.7); animation: banniere 1.15s ease-in-out forwards; }
+.scene .bannScene > div small { display: block; font-size: 15px; letter-spacing: .02em; color: #c8bca8; text-align: center; text-shadow: none; }
+.scene .bannScene > .rouge { color: #ffb8a8; border-color: rgba(232,64,42,.8); }
+@keyframes banniere { 0% { transform: scaleX(0); opacity: 0; } 18% { transform: scaleX(1.05); opacity: 1; } 26% { transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(40px); } }
+.scene .bannScene > .fin { font-size: 72px; padding: 18px 90px; animation: bannFin 1.6s cubic-bezier(.2,.9,.3,1.1) forwards; position: relative; }
+.scene .bannScene > .fin.victoire { color: #ffe070; text-shadow: 0 4px 0 #6a3a08, 0 0 30px rgba(255,200,80,.8); }
+.scene .bannScene > .fin.defaite { color: #d8d0d0; text-shadow: 0 4px 0 #2a0808; border-color: rgba(160,40,30,.8); }
+@keyframes bannFin { 0% { transform: scale(2.4); opacity: 0; filter: blur(8px); } 30% { transform: scale(1); opacity: 1; filter: none; } 100% { transform: scale(1.04); opacity: 1; } }
+.scene.finie .arene, .scene.finie .main { transition: filter .8s; }
+.scene.perdu .arene, .scene.perdu .decor { filter: grayscale(.85) brightness(.6); transition: filter 1s; }
+.rayons { position: absolute; left: 50%; top: 45%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; z-index: 2; pointer-events: none; background: repeating-conic-gradient(rgba(255,220,120,.16) 0 6deg, transparent 6deg 18deg); animation: tourne 18s linear infinite, apparait .8s ease-out; mask-image: radial-gradient(circle, #000 10%, transparent 60%); }
+@keyframes apparait { from { opacity: 0; } }
+
+/* ---------- énergie, piles, fin du tour ---------- */
+.scene .energie { position: absolute; left: 26px; bottom: 132px; z-index: 6; width: 92px; height: 92px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #2a1606;
+  background: radial-gradient(circle at 36% 30%, #fffbe0, #ffd050 38%, #d07a10 72%, #6a3a06); border: 3px solid #2a1606; box-shadow: 0 0 0 3px rgba(255,220,120,.35), 0 0 28px rgba(255,190,60,.55), inset 0 -6px 10px rgba(0,0,0,.3); }
+.scene .energie b { font: bold 32px/1 var(--pix); }
+.scene .energie small { font: 10px var(--pix); text-transform: uppercase; letter-spacing: .08em; }
+.scene .energie.vide { filter: grayscale(.8) brightness(.6); box-shadow: 0 0 0 3px rgba(255,255,255,.1); }
+.scene .energie.change { animation: energie .4s ease-out; }
+@keyframes energie { 40% { transform: scale(1.18); filter: brightness(1.5); } }
+.scene .pile { position: absolute; bottom: 18px; z-index: 6; width: 64px; height: 90px; cursor: help; }
+.scene .pioche { left: 22px; } .scene .defausse { right: 22px; }
+.scene .pile i { position: absolute; inset: 0; border-radius: 7px; border: 2px solid #c8a050; background: repeating-linear-gradient(45deg, #3a1e4a 0 6px, #2a1438 6px 12px); box-shadow: 3px 3px 0 #1a0e22, 6px 6px 0 #120a18, 0 8px 14px rgba(0,0,0,.6); }
+.scene .pile i::after { content: '✦'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #e8c060; font-size: 26px; }
+.scene .defausse i { background: repeating-linear-gradient(-45deg, #2a2a34 0 6px, #1e1e26 6px 12px); filter: saturate(.4); }
+.scene .pile b { position: absolute; right: -8px; bottom: -6px; min-width: 26px; height: 26px; border-radius: 13px; background: #0a0810; border: 2px solid #c8a050; font: bold 13px/22px var(--pix); text-align: center; color: #fff; }
+.scene .pile.recoit i { animation: energie .3s; }
+.scene .epuisees { position: absolute; right: 96px; bottom: 22px; z-index: 6; font: 13px var(--pix); background: rgba(8,6,12,.8); border-radius: 8px; padding: 2px 8px; }
+.scene .epuisees:empty { display: none; }
+.scene .finTour { position: absolute; right: 18px; bottom: 132px; z-index: 6; min-width: 150px; padding: 12px 20px; font: bold 18px var(--pix); color: #1a1006; border: 3px solid #2a1606; border-radius: 10px; background: linear-gradient(#ffe48a, #e0a830 55%, #b07a18); box-shadow: 0 4px 0 #5a3a0a, 0 8px 18px rgba(0,0,0,.5); cursor: pointer; transition: transform .1s, filter .2s; }
+.scene .finTour:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.scene .finTour:active { transform: translateY(2px); box-shadow: 0 2px 0 #5a3a0a; }
+.scene .finTour:disabled { filter: grayscale(1) brightness(.6); cursor: default; transform: none; }
+.scene .finTour.invite { animation: invite 1.2s ease-in-out infinite; }
+@keyframes invite { 50% { box-shadow: 0 4px 0 #5a3a0a, 0 0 26px 6px rgba(255,216,112,.75); } }
+.scene .abandon { position: absolute; right: 14px; top: 14px; z-index: 6; background: rgba(8,6,12,.75); border: 1px solid rgba(255,255,255,.25); color: #e8dcc0; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.scene .journal { position: absolute; right: 18px; top: 90px; width: 230px; z-index: 4; font-size: 13px; color: #d8ccb8; }
+.scene .journal p { margin: 3px 0; background: rgba(8,6,12,.62); padding: 3px 8px; border-radius: 6px; animation: statutPop .3s; }
+.scene .aide { position: absolute; left: 50%; bottom: 236px; transform: translateX(-50%); z-index: 7; color: #ffd870; font: 16px var(--pix); text-shadow: 0 2px 0 #000; white-space: nowrap; pointer-events: none; }
+
+/* ---------- la main de cartes ---------- */
+.scene .main { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); display: flex; justify-content: center; z-index: 8; padding-top: 30px; }
+.scene .main .carte { margin: 0 -14px; cursor: pointer; transform-origin: 50% 120%; transition: transform .18s ease-out, filter .2s, box-shadow .2s; }
+.scene .main .carte:hover { transform: translateY(-46px) scale(1.14) !important; z-index: 9; box-shadow: 0 0 24px rgba(255,230,150,.7), 0 14px 24px rgba(0,0,0,.6); }
+.scene .main .carte.injouable { filter: brightness(.5) saturate(.5); cursor: not-allowed; }
+.scene .main .carte.choisie { transform: translateY(-58px) scale(1.14) !important; z-index: 10; box-shadow: 0 0 0 3px #ff5a4a, 0 0 30px #ff5a4a; }
+.scene .main .carte.distribue { animation: distribue .5s cubic-bezier(.2,.8,.3,1) backwards; }
+@keyframes distribue { from { transform: translate(var(--dx, -40vw), var(--dy, 20vh)) rotate(-30deg) scale(.3); opacity: 0; } }
+.scene .main.cachee .carte { opacity: 0; }
+.carteVol { position: fixed; z-index: 75; pointer-events: none; margin: 0 !important; transition: none !important; }
+.scene.attente .main .carte, .scene.attente .ennemi { cursor: wait; }
+
+/* ---------- petits écrans ---------- */
+/* téléphone en portrait : les monstres en haut, le héros en bas à gauche */
+@media (max-aspect-ratio: 4/5) {
+  .scene .arene { flex-direction: column-reverse; align-items: stretch; justify-content: space-between; top: 92px; bottom: 236px; padding: 0 12px; }
+  .scene .arene .heros { align-self: flex-start; }
+  #duel .arene .adversaire { align-self: flex-end; }
+  .ennemis { justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .ennemi .nomE { font-size: 12px; margin-top: 10px; } .intention { font-size: 13px; padding: 3px 9px; margin-bottom: 7px; }
+  .scene .talent { display: none; }
+  .scene .haut { min-width: 0; width: 86vw; padding: 4px 18px; } .scene .haut span:first-child { font-size: 17px; }
+  .scene .energie { left: 10px; bottom: 166px; width: 62px; height: 62px; } .scene .energie b { font-size: 22px; } .scene .energie small { font-size: 8px; }
+  .scene .finTour { right: 8px; bottom: 170px; min-width: 0; padding: 9px 14px; font-size: 15px; }
+  .scene .pile { width: 42px; height: 60px; bottom: 10px; } .scene .pioche { left: 6px; } .scene .defausse { right: 6px; } .scene .pile i::after { font-size: 16px; }
+  .scene .epuisees { right: 56px; bottom: 76px; }
+  .scene .main .carte { width: 92px; height: 138px; margin: 0 -24px; }
+  .scene .main .carte .cn { font-size: 10px; } .scene .main .carte .ci, .scene .main .carte.aIllus .ci.illus { height: 56px; font-size: 30px; }
+  .scene .main .carte .ct { font-size: 7px; } .scene .main .carte .cd { font-size: 8.5px; padding: 3px; line-height: 1.15; }
+  .scene .main .carte:hover { transform: translateY(-30px) scale(1.12) !important; }
+  .scene .aide { bottom: 222px; font-size: 13px; }
+  .scene .journal { display: none; }
+  .scene .bannScene > div { font-size: 30px; padding: 8px 40px; } .scene .bannScene > .fin { font-size: 46px; padding: 14px 50px; }
+}
+/* téléphone couché (écran bas) */
+@media (max-height: 500px) {
+  .scene .arene { top: 44px; bottom: 150px; }
+  .scene .haut { top: 4px; padding: 2px 18px; } .scene .haut span + span { display: none; } .scene .haut span:first-child { font-size: 15px; }
+  .scene .talent { display: none; }
+  .scene .energie { left: 8px; bottom: 96px; width: 54px; height: 54px; } .scene .energie b { font-size: 19px; } .scene .energie small { display: none; }
+  .scene .finTour { right: 8px; bottom: 100px; min-width: 0; padding: 7px 12px; font-size: 14px; }
+  .scene .pile { width: 38px; height: 54px; bottom: 8px; } .scene .pile i::after { font-size: 14px; }
+  .scene .epuisees { right: 52px; bottom: 10px; }
+  .scene .main { bottom: -22px; }
+  .scene .main .carte { width: 92px; height: 132px; margin: 0 -12px; }
+  .scene .main .carte .cn { font-size: 10px; } .scene .main .carte .ci, .scene .main .carte.aIllus .ci.illus { height: 44px; font-size: 26px; }
+  .scene .main .carte .ct { display: none; } .scene .main .carte .cd { font-size: 8px; padding: 3px; line-height: 1.12; }
+  .scene .main .carte:hover { transform: translateY(-22px) scale(1.06) !important; }
+  .scene .aide { bottom: 136px; font-size: 13px; }
+  .ennemi .nomE { font-size: 11px; margin-top: 8px; } .intention { font-size: 12px; padding: 2px 8px; margin-bottom: 5px; }
+  .scene .barre.vie { height: 14px; } .scene .barre.vie b { font-size: 10px; line-height: 14px; }
+  .scene .journal { display: none; }
+  .scene .bannScene > div { font-size: 28px; } .scene .bannScene > .fin { font-size: 44px; }
+}
+.ennemi .corps { position: relative; display: flex; justify-content: center; }
+.scene.gagne .arene .heros .combattant { filter: drop-shadow(0 0 16px rgba(255,216,112,.8)); }
+@media (max-aspect-ratio: 4/5) { .scene .abandon { top: auto; bottom: 236px; left: 8px; right: auto; font-size: 12px; padding: 4px 9px; } }

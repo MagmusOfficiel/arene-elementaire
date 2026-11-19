@@ -14,6 +14,7 @@ import * as P from '../../shared/clans/profil.js';
 import * as X from '../../shared/clans/expedition.js';
 import { rejouer } from '../../shared/clans/combat.js';
 import * as Q from '../../shared/clans/quetes.js';
+import * as T from '../../shared/clans/territoires.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
 import { lireProfilClans, ecrireProfilClans, jetonValide } from './stats.js';
 
@@ -60,7 +61,14 @@ export const ACTIONS = {
   ameliorer(p, m) { if (!carte(m.id)) return { ok: false }; const r = P.ameliorer(p, m.id); if (r.ok) Q.evenement(p, 'ameliorer'); return r.ok ? { ok: true, res: r } : r; },
   deckAjouter(p, m) { if (!carte(m.id)) return { ok: false }; return P.ajouterAuDeck(p, m.id); },
   deckRetirer(p, m) { if (!carte(m.id)) return { ok: false }; return P.retirerDuDeck(p, m.id); },
-  recolter(p) { const g = P.recolter(p, Date.now()); if ((g.essence || 0) >= 1) Q.evenement(p, 'recolter'); return { ok: true, res: g }; },
+  recolter(p, m, ctx) {
+    const g = P.recolter(p, Date.now()), b = T.bonusProduction(ctx?.sanctuaires || 0);
+    // bonus des sanctuaires tenus par le clan
+    if (b > 0) for (const [k, v] of Object.entries(g)) if (typeof v === 'number' && v > 0 && typeof p.ress[k] === 'number') { const e = Math.floor(v * b); p.ress[k] += e; g[k] += e; }
+    g.bonus = b;
+    if ((g.essence || 0) >= 1) Q.evenement(p, 'recolter');
+    return { ok: true, res: g };
+  },
   construire(p, m) { if (typeof m.bat !== 'string' || !Object.hasOwn(P.BATIMENTS, m.bat)) return { ok: false }; const r = P.construire(p, m.bat); return r.ok ? { ok: true, res: r } : r; },
   expeCommencer(p, m) {
     if (p.expedition) return { ok: false, raison: 'Une expédition est déjà en cours.' };

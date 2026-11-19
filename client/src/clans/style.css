@@ -131,49 +131,14 @@ button { font: inherit; cursor: pointer; }
 .paliers { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
 
 /* ---------- combat ---------- */
-#combat { position: fixed; inset: 0; z-index: 30; overflow: hidden; }
-#cbFond { position: absolute; inset: 0; }
-#cbFond.feu { background: radial-gradient(ellipse at 50% 30%, #6a2410, #1a0806 70%); }
-#cbFond.eau { background: radial-gradient(ellipse at 50% 30%, #1a4a7a, #040e1e 70%); }
-#cbFond.plante { background: radial-gradient(ellipse at 50% 30%, #1e5a24, #041006 70%); }
-#cbFond::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 45%; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
-#cbHaut { position: absolute; top: 10px; left: 0; right: 0; text-align: center; z-index: 2; }
-#cbTitre { font-family: Georgia, serif; font-size: 20px; color: var(--or); } #cbInfo { display: block; color: #c8bca8; font-size: 13px; }
-#cbEnnemis { position: absolute; top: 12%; left: 0; right: 0; display: flex; justify-content: center; gap: 40px; z-index: 2; flex-wrap: wrap; }
-.ennemi { width: 170px; text-align: center; cursor: default; transition: transform .15s; position: relative; }
-.ennemi.ciblable { cursor: crosshair; } .ennemi.ciblable:hover .corpsE { box-shadow: 0 0 0 3px #ff5a4a, 0 0 30px #ff5a4a; }
-.ennemi.mort { opacity: 0; transform: scale(.6); transition: all .5s; pointer-events: none; }
-.corpsE { width: 130px; height: 130px; margin: 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 76px; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.15), rgba(0,0,0,.4)); border: 2px solid rgba(255,255,255,.15); animation: respire 2.6s ease-in-out infinite; }
-.ennemi.elite .corpsE { border-color: #b05ae8; box-shadow: 0 0 22px rgba(176,90,232,.5); } .ennemi.boss .corpsE { width: 160px; height: 160px; font-size: 96px; border-color: #f0b030; box-shadow: 0 0 30px rgba(240,176,48,.55); }
 @keyframes respire { 50% { transform: scale(1.04); } }
-.ennemi .nomE { font-weight: bold; margin-top: 6px; text-shadow: 0 1px 3px #000; }
-.intention { display: inline-flex; gap: 6px; background: rgba(0,0,0,.65); border-radius: 14px; padding: 3px 10px; margin-bottom: 6px; font-weight: bold; font-size: 15px; border: 1px solid rgba(255,255,255,.2); }
-.intention .attaque { color: #ff7a6a; } .intention .defense { color: #7ac0ff; } .intention .buff { color: #ffd870; } .intention .malus { color: #c89aff; } .intention .epines { color: #8ae07a; }
 .barre { position: relative; height: 16px; border-radius: 8px; background: rgba(0,0,0,.6); overflow: hidden; border: 1px solid rgba(255,255,255,.2); margin-top: 6px; }
 .barre i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#e85a4a, #a82a1a); transition: width .3s; }
 .barre b { position: relative; font-size: 11px; display: block; text-align: center; line-height: 16px; text-shadow: 0 1px 2px #000; }
 .bloc { display: inline-block; background: #2a6ab0; color: #fff; border-radius: 6px; padding: 0 6px; font-size: 12px; margin-top: 4px; }
 .statuts { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
 .statut { font-size: 12px; background: rgba(0,0,0,.6); border-radius: 8px; padding: 1px 6px; cursor: help; }
-#cbJoueur { position: absolute; left: 20px; bottom: 228px; display: flex; align-items: center; gap: 14px; z-index: 3; }
-#cbPortrait { width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44px; border: 3px solid var(--or); background: radial-gradient(circle, rgba(255,255,255,.2), rgba(0,0,0,.5)); }
-#cbVie { width: 220px; }
-#cbEnergie { width: 70px; height: 70px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 30%, #fff6c0, #e8b030 55%, #7a4a08); color: #2a1808; border: 3px solid #2a1808; box-shadow: 0 0 20px rgba(232,176,48,.6); }
-#cbEnergie b { font-size: 24px; line-height: 1; } #cbEnergie small { font-size: 9px; text-transform: uppercase; }
-#cbMain { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; justify-content: center; z-index: 4; padding-top: 20px; }
-#cbMain .carte { margin: 0 -14px; cursor: pointer; transform-origin: bottom center; }
-#cbMain .carte:hover { transform: translateY(-34px) scale(1.12) !important; z-index: 5; box-shadow: 0 0 22px rgba(255,230,150,.6), 0 10px 20px rgba(0,0,0,.6); }
-#cbMain .carte.injouable { filter: brightness(.55) saturate(.6); cursor: not-allowed; }
-#cbMain .carte.choisie { transform: translateY(-46px) scale(1.12) !important; box-shadow: 0 0 0 3px #ff5a4a, 0 0 26px #ff5a4a; z-index: 6; }
-#cbPiles { position: absolute; right: 20px; bottom: 236px; display: flex; gap: 10px; z-index: 3; font-size: 13px; }
-#cbPiles span { background: rgba(0,0,0,.6); border-radius: 8px; padding: 4px 10px; }
-#btFinTour { position: absolute; right: 20px; bottom: 170px; z-index: 5; padding: 12px 22px; border-radius: 10px; border: 2px solid #2a1808; background: linear-gradient(#e8c060, #b08a30); color: #1a1208; font-weight: bold; font-size: 16px; }
-#cbAide { position: absolute; left: 50%; transform: translateX(-50%); bottom: 250px; z-index: 5; color: #ffd870; font-weight: bold; text-shadow: 0 1px 4px #000; }
-.chiffre { position: absolute; font-weight: bold; font-size: 28px; pointer-events: none; z-index: 40; text-shadow: 0 2px 4px #000; animation: monte 1s forwards; }
-.chiffre.deg { color: #ff6a5a; } .chiffre.soin { color: #6af07a; } .chiffre.bloc { color: #7ac0ff; }
 @keyframes monte { to { transform: translateY(-60px); opacity: 0; } }
-.touche { animation: touche .3s; } @keyframes touche { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-@media (max-width: 760px) { #cbMain .carte { width: 110px; height: 160px; margin: 0 -18px; } #cbMain .carte .ci { height: 44px; font-size: 30px; } #cbMain .carte .cd { font-size: 9.5px; } #cbJoueur { bottom: 176px; left: 8px; } #cbVie { width: 130px; } #btFinTour { bottom: 120px; } #cbPiles { bottom: 182px; } .corpsE { width: 90px; height: 90px; font-size: 52px; } .ennemi { width: 120px; } #enLigne { display: none; } }
 
 #toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
 .toast { background: rgba(8,6,12,.92); border: 1px solid var(--or); padding: 8px 16px; border-radius: 10px; animation: toast 3.2s forwards; }
@@ -189,45 +154,15 @@ button { font: inherit; cursor: pointer; }
 .classeCarte h3 { margin: 6px 0; text-align: center; font-family: Georgia, serif; }
 .classeCarte p { font-size: 13px; margin: 5px 0; color: #d8ccb8; }
 .classeCarte b { color: var(--or); }
-#cbTalent { position: absolute; left: 0; bottom: 92px; width: 300px; font-size: 12px; background: rgba(0,0,0,.6); border: 1px solid rgba(232,192,96,.5); border-radius: 8px; padding: 5px 9px; }
-#cbTalent b { color: var(--or); }
-#cbTalent.pret { box-shadow: 0 0 16px rgba(255,216,112,.8); border-color: #ffd870; }
 .carte .cc.reduit { background: radial-gradient(circle at 35% 30%, #e0ffd0, #5ad06a 60%, #1a6a2a); }
 .carte .cclasse { position: absolute; bottom: 4px; left: 6px; font-size: 12px; }
 
 /* ---------- duel ---------- */
-#duel { position: fixed; inset: 0; z-index: 32; overflow: hidden; }
-#duFond { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 25%, #4a1a3a, #0c0610 70%); }
-#duFond::before { content: ''; position: absolute; inset: 0; background: repeating-conic-gradient(from 0deg at 50% 30%, rgba(255,255,255,.03) 0 6deg, transparent 6deg 12deg); }
-#duHaut { position: absolute; top: 10px; left: 0; right: 0; text-align: center; z-index: 2; }
-#duTitre { font-family: Georgia, serif; font-size: 22px; color: #ff9a8a; } #duTour { display: block; font-size: 15px; margin-top: 4px; }
-#duTour.moi { color: #ffd870; font-weight: bold; }
-#duAdv { position: absolute; top: 11%; left: 50%; transform: translateX(-50%); z-index: 2; width: 240px; text-align: center; }
-#duAdv .corpsE { width: 140px; height: 140px; font-size: 80px; border-color: #e04a3a; box-shadow: 0 0 26px rgba(224,74,58,.5); }
-#duAdv .mainAdv { margin-top: 6px; letter-spacing: -6px; font-size: 22px; }
-#duMoi { position: absolute; left: 20px; bottom: 228px; display: flex; align-items: center; gap: 14px; z-index: 3; }
-#duPortrait { width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44px; border: 3px solid var(--or); background: radial-gradient(circle, rgba(255,255,255,.2), rgba(0,0,0,.5)); }
-#duVie { width: 220px; }
-#duEnergie { width: 70px; height: 70px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 30%, #fff6c0, #e8b030 55%, #7a4a08); color: #2a1808; border: 3px solid #2a1808; }
-#duEnergie b { font-size: 24px; line-height: 1; } #duEnergie small { font-size: 9px; text-transform: uppercase; }
-#duMain { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; z-index: 4; }
-#duMain .carte { margin: 0 -14px; cursor: pointer; transform-origin: bottom center; }
-#duMain .carte:hover { transform: translateY(-34px) scale(1.12) !important; z-index: 5; }
-#duMain .carte.injouable { filter: brightness(.55) saturate(.6); cursor: not-allowed; }
-#duJournal { position: absolute; right: 20px; top: 30%; width: 230px; font-size: 13px; color: #c8bca8; z-index: 2; }
-#duJournal p { margin: 3px 0; background: rgba(0,0,0,.4); padding: 3px 8px; border-radius: 6px; }
-#btDuelFin { position: absolute; right: 20px; bottom: 170px; z-index: 5; padding: 12px 22px; border-radius: 10px; border: 2px solid #2a1808; background: linear-gradient(#e8c060, #b08a30); color: #1a1208; font-weight: bold; font-size: 16px; }
-#btDuelFin:disabled { filter: grayscale(1); opacity: .5; }
-#btDuelAbandon { position: absolute; right: 20px; top: 12px; z-index: 5; background: rgba(0,0,0,.5); color: #c8bca8; border: 1px solid #6a4a4a; border-radius: 8px; padding: 6px 12px; }
 .reliques { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-top: 10px; }
-@media (max-width: 760px) { #duMain .carte { width: 110px; height: 160px; margin: 0 -18px; } #duMain .carte .ci { height: 44px; font-size: 30px; } #duMoi { bottom: 176px; left: 8px; } #duVie { width: 130px; } #btDuelFin { bottom: 120px; } #duJournal { display: none; } }
 .carte .ci.illus { background-size: cover; background-position: center; border-color: rgba(255,255,255,.3); box-shadow: inset 0 0 12px rgba(0,0,0,.45); }
 .carte.aIllus .ci.illus { height: 96px; }
 .carte.aIllus .ct { margin: 2px 0; }
 .carte.aIllus .cd { font-size: 10.5px; line-height: 1.22; padding: 4px; }
-@media (max-width: 760px) { #cbMain .carte.aIllus .ci.illus, #duMain .carte.aIllus .ci.illus { height: 58px; } }
-.corpsE.illus { background-size: cover; background-position: center 25%; } .ennemi.boss .corpsE.illus { width: 190px; height: 190px; }
-@media (max-width: 760px) { .ennemi.boss .corpsE.illus { width: 110px; height: 110px; } }
 /* ---------- phase 3 : boss mondial et rivalité des clans ---------- */
 #bandeauMondial { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 6px; background: rgba(30,6,6,.88); border: 2px solid #e8402a; color: #ffd0c0; z-index: 4; font-size: 14px; white-space: nowrap; box-shadow: 0 0 16px rgba(232,64,42,.4); }
 #bandeauMondial .pvM { display: inline-block; width: 110px; height: 8px; background: #3a0e0a; border: 1px solid #140606; vertical-align: middle; margin: 0 4px; }
@@ -319,9 +254,6 @@ body.tactile #guide { top: auto; bottom: 170px; }
 }
 /* téléphone en portrait : la main de cartes ne cache plus « Fin du tour » */
 @media (max-width: 760px) {
-  #btFinTour, #btDuelFin { bottom: 244px; right: 8px; padding: 9px 16px; font-size: 15px; }
-  #cbPiles { bottom: 296px; right: 8px; }
-  #cbTalent { width: 210px; font-size: 11px; }
   body.tactile #aideMonde { top: 150px; }
 }
 /* téléphone couché (écran bas) : tout plus compact */
@@ -332,20 +264,43 @@ body.tactile #guide { top: auto; bottom: 170px; }
   #ressources { gap: 4px; font-size: 12px; }
   #enLigne { display: none; }
   body.tactile #aideMonde { top: auto; bottom: 8px; font-size: 11px; }
-  #cbTitre { font-size: 15px; } #cbInfo { display: none; }
-  #cbEnnemis { top: 30px; gap: 16px; }
-  .ennemi { width: 110px; font-size: 12px; }
-  .corpsE, .ennemi.boss .corpsE.illus { width: 66px; height: 66px; font-size: 38px; }
-  #cbMain .carte, #duMain .carte { width: 94px; height: 134px; margin: 0 -10px; }
-  #cbMain .carte .ci, #duMain .carte .ci, #cbMain .carte.aIllus .ci.illus, #duMain .carte.aIllus .ci.illus { height: 40px; font-size: 26px; }
-  #cbMain .carte .cd, #duMain .carte .cd { font-size: 8.5px; } #cbMain .carte .cn, #duMain .carte .cn { font-size: 11px; }
-  #cbMain .carte:hover { transform: translateY(-18px) scale(1.05) !important; }
-  #cbJoueur, #duMoi { bottom: 150px; left: 8px; gap: 8px; }
-  #cbVie, #duVie { width: 130px; }
-  #cbEnergie { width: 50px; height: 50px; } #cbEnergie b { font-size: 18px; }
-  #cbTalent { display: none; }
-  #cbPiles { top: 8px; bottom: auto; right: 8px; }
-  #btFinTour, #btDuelFin { bottom: 150px; right: 8px; padding: 8px 14px; font-size: 14px; }
-  #duJournal { display: none; }
 }
-@media (max-height: 500px) { #duAdv { top: 34px; } #duAdv .corpsE { width: 66px; height: 66px; font-size: 38px; } #duAdv .mainAdv { font-size: 16px; } }
+
+/* ---------- sanctuaires ---------- */
+#bandeauSanct { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); padding: 8px 18px; border-radius: 20px; background: rgba(8,6,12,.85); border: 1px solid rgba(232,192,96,.6); z-index: 5; font-size: 14px; text-align: center; max-width: 92vw; }
+#bandeauSanct.cache { display: none; }
+#bandeauSanct.capture { border-color: var(--or); box-shadow: 0 0 16px rgba(232,192,96,.45); }
+#bandeauSanct.alerte { border-color: #e04a3a; color: #ffc0b0; animation: pastille 1s ease-in-out infinite; }
+body.tactile #bandeauSanct { bottom: 180px; }
+.sanctListe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; }
+.sanct { padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.05); border-left: 4px solid #888; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.sanct.feu { border-color: var(--feu); } .sanct.eau { border-color: var(--eau); } .sanct.plante { border-color: var(--plante); }
+.sanct small { color: #a89e8a; }
+
+/* ---------- arène ---------- */
+#bandeauArene { position: absolute; top: 58px; right: 230px; padding: 7px 14px; border-radius: 18px; background: rgba(12,9,20,.9); border: 1px solid var(--or); z-index: 6; font-size: 14px; box-shadow: 0 0 14px rgba(232,192,96,.35); }
+#bandeauArene.cache { display: none; }
+#bandeauArene button { margin-left: 8px; background: none; border: 1px solid rgba(255,255,255,.3); color: var(--papier); border-radius: 8px; padding: 2px 8px; }
+.areneMoi { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-radius: 12px; background: rgba(232,192,96,.08); border: 1px solid rgba(232,192,96,.35); margin: 10px 0; flex-wrap: wrap; }
+.areneMoi > div { flex: 1; min-width: 200px; line-height: 1.5; }
+.areneMoi small { color: #c8bca8; }
+.rangGros { font-size: 52px; }
+.grosBouton { font-size: 17px; padding: 12px 22px; }
+.gain { color: #8fd88a; } .perte { color: #ff9a8a; }
+.rangsArene { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.rangsArene div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 8px; background: rgba(255,255,255,.04); font-size: 12px; text-align: center; }
+.rangsArene div.actuel { background: rgba(232,192,96,.16); outline: 1px solid var(--or); }
+.rangsArene span { font-size: 26px; } .rangsArene em { color: #d8c8a0; font-style: normal; }
+@media (max-width: 760px) {
+  .sanctListe { grid-template-columns: 1fr 1fr; }
+  .rangsArene { grid-template-columns: repeat(3, 1fr); }
+  #bandeauArene { right: auto; left: 50%; transform: translateX(-50%); top: 100px; white-space: nowrap; }
+}
+
+/* ---------- alerte : un de nos sanctuaires est attaqué ---------- */
+#alerteSanct { position: absolute; top: 104px; left: 50%; transform: translateX(-50%); z-index: 8; padding: 9px 12px 9px 16px; border-radius: 12px; background: rgba(60,10,8,.92); border: 2px solid #e8402a; color: #ffe0d8; font-size: 15px; box-shadow: 0 0 22px rgba(232,64,42,.55); animation: alerteArrive .4s ease-out; display: flex; align-items: center; gap: 8px; max-width: 94vw; }
+#alerteSanct.cache { display: none; }
+#alerteSanct button { background: var(--or); color: #1a1208; border: none; border-radius: 8px; padding: 5px 10px; font-weight: bold; white-space: nowrap; }
+#alerteSanct #btAlerteX { background: none; color: #ffb0a0; padding: 2px 6px; font-weight: normal; }
+@keyframes alerteArrive { from { transform: translate(-50%, -14px); opacity: 0; } }
+@media (max-width: 760px) { #alerteSanct { top: 112px; font-size: 13px; } }

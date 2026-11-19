@@ -10,6 +10,7 @@ export const MONDE = { l: 3200, h: 2080 };
 export const NT = { l: MONDE.l / TUILE, h: MONDE.h / TUILE };   // 200 × 130 tuiles
 export const CENTRES = { feu: [648, 1544], eau: [1608, 424], plante: [2568, 1544] };
 export const CARREFOUR = [1608, 1096];
+import { SANCTUAIRES } from './territoires.js';
 export const LIEUX = [
   { id: 'autel', nom: 'Autel des tirages', x: 1608, y: 1096, r: 44, action: 'tirage' },
   { id: 'portail_feu', nom: 'Portail des Terres de Braise', x: 296, y: 1880, r: 40, action: 'expedition', terr: 'feu' },
@@ -51,7 +52,7 @@ export function sol(tx, ty) {
   const dc = distChemin(x, y);
   if (dc < 26) return 'chemin';
   if (t && dansVillage(x, y, t, 0.42)) return 'place';
-  const village = t && dansVillage(x, y, t, 1.25), libre = dc > 70 && !village && !LIEUX.some((l) => Math.hypot(x - l.x, y - l.y) < 150);
+  const village = t && dansVillage(x, y, t, 1.25), libre = dc > 70 && !village && !LIEUX.some((l) => Math.hypot(x - l.x, y - l.y) < 150) && !SANCTUAIRES.some((l) => Math.hypot(x - l.x, y - l.y) < 170);
   const n = bruitL(x * 1.7 + 900, y * 1.7), v = alea(tx * 7 + ty * 131);
   if (!t) return n > 0.3 && v < 0.5 ? 'fleurs' : 'herbe';
   if (village) return t === 'feu' ? 'roche' : t === 'eau' ? 'sable' : (n > 0.3 ? 'fleurs' : 'mousse');
@@ -72,7 +73,7 @@ export function obstacles() {
     const i = ty * L + tx, s = sols[i];
     if (!(s in DENS)) continue;
     const x = tx * TUILE + 8, y = ty * TUILE + 8, bord = tx < 2 || ty < 2 || tx >= L - 2 || ty >= H - 2;
-    if (!bord && (distChemin(x, y) < 56 || LIEUX.some((p) => Math.hypot(x - p.x, y - p.y) < 130))) continue;
+    if (!bord && (distChemin(x, y) < 56 || LIEUX.some((p) => Math.hypot(x - p.x, y - p.y) < 130) || SANCTUAIRES.some((p) => Math.hypot(x - p.x, y - p.y) < 110))) continue;
     if (!bord && Object.keys(CENTRES).some((k) => dansVillage(x, y, k, 1.15))) continue;
     if (grille[i - 1] || grille[i - L]) continue;   // pas collés les uns aux autres
     const v = alea(tx * 13.7 + ty * 71.3);
@@ -85,6 +86,8 @@ export function obstacles() {
   for (const k of Object.keys(MAISONS)) for (const m of MAISONS[k]) { const tx = (m.x - 8) / TUILE, ty = (m.y - 8) / TUILE; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 0; b++) grille[(ty + b) * L + tx + a] = 1; }
   // le socle de l'autel
   { const a = LIEUX[0], tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
+  // le pilier de chaque sanctuaire
+  for (const a of SANCTUAIRES) { const tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
   l.grille = grille; l.sols = sols;
   return (CACHE = l);
 }
