@@ -2,7 +2,8 @@
 //  LES CLANS ÉLÉMENTAIRES — les monstres de chaque territoire
 //  intentions : ce que le monstre fera à son tour, dans l'ordre, en boucle.
 //  a : dégâts (n : nombre de coups), d : bouclier, f : force,
-//  b : brûlure, t : trempé, w : affaibli (sur le joueur), e : épines.
+//  b : brûlure, t : trempé, w : affaibli (sur le joueur), e : épines,
+//  s : soigne tous ses alliés (lui compris), g : bouclier à tous ses alliés (v80).
 // =====================================================================
 export const TERRITOIRES = {
   feu: { nom: 'Terres de Braise', element: 'feu', ico: '🌋' },
@@ -18,10 +19,19 @@ export const MONSTRES = {
       m('diablotin', 'Diablotin', '👺', 16, [{ a: 5, n: 2 }, { f: 2 }]),
       m('golem_cendre', 'Golem de cendre', '🗿', 38, [{ d: 10 }, { a: 12 }]),
       m('feu_follet', 'Feu follet', '🔥', 14, [{ b: 3 }, { a: 6 }]),
+      m('scarabee_braise', 'Scarabée de braise', '🪲', 26, [{ d: 7, a: 4 }, { a: 8 }, { e: 1, d: 5 }]),
+      m('chaman_braise', 'Chaman des braises', '🧙', 20, [{ g: 5 }, { a: 5, b: 2 }, { s: 7 }]),
+      m('chauve_souris', 'Chauve-souris ardente', '🦇', 15, [{ a: 3, n: 2, b: 1 }, { a: 6 }]),
     ],
     rare: m('phenix_cendre', 'Phénix de cendre', '🐦‍🔥', 44, [{ a: 7, b: 3 }, { d: 8, f: 1 }, { a: 4, n: 3 }], 'rare'),
     elite: m('chimere', 'Chimère ardente', '🐲', 50, [{ a: 9, b: 2 }, { a: 5, n: 2 }, { f: 2, d: 6 }], 'elite'),
     boss: m('seigneur_magma', 'Seigneur du Magma', '👹', 90, [{ a: 13 }, { d: 12, f: 2 }, { a: 5, n: 3 }, { w: 2, a: 7 }, { b: 4, a: 8 }], 'boss'),
+    // v80 : une 2e version du rare, de l'élite et du boss, tirée au hasard selon l'expédition
+    autres: {
+      rare: m('djinn', 'Djinn des cendres', '🧞', 46, [{ a: 6, n: 2 }, { f: 2, s: 6 }, { a: 10, b: 2 }], 'rare'),
+      elite: m('golem_obsidienne', "Golem d'obsidienne", '🪨', 56, [{ d: 12 }, { a: 13 }, { e: 2, d: 6 }, { a: 5, n: 2 }], 'elite'),
+      boss: m('roi_scorpion', 'Roi-scorpion des cendres', '🦂', 94, [{ a: 6, n: 2, b: 1 }, { d: 10, f: 1 }, { w: 2, a: 8 }, { a: 16 }, { s: 10, g: 8 }], 'boss'),
+    },
   },
   eau: {
     normaux: [
@@ -29,10 +39,19 @@ export const MONSTRES = {
       m('meduse', 'Méduse', '🪼', 18, [{ a: 4, w: 1 }, { a: 7 }]),
       m('sirene', 'Sirène', '🧜', 28, [{ t: 2 }, { a: 9 }]),
       m('anguille', 'Anguille', '🐍', 20, [{ a: 3, n: 3 }, { d: 5 }]),
+      m('grenouille', 'Grenouille-bulle', '🐸', 19, [{ t: 1, a: 5 }, { d: 6 }, { a: 7 }]),
+      m('pretresse_ecume', "Prêtresse de l'écume", '🐚', 22, [{ s: 6 }, { g: 6 }, { a: 6, t: 1 }]),
+      m('requin', 'Requin-scie', '🦈', 30, [{ a: 10 }, { a: 4, n: 2 }, { f: 1, d: 4 }]),
     ],
     rare: m('tortue_dragon', 'Tortue-dragon', '🐢', 56, [{ d: 12 }, { a: 10, t: 1 }, { a: 6, n: 2 }], 'rare'),
     elite: m('kraken', 'Jeune kraken', '🦑', 52, [{ a: 4, n: 3 }, { d: 10 }, { a: 12, t: 1 }], 'elite'),
     boss: m('hydre', 'Hydre des abysses', '🐉', 95, [{ a: 7, n: 2 }, { f: 1, d: 8 }, { a: 14 }, { t: 1, d: 8 }, { a: 4, n: 3 }], 'boss'),
+    // v80 : une 2e version du rare, de l'élite et du boss, tirée au hasard selon l'expédition
+    autres: {
+      rare: m('esprit_marees', 'Esprit des marées', '🌊', 44, [{ t: 2, d: 8 }, { a: 4, n: 3 }, { s: 5, f: 1 }], 'rare'),
+      elite: m('crocodile', 'Crocodile des mangroves', '🐊', 58, [{ a: 12 }, { d: 10, f: 1 }, { a: 5, n: 2, t: 1 }], 'elite'),
+      boss: m('reine_corail', 'Reine du corail', '🪸', 80, [{ g: 8, e: 2 }, { a: 6, n: 2, t: 1 }, { s: 7, a: 4 }, { a: 13 }, { w: 1, a: 8 }], 'boss'),
+    },
   },
   plante: {
     normaux: [
@@ -40,12 +59,25 @@ export const MONSTRES = {
       m('loup_ronces', 'Loup des ronces', '🐺', 26, [{ a: 6, n: 2 }, { a: 9 }]),
       m('treant', 'Tréant', '🌳', 40, [{ d: 12 }, { a: 11 }]),
       m('guepe', 'Guêpe géante', '🐝', 17, [{ a: 4, n: 2 }, { e: 2, a: 5 }]),
+      m('araignee', 'Araignée des bois', '🕷️', 18, [{ w: 1, a: 4 }, { a: 4, n: 2 }]),
+      m('druide_fou', 'Druide fou', '🧝', 22, [{ s: 6 }, { g: 5, e: 1 }, { a: 7 }]),
+      m('sanglier', 'Sanglier moussu', '🐗', 32, [{ a: 11 }, { d: 8 }, { f: 1, a: 5 }]),
     ],
     rare: m('cerf_emeraude', "Cerf d'émeraude", '🦌', 48, [{ a: 9 }, { e: 3, d: 6 }, { a: 5, n: 2, w: 1 }], 'rare'),
     elite: m('mante', 'Mante géante', '🦗', 48, [{ a: 11 }, { a: 4, n: 3 }, { f: 2, e: 2 }], 'elite'),
     boss: m('reine_epine', 'Reine Épine', '🥀', 92, [{ a: 9, e: 2 }, { d: 12 }, { a: 5, n: 3 }, { w: 1, a: 8 }, { a: 15 }], 'boss'),
+    // v80 : une 2e version du rare, de l'élite et du boss, tirée au hasard selon l'expédition
+    autres: {
+      rare: m('grand_duc', 'Grand-duc sylvestre', '🦉', 44, [{ a: 4, n: 3 }, { w: 2, d: 6 }, { a: 11 }], 'rare'),
+      elite: m('ours_ronces', 'Ours des ronces', '🐻', 62, [{ a: 13 }, { e: 3, d: 8 }, { a: 6, n: 2 }, { f: 2 }], 'elite'),
+      boss: m('colosse_racines', 'Colosse des racines', '🪵', 86, [{ d: 12, e: 2 }, { a: 5, n: 3 }, { s: 6, w: 1 }, { a: 14 }, { f: 1, g: 6 }], 'boss'),
+    },
   },
 };
+// la salle de ce type pour cette expédition : la version d'origine ou l'autre (v80), selon la graine
+export const variante = (terr, type, graine) => { const M = MONSTRES[terr]; return M.autres?.[type] && ((graine >>> 0) + type.length) % 2 ? M.autres[type] : M[type]; };
+// tous les monstres d'une terre (pour le grimoire et les statistiques), Cauchemar compris
+export const tousDe = (terr) => { const M = MONSTRES[terr]; return [...M.normaux, M.rare, M.autres.rare, M.elite, M.autres.elite, M.boss, M.autres.boss, BOSS_CAUCHEMAR[terr]]; };
 // les paliers : plus de PV et de dégâts, plus de butin
 export const PALIERS = [
   { n: 1, nom: 'Palier I', pv: 1.3, deg: 1.2, butin: 1 },

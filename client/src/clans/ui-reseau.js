@@ -21,6 +21,9 @@ import { suivrePasse } from './ui-passe.js';
 import { fenetreFiche, suivreHautsFaits } from './ui-fiche.js';
 import { suivreAscension } from './ui-ascension.js';
 import { suivreMontures } from './ui-montures.js';
+import { noterPerso } from './ui-compte.js';
+import { majPastilleG } from './ui-grimoire.js';
+import * as GR from '../../../shared/clans/grimoire.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import { afficherClassement, alerteSanctuaire, classArene, enFile, fenetreArene, majBandeauArene, sanctEtat, setClassArene, setEnFile, setSanctEtat, vueFenetre } from './ui-social.js';
 
@@ -38,13 +41,15 @@ export function recevoirProfil(m) {
   if (!m) return;
   // v68 : les cartes d'une autre classe ont été changées en éclats
   if (m.p?.avisClasse?.n && !avisClasseVu) { avisClasseVu = true; const a = m.p.avisClasse; setTimeout(() => toast(`🎴 Chaque classe ne joue plus que ses propres cartes de classe : tes ${a.n} carte${a.n > 1 ? 's' : ''} d’autres classes ${a.n > 1 ? 'ont été changées' : 'a été changée'} en ${nf(a.eclats)} éclats.`), 1500); }
-  const avant = p ? Q.etat(p) : null, gagneesAvant = p ? piecesGagnees() : null;
+  const avant = p ? Q.etat(p) : null, gagneesAvant = p ? piecesGagnees() : null, grAvant = p ? GR.aReclamer(p) : null;
+  if (m.p) noterPerso(m.jeton, m.p, P.niveau(m.p));
   if (m.p) { setP(P.completer(m.p)); try { localStorage.setItem(CLE, JSON.stringify({ p: m.p, sig: m.sig, jeton: m.jeton })); } catch { /* plein */ } }
   else try { localStorage.setItem(CLE, JSON.stringify({ jeton: m.jeton, sig: 'aucun', p: null })); } catch { /* plein */ }
   clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 2000);
   if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); monde.majNom(p.nom, cleMaison(p)); monde.majMonture(MT.actif(p)); monde.majDeco(DC.code(p), p.branche); if (dansMonde) monde.majMaParcelle(p.parcelle); }
   if (p && avant) annoncerQuetes(avant);
   if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); suivreMontures(); }
+  if (p) { const n = GR.aReclamer(p); if (grAvant != null && n > grAvant) { sfx.niveau(); toast('📚 Le Grimoire a une récompense pour toi ! (menu ☰ → Grimoire)'); } majPastilleG(); }
   if (p && gagneesAvant) for (const id of piecesGagnees()) if (!gagneesAvant.has(id)) { sfx.fanfare(); toast(`🎨 Nouvelle apparence débloquée : <b>${esc(AP.PIECES[id].nom)}</b> ! (bouton 👕)`); }
 }
 export const piecesGagnees = () => new Set(Object.keys(AP.PIECES).filter((id) => AP.PIECES[id].cond && AP.possede(p, id)));

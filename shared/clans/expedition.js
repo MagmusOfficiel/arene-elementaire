@@ -6,12 +6,13 @@
 //  la moitié du butin ramassé ; vaincre le boss débloque le palier suivant.
 // =====================================================================
 import { actif as actifFamilier } from './familiers.js';
-import { MONSTRES, PALIERS, TERRITOIRES, MALEDICTIONS, BOSS_CAUCHEMAR } from './monstres.js';
+import { MONSTRES, PALIERS, TERRITOIRES, MALEDICTIONS, BOSS_CAUCHEMAR, variante } from './monstres.js';
 import { ELEMENTS, RARES } from './cartes.js';
 import { alea } from './combat.js';
 import { pvMax, deckCombat } from './profil.js';
 import * as RQ from './reliques.js';
 import * as MY from './mystere.js';
+import { vaincre } from './grimoire.js';
 
 export const ETAGES = 6;
 export const BONUS_GROUPE = 0.25;   // v78 : +25 % de butin par compagnon
@@ -80,9 +81,9 @@ export function choixPossibles(x) {
 export function ennemisDe(x, id) {
   const s = salle(x.carte, id), M = MONSTRES[x.territoire], r = alea(x.graine + s.etage * 31 + (s.i || 0) * 7);
   const cauch = !!PALIERS[x.palier - 1]?.cauchemar, f = cauch ? maudit : (m) => m;
-  if (s.type === 'boss') return [cauch ? BOSS_CAUCHEMAR[x.territoire] : M.boss];
-  if (s.type === 'elite') return [f(M.elite)];
-  if (s.type === 'rare') return [f(M.rare)];
+  if (s.type === 'boss') return [cauch ? BOSS_CAUCHEMAR[x.territoire] : variante(x.territoire, 'boss', x.graine)];
+  if (s.type === 'elite') return [f(variante(x.territoire, 'elite', x.graine + s.etage))];
+  if (s.type === 'rare') return [f(variante(x.territoire, 'rare', x.graine + s.etage))];
   let n = s.etage <= 1 ? 1 : r() < 0.55 ? 2 : 1;
   if (x.mods?.includes('horde')) n = Math.min(3, n + 1);
   const l = [];
@@ -125,6 +126,7 @@ export function apresCombat(p, combat) {
     return terminer(p, 'defaite');
   }
   p.stats.victoires++;
+  vaincre(p, (combat.ennemis || []).map((e) => e.id));   // v80 : le bestiaire du grimoire
   x.pv = combat.joueur.pv;
   if (RQ.a(x.reliques, 'gourde')) x.pv = Math.min(x.pvMax, x.pv + 5);
   const base = { combat: [22, 3], elite: [60, 9], boss: [160, 22], rare: [30, 4] }[s.type] || [0, 0];

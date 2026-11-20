@@ -26,6 +26,8 @@ import * as AS from '../../shared/clans/ascension.js';
 import * as MT from '../../shared/clans/montures.js';
 import * as QP from '../../shared/clans/quetesPnj.js';
 import * as DC from '../../shared/clans/deco.js';
+import * as PC from '../../shared/clans/parcours.js';
+import * as GR from '../../shared/clans/grimoire.js';
 import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
@@ -91,7 +93,7 @@ export const ACTIONS = {
     // bonus des sanctuaires tenus par le clan, et de l'Arbre-monde
     if (b > 0) for (const [k, v] of Object.entries(g)) if (typeof v === 'number' && v > 0 && typeof p.ress[k] === 'number') { const e = Math.floor(v * b); p.ress[k] += e; g[k] += e; }
     g.bonus = b;
-    if ((g.essence || 0) >= 1) Q.evenement(p, 'recolter');
+    if ((g.essence || 0) >= 1) { Q.evenement(p, 'recolter'); p.stats.recoltes = (p.stats.recoltes || 0) + 1; }
     return { ok: true, res: g };
   },
   construire(p, m) { if (typeof m.bat !== 'string' || !Object.hasOwn(P.BATIMENTS, m.bat)) return { ok: false }; const r = P.construire(p, m.bat); return r.ok ? { ok: true, res: r } : r; },
@@ -169,6 +171,9 @@ export const ACTIONS = {
   pnjRendre(p, m, ctx) { if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' }; const r = QP.rendre(p, m.id); return r.ok ? { ok: true, res: { rec: r.rec, merci: r.merci, ami: QP.amiDe(p, PNJ_PAR_ID[m.id].clan) } } : r; },
   decoAcheter(p, m) { return DC.acheter(p, m.id); },
   decoPoser(p, m) { return DC.poser(p, String(m.empl || ''), m.id === null ? null : String(m.id || '')); },
+  // le parcours des nouveaux venus (v79)
+  grimoireReclamer(p, m) { const r = GR.reclamer(p, String(m.cle || '')); if (r.ok && r.gain.titre && !p.titre) p.titre = r.gain.titre; return r.ok ? { ok: true, res: r.gain } : r; },
+  parcours(p, m, ctx) { const id = PC.pnjDe(p, PC.etape(p)); return PC.valider(p, !!id && pres(id, ctx)); },
   parcheminFabriquer(p) { return AS.fabriquerParchemin(p); },
   ascensionChanger(p, m) { return AS.changer(p, typeof m.b === 'string' ? m.b : ''); },
   ascensionChoisir(p, m) { return AS.choisir(p, typeof m.b === 'string' ? m.b : ''); },

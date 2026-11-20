@@ -7,6 +7,7 @@
 // =====================================================================
 import { BRANCHES, NIV_MAX } from './cartes.js';
 import * as QP from './quetesPnj.js';
+import * as GR from './grimoire.js';
 import { possedes as familiers } from './familiers.js';
 
 const v = (p) => p.stats || {};
@@ -35,8 +36,8 @@ export const total = (p) => IDS.reduce((s, id) => s + palierDe(p, id), 0);   // 
 export const MAX = IDS.length * 3;
 // les titres : 'id:palier'
 // le titre de sa branche (v69) : 'br:<branche>'
-export const titreValide = (p, t) => { if (typeof t !== 'string') return false; const [id, n] = t.split(':'); if (id === 'br') return !!BRANCHES[n] && p.branche === n; if (id === 'vil') return !!QP.TITRES[n] && QP.amiDe(p, n); return !!HAUTS_FAITS[id] && +n >= 1 && +n <= 3 && palierDe(p, id) >= +n; };
-export const nomTitre = (t) => { const [id, n] = String(t || '').split(':'); if (id === 'br') return BRANCHES[n]?.titre || ''; if (id === 'vil') return QP.TITRES[n] || ''; return HAUTS_FAITS[id]?.titres[+n - 1] || ''; };
+export const titreValide = (p, t) => { if (typeof t !== 'string') return false; const [id, n] = t.split(':'); if (id === 'br') return !!BRANCHES[n] && p.branche === n; if (id === 'vil') return !!QP.TITRES[n] && QP.amiDe(p, n); if (id === 'gri') return !!GR.TITRES[n] && GR.aTitre(p, n); return !!HAUTS_FAITS[id] && +n >= 1 && +n <= 3 && palierDe(p, id) >= +n; };
+export const nomTitre = (t) => { const [id, n] = String(t || '').split(':'); if (id === 'br') return BRANCHES[n]?.titre || ''; if (id === 'vil') return QP.TITRES[n] || ''; if (id === 'gri') return GR.TITRES[n] || ''; return HAUTS_FAITS[id]?.titres[+n - 1] || ''; };
 export const titreDe = (p) => (titreValide(p, p.titre) ? p.titre : '');
 export function choisirTitre(p, t) {
   if (t === null || t === '') { p.titre = ''; return { ok: true }; }

@@ -198,6 +198,8 @@ export function finTour(c) {
     ev(c, { t: 'agit', a: e.uid, attaque: !!it.a });
     if (it.d) { e.bloc += Math.round(it.d * e.deg); ev(c, { t: 'bloc', a: e.uid, n: Math.round(it.d * e.deg), bloc: e.bloc }); }
     if (it.f) { e.force += it.f; ev(c, { t: 'statut', a: e.uid, k: 'force', n: it.f }); }
+    if (it.g) { const n = Math.round(it.g * e.deg); for (const o of vivants(c)) { o.bloc += n; ev(c, { t: 'bloc', a: o.uid, n, bloc: o.bloc }); } }
+    if (it.s) { const n = Math.round(it.s * e.deg); for (const o of vivants(c)) if (o.pv < o.pvMax) { const avant = o.pv; o.pv = Math.min(o.pvMax, o.pv + n); ev(c, { t: 'soin', a: o.uid, n: o.pv - avant, pv: o.pv }); } }
     if (it.e) { e.epines += it.e; ev(c, { t: 'statut', a: e.uid, k: 'epines', n: it.e }); }
     if (it.b) { j.brulure += it.b; ev(c, { t: 'statut', a: 'j', k: 'brulure', n: it.b }); }
     if (it.t) { j.trempe += it.t; ev(c, { t: 'statut', a: 'j', k: 'trempe', n: it.t }); }
@@ -219,6 +221,8 @@ export function decrireIntention(c, e) {
   if (it.a) t.push({ type: 'attaque', txt: `${calculerDegats(Math.round(it.a * e.deg), e, c.joueur)}${it.n > 1 ? `×${it.n}` : ''}` });
   if (it.d) t.push({ type: 'defense', txt: `${Math.round(it.d * e.deg)}` });
   if (it.f) t.push({ type: 'buff', txt: `+${it.f}` });
+  if (it.g) t.push({ type: 'groupe', txt: `${Math.round(it.g * e.deg)}` });
+  if (it.s) t.push({ type: 'soin', txt: `${Math.round(it.s * e.deg)}` });
   if (it.e) t.push({ type: 'epines', txt: `${it.e}` });
   if (it.b || it.t || it.w) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`].filter(Boolean).join(' ') });
   return t;

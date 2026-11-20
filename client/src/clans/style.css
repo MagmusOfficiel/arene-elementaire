@@ -761,3 +761,32 @@ kbd { display: inline-block; min-width: 18px; text-align: center; font: bold 11p
 .membresGroupe .pvG { height: 8px; border-radius: 4px; background: rgba(0,0,0,.5); overflow: hidden; } .membresGroupe .pvG i { display: block; height: 100%; background: linear-gradient(90deg, #c83a2a, #f06a4a); }
 .aTerre { padding: 8px 12px; border-radius: 10px; background: rgba(120,20,20,.35); border: 1px solid rgba(255,90,70,.4); }
 #invitationGroupe { position: fixed; left: 50%; top: calc(var(--hautBarre, 56px) + 56px); transform: translateX(-50%); z-index: 46; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 12px; background: rgba(14,20,36,.95); border: 1px solid rgba(120,170,255,.6); box-shadow: 0 6px 24px rgba(0,0,0,.6); }
+/* v79 — personnages et compte */
+.persos { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 12px; }
+#dejaCompte .persos { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+.perso { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); }
+.perso.actif { border-color: rgba(255,216,112,.6); }
+.perso > div { flex: 1; display: flex; flex-direction: column; } .perso small { color: #c8bca8; }
+.perso .icoP { font-size: 28px; }
+.codeCompte { margin: 16px auto; max-width: 620px; padding: 12px 16px; border-radius: 12px; background: rgba(240,210,140,.08); border: 1px solid rgba(240,210,140,.3); text-align: center; }
+.codeCompte h3 { margin: 0 0 4px; }
+.codeCompte .code { display: flex; gap: 10px; justify-content: center; align-items: center; }
+.codeCompte .code #codeC { font: 900 28px/1 Fredoka, sans-serif; letter-spacing: .12em; color: #ffd870; padding: 6px 14px; border-radius: 8px; background: rgba(0,0,0,.35); }
+.codeCompte .code input { font: 700 20px Nunito, sans-serif; letter-spacing: .1em; text-transform: uppercase; width: 170px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); color: #fff; text-align: center; }
+/* ---------- v80 : le Grimoire ---------- */
+.grOnglets { margin-bottom: 8px; }
+.grTitre { margin: 14px 0 0; font-size: 15px; } .grTitre small { color: var(--papier); opacity: .6; font-weight: normal; }
+.grCartes { gap: 10px; }
+.carte.grInconnue { filter: grayscale(.85) brightness(.55); opacity: .75; }
+.carte.grInconnue .ci { font-size: 34px; display: flex; align-items: center; justify-content: center; }
+.bestiaire { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.bete { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+.bete.rare { border-color: #4a9ae8; } .bete.elite { border-color: #b05ae8; } .bete.boss { border-color: var(--or); background: rgba(232,192,96,.08); }
+.bete .portrait { width: 96px; height: 96px; margin: 0 auto; background: center/contain no-repeat; font-size: 56px; line-height: 96px; }
+.bete.inconnue { opacity: .55; } .bete.inconnue .portrait { filter: grayscale(1); font-size: 40px; }
+.bete small { opacity: .75; font-size: 11px; } .beteInt { font-size: 11px; margin: 2px 0 0; opacity: .9; }
+.grRec { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.04); margin-bottom: 6px; }
+.grRec > div { flex: 1; } .grRec small { display: block; opacity: .8; font-size: 12px; }
+.grRec.pret { background: rgba(232,192,96,.14); border: 1px solid var(--or); } .grRec.recu { opacity: .55; }
+.grIco { font-size: 22px; } .grOk { color: #7ae07a; font-size: 20px; } .grProg { opacity: .8; font-size: 13px; white-space: nowrap; }
+@media (max-width: 600px) { [data-vue="grimoire"] .filtres button { font-size: 13px; padding: 4px 9px; } .bestiaire { grid-template-columns: repeat(2, 1fr); } .bete .portrait { width: 72px; height: 72px; line-height: 72px; font-size: 42px; } }

@@ -915,3 +915,36 @@ Code : `shared/clans/deco.js` (règles), `client/src/clans/decoArt.js` (dessin),
 - **Quitter** : un membre peut quitter le groupe ou abandonner à tout moment ; une déconnexion le fait partir aussi. S'il ne reste qu'un joueur, il continue seul. Si le chef part, le suivant devient chef.
 
 Code : messages `groupeInviter`, `groupeRepondre`, `groupePartir`, `groupeEntrer`, `groupeQuitter` dans `server/src/ClansRoom.js` ; règles d'expédition (à terre, relève, bonus) dans `shared/clans/expedition.js` ; interface dans `client/src/clans/ui-groupe.js`. Tests : `tests/clansgroupe.test.mjs` et l'étape « Expédition en groupe » du test de bout en bout.
+
+## Les Clans Élémentaires : le parcours d'accueil, les personnages et le compte (v79)
+
+**Parcours d'accueil** : le guide du début est maintenant mené par les PNJ de ta terre, en 6 étapes, chacune avec sa récompense : parler au conteur, faire son premier tirage à l'autel, ajouter la carte à son deck (artisan), gagner un premier combat au portail, récolter sa parcelle (garde), puis revenir voir le conteur, qui offre la **monture poney**. Les étapes faites sont validées toutes seules ; les joueurs qui avaient déjà combattu sautent le parcours. Code : `shared/clans/parcours.js`, action `parcours`. Tests : `tests/clansparcours.test.mjs`.
+
+**Plusieurs personnages** (4 au maximum, un par emplacement) : menu ☰ → **👥 Personnages et compte**. On y voit ses personnages (clan, niveau), on passe de l'un à l'autre, et « Nouveau personnage » ramène au choix du clan sans rien effacer.
+
+**Retrouver son compte sur un autre appareil** : la même fenêtre affiche ton **code de compte** (du type `K7QF-2XMB`). Sur l'autre PC ou le téléphone, sur l'écran du choix du clan (ou dans cette fenêtre), entre ce code dans « J'ai déjà un compte » : tous tes personnages reviennent. Correctif : le profil Clans complet pouvait dépasser la taille acceptée par la sauvegarde du compte et n'était pas envoyé ; le compte ne garde plus que la clé de chaque personnage (le profil reste sur le serveur). Code : `client/src/clans/ui-compte.js`, `client/src/compte.js` (clé `clansPersos`).
+
+**Fluidité sur téléphone** : obstacles rangés par ligne, cache du territoire et des maisons, mesures de texte gardées en mémoire, filons et PNJ calculés une seule fois par image. En mode léger (petits écrans ou appareils lents), une image sur deux est sautée et il y a deux fois moins de particules.
+
+## Les Clans Élémentaires : nouveaux monstres et Grimoire (v80)
+
+**18 nouveaux monstres** (13 par terre au lieu de 7) :
+
+| Terre | Ordinaires | Rare | Élite | Boss |
+|---|---|---|---|---|
+| Terres de Braise | Scarabée de braise, Chaman des braises, Chauve-souris ardente | Djinn des cendres | Golem d'obsidienne | Roi-scorpion des cendres |
+| Lagons d'Azur | Grenouille-bulle, Prêtresse de l'écume, Requin-scie | Esprit des marées | Crocodile des mangroves | Reine du corail |
+| Sylve d'Émeraude | Araignée des bois, Druide fou, Sanglier moussu | Grand-duc sylvestre | Ours des ronces | Colosse des racines |
+
+- Le rare, l'élite et le boss ont maintenant **deux versions** chacun ; l'expédition tire l'une ou l'autre (le rare et l'élite peuvent changer d'un étage à l'autre).
+- Deux nouvelles intentions de monstres : **💚 soin** (soigne tout son groupe) et **🛡️👥 protection** (bouclier pour tout son groupe). Les soigneurs sont à abattre en premier.
+- Équilibrage vérifié avec le bot des tests : au palier I, le deck de départ gagne entre 4 et 10 expéditions sur 20 selon la terre et la classe, comme avant.
+- Les 18 nouveaux monstres ont leur illustration (`client/public/clans/monstres/*.webp`, 384 × 384), dans le même style que les autres.
+
+**Le Grimoire** (menu ☰ → 📚 Grimoire, touche G), en trois onglets :
+
+- **Cartes** : toutes les cartes que ta classe (et ta branche) peut obtenir, rangées par rareté ; les inconnues sont cachées.
+- **Bestiaire** : par terre, les monstres déjà vaincus avec leur illustration, leurs PV de base, leurs intentions dans l'ordre et le nombre de victoires ; les autres restent des « ??? » avec seulement l'endroit où on les croise.
+- **Récompenses** (à réclamer une fois) : 25 / 50 / 75 / 100 % des cartes, toutes les cartes d'une rareté, la moitié puis tous les monstres d'une terre, les trois titans du Cauchemar, tout le bestiaire. Deux titres à gagner : « Maître du grimoire » (100 % des cartes) et « Savant des bêtes » (tout le bestiaire). Une pastille et un message préviennent quand une récompense est prête.
+
+Le bestiaire commence à zéro pour tout le monde (les anciens combats n'étaient pas notés). Code : `shared/clans/grimoire.js`, `client/src/clans/ui-grimoire.js`, action `grimoireReclamer`, monstres dans `shared/clans/monstres.js` (`autres`, `variante`, `tousDe`). Tests : `tests/clansgrimoire.test.mjs` et l'étape « Grimoire » du test de bout en bout.

@@ -222,6 +222,17 @@ def scenario(b):
         A.click('#btAbandon'); A.wait_for_function('!__clans.p.expedition', timeout=8000); verifier(True, 'expédition abandonnée proprement')
     fermer(A)
 
+    etape('Grimoire')
+    nb = etat(A, 'Object.keys(p.grimoire?.b || {}).length')
+    verifier(nb >= 1 or etat(A, 'p.stats.victoires') == 0, f'le bestiaire a noté les monstres vaincus ({nb})')
+    A.click('#btMenu'); A.click('#btGrimoire'); A.wait_for_selector('.grCartes', timeout=5000)
+    verifier(A.locator('.grCartes .carte:not(.grInconnue)').count() >= 10 and A.locator('.grInconnue').count() > 10, 'le grimoire montre les cartes connues et cache les autres')
+    A.click('[data-o="bestiaire"]'); A.wait_for_selector('.bestiaire', timeout=3000)
+    verifier(A.locator('.bete').count() == 14 and A.locator('.bete:not(.inconnue)').count() == nb, 'le bestiaire montre les 14 monstres de la terre, dont ceux vaincus')
+    A.click('[data-o="recompenses"]'); A.wait_for_selector('.grRec', timeout=3000)
+    verifier(A.locator('.grRec').count() >= 14, 'les récompenses du grimoire sont listées')
+    fermer(A)
+
     etape('Passe de saison')
     xp = etat(A, 'p.passe?.xp || 0')
     verifier(xp > 0, f'les activités ont rapporté de l’XP au passe ({xp} XP)')

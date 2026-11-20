@@ -114,6 +114,7 @@ export const BUTIN_DUEL = (essencePerdant) => Math.min(300, Math.floor(Math.max(
 export function completer(p) {
   for (const k of ['cristal', 'perle_noire', 'graine_or']) p.ress[k] ??= 0;
   p.duels ??= { gagnes: 0, perdus: 0 };
+  p.parcours ??= (p.stats?.combats || 0) > 0 ? 6 : 0;   // v79 : les anciens joueurs ont déjà fait leurs premiers pas
   delete p.avisClasse;
   const conv = convertirAutresClasses(p);
   if (conv.n) p.avisClasse = conv;   // le client prévient le joueur une fois (effacé au chargement suivant)

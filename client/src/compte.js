@@ -4,15 +4,20 @@
 //  pour la retrouver sur un autre appareil ou après avoir vidé le navigateur.
 //  Le compte est créé tout seul dès que le serveur est joignable.
 // =====================================================================
-const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo', zm: 'zoneMorteCompte', zmRecord: 'zoneMorteRecord', enquete: 'ombresBS', clans: 'clansProfil' };
+const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo', zm: 'zoneMorteCompte', zmRecord: 'zoneMorteRecord', enquete: 'ombresBS', clans: 'clansProfil', clansPersos: 'clansPersos' };
 const lireLocal = () => { try { return JSON.parse(localStorage.getItem('compte')) || {}; } catch { return {}; } };
 const etat = lireLocal();
 const garder = () => localStorage.setItem('compte', JSON.stringify(etat));
 
+// v79 : des Clans, on n'envoie que le jeton (le profil complet est gardé par le serveur du jeu, et il
+// dépassait parfois la taille permise : le compte arrivait alors sans personnage sur l'autre appareil)
+function clansLeger() {
+  try { const x = JSON.parse(localStorage.getItem(CLES.clans)); return x?.jeton ? JSON.stringify({ jeton: x.jeton, sig: 'aucun', p: null }) : (localStorage.getItem(CLES.clans) || ''); } catch { return ''; }
+}
 function collecter() {
   const j = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
   return { progression: j(CLES.progression), classe: j(CLES.classe), grimoire: j(CLES.grimoire), survie: +(localStorage.getItem(CLES.survie) || 0), pseudo: localStorage.getItem(CLES.pseudo) || '',
-    zm: localStorage.getItem(CLES.zm) || '', zmRecord: j(CLES.zmRecord), enquete: localStorage.getItem(CLES.enquete) || '', clans: localStorage.getItem(CLES.clans) || '' };
+    zm: localStorage.getItem(CLES.zm) || '', zmRecord: j(CLES.zmRecord), enquete: localStorage.getItem(CLES.enquete) || '', clans: clansLeger(), clansPersos: j(CLES.clansPersos) || [] };
 }
 
 export function creerCompte(http) {

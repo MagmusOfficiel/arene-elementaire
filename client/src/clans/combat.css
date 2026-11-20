@@ -67,7 +67,7 @@
 .intention { display: inline-flex; gap: 8px; align-items: center; margin-bottom: 10px; padding: 4px 12px; border-radius: 14px; background: rgba(10,8,14,.88); border: 2px solid rgba(255,255,255,.18); font: bold 15px var(--pix); animation: bulle 1.8s ease-in-out infinite; position: relative; white-space: nowrap; }
 .intention::after { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: rgba(10,8,14,.88); }
 .intention.menace { border-color: #e8402a; box-shadow: 0 0 14px rgba(232,64,42,.5); }
-.intention .attaque { color: #ff8a7a; } .intention .defense { color: #8ac8ff; } .intention .buff { color: #ffd870; } .intention .malus { color: #d8a8ff; } .intention .epines { color: #8ae07a; }
+.intention .attaque { color: #ff8a7a; } .intention .defense { color: #8ac8ff; } .intention .buff { color: #ffd870; } .intention .malus { color: #d8a8ff; } .intention .epines { color: #8ae07a; } .intention .groupe { color: #a8d8ff; } .intention .soin { color: #7ae0a0; }
 @keyframes bulle { 50% { transform: translateY(-4px); } }
 .ennemi.ciblable { cursor: crosshair; }
 .ennemi.ciblable .portrait { animation: respireE 3.2s ease-in-out infinite, viser 1s ease-in-out infinite; }

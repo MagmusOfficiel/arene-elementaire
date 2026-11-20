@@ -8,6 +8,7 @@ import * as QP from '../../../shared/clans/quetesPnj.js';
 import { BRANCHES, ELEMENTS, CLASSES } from '../../../shared/clans/cartes.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import * as F from '../../../shared/clans/familiers.js';
+import * as GR from '../../../shared/clans/grimoire.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { rangDe } from '../../../shared/clans/arene.js';
 import { sfx } from '../sfx.js';
@@ -54,6 +55,7 @@ export function fenetreFiche(f, moi = false) {
       }).join('') || '<p>Pas encore de haut fait.</p>'}</div>
       ${moi && p.branche ? `<p class="cout">${p.titre === `br:${p.branche}` ? '' : `<button class="lien" id="btTitreBranche">Afficher le titre « ${esc(BRANCHES[p.branche].titre)} »</button>`}</p>` : ''}
       ${moi ? ['feu', 'eau', 'plante'].filter((c) => QP.amiDe(p, c) && p.titre !== `vil:${c}`).map((c) => `<p class="cout"><button class="lien" data-titrevil="${c}">Afficher le titre « ${esc(QP.TITRES[c])} »</button></p>`).join('') : ''}
+      ${moi ? Object.keys(GR.TITRES).filter((n) => GR.aTitre(p, n) && p.titre !== `gri:${n}`).map((n) => `<p class="cout"><button class="lien" data-titre="gri:${n}">Afficher le titre « ${esc(GR.TITRES[n])} »</button></p>`).join('') : ''}
       ${moi && p.titre ? '<p class="cout"><button class="lien" id="btSansTitre">Ne plus afficher de titre</button></p>' : ''}
     </div>`, () => {
     $('fenetreCorps').dataset.vue = moi ? 'ficheMoi' : 'fiche';
@@ -71,6 +73,7 @@ export function fenetreFiche(f, moi = false) {
       };
       $('okPseudo').onclick = valider; ch.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') valider(); if (e.key === 'Escape') maFiche(); };
     });
+    $('fenetreCorps').querySelectorAll('[data-titre]').forEach((b) => b.onclick = async () => { await faire('titreChoisir', { t: b.dataset.titre }); maFiche(); });
     $('fenetreCorps').querySelectorAll('[data-titrevil]').forEach((b) => b.onclick = async () => { await faire('titreChoisir', { t: `vil:${b.dataset.titrevil}` }); maFiche(); });
     $('btSansTitre') && ($('btSansTitre').onclick = async () => { await faire('titreChoisir', { t: null }); maFiche(); });
   });

@@ -327,6 +327,15 @@ export function dessinerAura(ctx, x, y, aura, t, k = 1) {
 export function creerMonde(canvas, rappels) {
   const ctx = canvas.getContext('2d');
   const obs = obstacles();
+  // v79 (performances) : les obstacles rangés par ligne de tuiles, pour ne parcourir que ceux à l'écran
+  const obsParLigne = []; for (const o of obs) (obsParLigne[o.ty] ||= []).push(o);
+  // le territoire de chaque tuile, calculé une fois (territoireDe fait du bruit : trop cher 70 fois par image)
+  const TERR = ['', 'feu', 'eau', 'plante'], terrTuiles = new Uint8Array(NT.l * NT.h).fill(255);
+  const terrVite = (x, y) => { const tx = Math.max(0, Math.min(NT.l - 1, Math.floor(x / TUILE))), ty = Math.max(0, Math.min(NT.h - 1, Math.floor(y / TUILE))), i = ty * NT.l + tx; if (terrTuiles[i] === 255) terrTuiles[i] = TERR.indexOf(territoireDe(tx * TUILE + 8, ty * TUILE + 8) || ''); return TERR[terrTuiles[i]] || null; };
+  // la place des maisons (posMaison hache le nom à chaque appel)
+  const cacheMaisons = new Map(); const maisonDe2 = (clan, cle) => { const k = `${clan}|${cle}`; let m = cacheMaisons.get(k); if (!m) { m = posMaison(clan, cle); cacheMaisons.set(k, m); if (cacheMaisons.size > 500) cacheMaisons.clear(); } return m; };
+  // la largeur des étiquettes
+  const largeurs = new Map(); const largeur = (txt, police) => { const k = `${police}|${txt}`; let w = largeurs.get(k); if (w === undefined) { ctx.font = police; w = ctx.measureText(txt).width; largeurs.set(k, w); if (largeurs.size > 800) largeurs.clear(); } return w; };
   let fond = null, mini = null, joueur = { x: 0, y: 0, dir: 'bas', marche: false }, cam = { x: 0, y: 0 }, z = 3, temps = 0, dernier = 0, but = null, actif = false;
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
@@ -403,8 +412,10 @@ export function creerMonde(canvas, rappels) {
   // ---------- les habitants (v74) ----------
   let bulle = null;   // { id, txt, fin, x, y } : le PNJ s'arrête pendant qu'il parle
   const dits = new Map();   // le prochain dit de chaque PNJ (ils ne répètent pas toujours la même chose)
+  let pnjCache = null, pnjT = -1;
   function pnjIci(t) {
-    return PNJ.map((n) => { if (bulle?.id === n.id && temps < bulle.fin) return { n, x: bulle.x, y: bulle.y, dir: bulle.dir, marche: false }; const q = posPnj(n, t); return { n, ...q }; });
+    if (pnjT === temps && pnjCache) return pnjCache; pnjT = temps;
+    return (pnjCache = PNJ.map((n) => { if (bulle?.id === n.id && temps < bulle.fin) return { n, x: bulle.x, y: bulle.y, dir: bulle.dir, marche: false }; const q = posPnj(n, t); return { n, ...q }; }));
   }
   function parler(id, force = null) {
     const n = PNJ_PAR_ID[id]; if (!n) return;
@@ -621,10 +632,14 @@ export function creerMonde(canvas, rappels) {
     ctx.fillStyle = '#5a1a14'; ctx.fillRect(b.x - w / 2 + 1, b.y - 75, w - 2, 4);
     ctx.fillStyle = '#e8402a'; ctx.fillRect(b.x - w / 2 + 1, b.y - 75, rem, 4); ctx.fillStyle = '#ff9a7a'; ctx.fillRect(b.x - w / 2 + 1, b.y - 75, rem, 1);
   }
+  let saute = false, dtSaute = 0;
   function boucle(ts) {
     requestAnimationFrame(boucle);
-    const brut = (ts - dernier) / 1000 || 0, dt = Math.min(0.05, brut); dernier = ts; temps += dt; surveiller(brut);
+    const brut = (ts - dernier) / 1000 || 0, dt0 = Math.min(0.05, brut); dernier = ts; temps += dt0; surveiller(brut);
     if (!actif || !canvas.offsetParent) return;
+    // mode léger (téléphones modestes) : on ne redessine qu'une image sur deux (le mouvement suit le vrai temps)
+    if (leger && (saute = !saute)) { dtSaute += dt0; return; }
+    const dt = Math.min(0.1, dt0 + dtSaute); dtSaute = 0;
     // déplacement
     let dx = 0, dy = 0;
     if (rappels.libre()) {
@@ -658,10 +673,10 @@ export function creerMonde(canvas, rappels) {
     // tout ce qui a de la hauteur, trié par profondeur
     for (const d of SANCTUAIRES) if (d.x > x0 - 90 && d.x < x1 + 90 && d.y > y0 - 60 && d.y < y1 + 60) dessinerCercle(d);
     const objets = [];
-    for (const o of obs) if (o.tx >= t0x - 2 && o.tx <= t1x + 2 && o.ty >= t0y - 1 && o.ty <= t1y + 4) objets.push({ y: o.y + 6, f: () => { const [ax, ay] = ancreDecor[o.type]; ombre(o.x, o.y + 6, 14); ctx.drawImage(DECOR[o.type], o.x - ax, o.y + 7 - ay); } });
+    for (let ty = Math.max(0, t0y - 1); ty <= t1y + 4; ty++) for (const o of obsParLigne[ty] || []) if (o.tx >= t0x - 2 && o.tx <= t1x + 2) objets.push({ y: o.y + 6, f: () => { const [ax, ay] = ancreDecor[o.type]; ombre(o.x, o.y + 6, 14); ctx.drawImage(DECOR[o.type], o.x - ax, o.y + 7 - ay); } });
     // qui habite où : les joueurs en ligne (et toi) ; leurs bâtiments améliorés se voient
     const proprios = new Map();
-    for (const a of autres.values()) { const m = posMaison(a.clan, a.maison || a.nom); proprios.set(m, { nom: a.nom, pc: a.parcelle || 111, clan: a.clan, deco: a.deco, branche: a.branche }); }
+    for (const a of autres.values()) { const m = maisonDe2(a.clan, a.maison || a.nom); proprios.set(m, { nom: a.nom, pc: a.parcelle || 111, clan: a.clan, deco: a.deco, branche: a.branche }); }
     proprios.set(posMaison(monClan, maCle), { nom: monNom, pc: maParcelle, clan: monClan, moi: true, deco: maDeco, branche: maBranche });
     // les décorations (v77) : chaque morceau trié à sa profondeur
     const decorer = (m, pr) => { if (!pr?.deco) return; const d = lireDeco(pr.deco); for (const [k, dy] of [['statue', 4], ['banniere', 4], ['jardin', 20], ['cloture', 32]]) if (d[k]) objets.push({ y: m.y + dy, f: () => dessinerDeco(ctx, { [k]: d[k] }, m, pr.clan, pr.branche, temps) }); };
@@ -687,7 +702,7 @@ export function creerMonde(canvas, rappels) {
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 - 20 && p.y < y1 + 80) objets.push({ y: p.y + 6, f: () => (p.action === 'tirage' ? dessinerAutel(p) : dessinerPortail(p)) });
     for (const [k, o] of Object.entries(OUVRAGES)) if (o.x > x0 - 90 && o.x < x1 + 90 && o.y > y0 - 30 && o.y < y1 + 120) objets.push({ y: o.y + 8, f: () => dessinerOuvrage(k, o) });
     if (marchand.present && marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 - 10 && marchand.y < y1 + 50) objets.push({ y: marchand.y, f: () => dessinerMarchand(marchand) });
-    for (const f of filons) objets.push({ y: f.y, f: () => dessinerFilon(f) });
+    for (const f of filons) if (f.x > x0 - 30 && f.x < x1 + 30 && f.y > y0 - 10 && f.y < y1 + 30) objets.push({ y: f.y, f: () => dessinerFilon(f) });
     for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 - 20 && d.y < y1 + 60) objets.push({ y: d.y + 6, f: () => dessinerSanctuaire(d) });
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
@@ -700,14 +715,14 @@ export function creerMonde(canvas, rappels) {
       objets.push({ y: f.y, f: () => dessinerFamilier(ctx, p.fam, f.x, f.y, f.gauche, saut) });
     }
     for (const p of gens) objets.push({ y: p.y, f: () => {
-      if (!p.moi && p.clan !== monClan && territoireDe(p.x, p.y) === monClan) { ctx.fillStyle = `rgba(255,60,40,${0.6 + Math.sin(temps * 6) * 0.3})`; for (let a = 0; a < 24; a++) { const an = (a / 24) * Math.PI * 2; ctx.fillRect(R(p.x + Math.cos(an) * 11), R(p.y + Math.sin(an) * 5), 1, 1); } }
+      if (!p.moi && p.clan !== monClan && terrVite(p.x, p.y) === monClan) { ctx.fillStyle = `rgba(255,60,40,${0.6 + Math.sin(temps * 6) * 0.3})`; for (let a = 0; a < 24; a++) { const an = (a / 24) * Math.PI * 2; ctx.fillRect(R(p.x + Math.cos(an) * 11), R(p.y + Math.sin(an) * 5), 1, 1); } }
       dessinerPerso(p, temps + (p.moi ? 0 : p.x * 0.01));
     } });
     objets.sort((a, b) => a.y - b.y);
     for (const o of objets) o.f();
     // braises et lucioles autour de la caméra
-    for (let i = 0; i < 70; i++) {
-      const px = x0 + ((alea(i) * (x1 - x0) + Math.sin(temps * 0.6 + i) * 12) % (x1 - x0)), py0 = alea(i + 70) * (y1 - y0), t = territoireDe(px, y0 + py0);
+    for (let i = 0, nP = leger ? 35 : 70; i < nP; i++) {
+      const px = x0 + ((alea(i) * (x1 - x0) + Math.sin(temps * 0.6 + i) * 12) % (x1 - x0)), py0 = alea(i + 70) * (y1 - y0), t = terrVite(px, y0 + py0);
       if (t === 'feu') { const py = y0 + (((py0 - temps * (12 + (i % 7) * 3)) % (y1 - y0)) + (y1 - y0)) % (y1 - y0); ctx.fillStyle = `rgba(255,${120 + (i % 5) * 25},40,${0.55 + Math.sin(temps * 5 + i) * 0.35})`; ctx.fillRect(R(px), R(py), 1, 1); }
       else if (t === 'plante' && Math.sin(temps * 2 + i * 1.7) > 0.2) { ctx.fillStyle = 'rgba(230,255,150,.9)'; ctx.fillRect(R(px + Math.sin(temps + i) * 6), R(y0 + py0 + Math.cos(temps * 0.8 + i) * 6), 1, 1); }
       else if (t === 'eau' && i % 4 === 0) { ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(R(px), R(y0 + py0), 1, 1); }
@@ -734,8 +749,8 @@ export function creerMonde(canvas, rappels) {
       const poses = [], h = 15 * s, chevauche = (a) => poses.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (const e of etiq.sort((a, b) => b.prio - a.prio)) {
-        ctx.font = `${e.gras ? 900 : 700} ${R(11.5 * s)}px ${POLICE}`;
-        const w = ctx.measureText(e.txt).width + 10 * s, hh = e.sous ? h * 2 : h;
+        const police = `${e.gras ? 900 : 700} ${R(11.5 * s)}px ${POLICE}`; ctx.font = police;
+        const w = largeur(e.txt, police) + 10 * s, hh = e.sous ? h * 2 : h;
         let y = e.y, r = null;
         for (let k = 0; k < 4; k++) { const c = { x0: e.x - w / 2, x1: e.x + w / 2, y0: y - hh + h / 2, y1: y + h / 2 }; if (!chevauche(c)) { r = c; break; } y -= h + 2 * s; }
         if (!r) { if (e.prio < 3) continue; r = { x0: e.x - w / 2, x1: e.x + w / 2, y0: e.y - hh + h / 2, y1: e.y + h / 2 }; y = e.y; }
@@ -763,7 +778,7 @@ export function creerMonde(canvas, rappels) {
       const pr = projets.clans[k], fini = pr.pts >= pr.objectif, pc = Math.min(100, Math.floor((pr.pts / pr.objectif) * 100));
       etiquette(`${PROJETS[k].ico} ${PROJETS[k].nom} · ${fini ? 'terminé ✓' : `${pc} %`}`, ex(o.x), ey(o.y - 84), fini ? '#ffe070' : '#f0e6d0', COUL[k], fini);
     }
-    for (const a of autres.values()) { const m = posMaison(a.clan, a.maison || a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan], false, 0); }
+    for (const a of autres.values()) { const m = maisonDe2(a.clan, a.maison || a.nom); if (m.x > x0 - 40 && m.x < x1 + 40 && m.y > y0 && m.y < y1 + 60 && Math.hypot(joueur.x - m.x, joueur.y - m.y) < 160) etiquette(`Maison de ${a.nom}`, ex(m.x), ey(m.y - 58), '#f0e6d0', COUL[a.clan], false, 0); }
     if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true, 4);
     const ma = posMaison(monClan, maCle); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true, 3);
     for (const h of habitants) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 150) etiquette(h.n.nom, ex(h.x), ey(h.y - 30), '#d8ecff', COUL[h.n.clan], false, 1, h.n.role);

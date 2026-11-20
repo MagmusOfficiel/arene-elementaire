@@ -4,6 +4,8 @@
 // =====================================================================
 import { cleMaison } from '../../../shared/clans/geo.js';
 import * as QP from '../../../shared/clans/quetesPnj.js';
+import * as PC from '../../../shared/clans/parcours.js';
+import { PNJ_PAR_ID, posPnj } from '../../../shared/clans/pnj.js';
 import { ELEMENTS, CLANS, CLASSES, LISTE_CLASSES, RARES } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES } from '../../../shared/clans/monstres.js';
 import * as X from '../../../shared/clans/expedition.js';
@@ -50,6 +52,13 @@ export function classesHTML() {
 export function ecranClan(seulementClasse = false) {
   $('ecranClan').classList.remove('cache'); $('ecranMonde').classList.add('cache');
   $('nomJoueur').value = p?.nom || localStorage.getItem('pseudo') || '';
+  // v79 : revenir à un autre personnage, ou retrouver son compte venu d'un autre appareil
+  import('./ui-compte.js').then((C) => {
+    const l = C.persos().filter((x) => x.jeton !== C.jetonActif());
+    $('dejaCompte').innerHTML = `${l.length ? `<div class="codeCompte"><h3>👥 Revenir à un personnage</h3><div class="persos">${l.map((x) => `<button class="bouton second" data-jouer="${esc(x.jeton)}">${esc(x.nom)} <small>niv. ${x.niv || 1}</small></button>`).join('')}</div></div>` : ''}${seulementClasse ? '' : C.blocRecuperer()}`;
+    $('dejaCompte').querySelectorAll('[data-jouer]').forEach((b) => b.onclick = () => C.jouer(b.dataset.jouer));
+    C.brancherCode($('dejaCompte'));
+  });
   let clan = null;
   const montrerClasses = () => {
     $('etapeClasse').classList.remove('cache'); $('choixClasses').classList.remove('cache');
@@ -189,14 +198,29 @@ export const guide = (() => {
   const lieu = (id) => LIEUX.find((l) => l.id === id);
   const touche = (k) => (monde.tactile ? '' : ` (touche <b>${k}</b>)`);
   // 1) les premiers pas : dans l'ordre, une étape après l'autre
-  const ETAPES = [
-    { txt: () => `Va à l'<b>Autel des tirages</b>, au Carrefour (suis la flèche), et fais ton premier tirage avec tes essences ${ICO_RESS.essence}.`, cible: () => lieu('autel'), fait: () => p.tirages.total > 0 },
-    { txt: () => `Ouvre ton <b>Deck 🃏</b> : ta nouvelle carte y est. Clique sur <b>+ Deck</b> pour la jouer en combat.`, cible: () => null, fait: () => etat.vu.deck },
-    { txt: () => `Pars en <b>expédition</b> : va au portail de ton territoire et choisis le <b>Palier I</b>.`, cible: () => lieu(`portail_${p.clan}`), fait: () => !!p.expedition || p.stats.combats > 0 },
-    { txt: () => monde.tactile ? `Gagne ton premier combat : <b>touche une carte</b>, puis un ennemi. Quand tu n'as plus d'énergie ⚡, touche <b>Fin du tour</b>.` : `Gagne ton premier combat : clique une carte (ou touches <b>1</b> à <b>9</b>), puis un ennemi. Plus d'énergie ⚡ ? <b>Fin du tour</b> (touche <b>E</b>).`, cible: () => null, fait: () => p.stats.victoires > 0 },
-    { txt: () => `Rentre chez toi (<b>★ Ta maison</b>, dans ton village) : ta parcelle produit même quand tu n'es pas là. Récolte !`, cible: () => { const m = monde.maison(); return { x: m.x, y: m.y + 16, nom: 'Ta maison' }; }, fait: () => etat.vu.parcelle },
-    { txt: () => `Dernière étape : ouvre les <b>Quêtes 📜</b>${touche('J')}. Chaque jour, 3 quêtes pour gagner des essences et des éclats.`, cible: () => null, fait: () => etat.vu.quetes },
-  ];
+  // v79 : les premiers pas sont présentés par les habitants du village, avec une récompense à chaque étape
+  // (le serveur la donne : shared/clans/parcours.js). Le texte de chaque étape est dit par l'habitant.
+  const habitant = (i) => { const id = PC.pnjDe(p, i); return id ? PNJ_PAR_ID[id] : null; };
+  const recTxt = (r) => Object.entries(r).map(([k, v]) => (k === 'monture' ? '🐴 un poney' : `${v} ${ICO_RESS[k] || k}`)).join(' + ');
+  const ETAPES = PC.ETAPES.map((e, i) => ({
+    txt: () => { const h = habitant(i); return `<b>${esc(h?.nom || '')}</b> <small>(${esc(h?.role || '')})</small> : « ${esc(e.txt)} »<br><small>Récompense : ${recTxt(e.rec)}</small>`; },
+    cible: () => {
+      if (e.parler) { const h = habitant(i); if (!h) return null; const q = posPnj(h, Date.now() / 1000); return { x: q.x, y: q.y, nom: h.nom }; }
+      if (i === 1) return lieu('autel');
+      if (i === 3) return lieu(`portail_${p.clan}`);
+      if (i === 4) { const m = monde.maison(); return { x: m.x, y: m.y + 16, nom: 'Ta maison' }; }
+      return null;
+    },
+    fait: () => PC.etape(p) > i,
+  }));
+  // une étape faite (sauf « parler ») : on réclame la récompense une fois
+  let reclame = -1;
+  function verifierParcours() {
+    const i = PC.etape(p);
+    if (!PC.prete(p) || reclame === i) return;
+    reclame = i;
+    faire('parcours', {}).then((r) => { if (!r.ok) { reclame = -1; return; } sfx.orb(); toast(`🎓 ${esc(PC.ETAPES[i].titre)} : bravo ! ${recTxt(r.res.rec)}`); });
+  }
   // 2) les découvertes (v55) : une astuce à la fois, quand elle devient utile, jusqu'à ce que le joueur
   //    l'ait essayée ou ait cliqué sur « Compris »
   const ASTUCES = [
@@ -223,9 +247,11 @@ export const guide = (() => {
   function maj() {
     const g = $('guide');
     if (!p || !dansMonde || etat.off) { g.classList.add('cache'); monde.guider(cibleAlerte()); return; }
+    verifierParcours();
+    etat.n = Math.max(etat.n, Math.min(PC.etape(p), ETAPES.length) - 1);
     while (etat.n < ETAPES.length && ETAPES[etat.n].fait()) {
       etat.n++; garder();
-      if (etat.n >= ETAPES.length) { sfx.fanfare(); toast('🎓 <b>Premiers pas terminés !</b> Le guide te montrera encore quelques astuces, et le menu ☰ → <b>Comment jouer</b> explique tout.'); attente = Date.now() + 30000; return maj(); }
+      if (etat.n >= ETAPES.length) { sfx.fanfare(); toast('🎓 <b>Premiers pas terminés !</b> Ton poney t’attend à l’écurie (touche N). Le guide te montrera encore quelques astuces, et le menu ☰ → <b>Comment jouer</b> explique tout.'); attente = Date.now() + 30000; return maj(); }
       sfx.orb();
     }
     let e, titre;

@@ -72,7 +72,7 @@ app.get('/api/clans/equilibrage', (req, res) => {
   const E = equilibrage();
   const cartes = Object.fromEntries(Object.entries(CARTES_CLANS).map(([id, c]) => [id, { nom: c.nom, element: c.element, rarete: c.rarete, cout: c.cout, type: c.type, classe: c.classe || null, exclusif: !!c.exclusif }]));
   const monstres = {};
-  for (const [terr, M] of Object.entries(MONSTRES_CLANS)) for (const m of [...M.normaux, M.rare, M.elite, M.boss]) monstres[m.id] = { nom: m.nom, terr, rang: m.rang };
+  for (const [terr, M] of Object.entries(MONSTRES_CLANS)) for (const m of [...M.normaux, M.rare, M.elite, M.boss, ...Object.values(M.autres || {})]) monstres[m.id] = { nom: m.nom, terr, rang: m.rang };
   for (const [terr, m] of Object.entries(BOSS_CAUCHEMAR)) monstres[m.id] = { nom: m.nom, terr, rang: 'cauchemar' };
   res.json({ version: VERSION_JEU, protege: !!process.env.JOURNAL_CLE, ...E, noms: { cartes, monstres } });
 });
@@ -87,7 +87,8 @@ const zmRecordValide = (r) => (r && typeof r === 'object' ? { jours: Math.min(36
 const contenuCompte = (b) => (b && typeof b === 'object' ? { progression: b.progression, classe: b.classe, grimoire: b.grimoire, survie: b.survie, pseudo: String(b.pseudo || '').slice(0, 16),
   zm: typeof b.zm === 'string' && b.zm.length <= 48000 ? b.zm : undefined, zmRecord: zmRecordValide(b.zmRecord),
   enquete: typeof b.enquete === 'string' && b.enquete.length <= 30000 ? b.enquete : undefined,
-  clans: typeof b.clans === 'string' && b.clans.length <= 30000 ? b.clans : undefined } : {});   // clans : le profil des Clans Élémentaires   // enquete : la partie des Ombres de Baker Street
+  clans: typeof b.clans === 'string' && b.clans.length <= 30000 ? b.clans : undefined,
+  clansPersos: Array.isArray(b.clansPersos) ? b.clansPersos.slice(0, 6).filter((x) => x && typeof x.jeton === 'string' && x.jeton.length <= 80).map((x) => ({ jeton: x.jeton, nom: String(x.nom || '').slice(0, 16), clan: String(x.clan || '').slice(0, 8), classe: String(x.classe || '').slice(0, 12), niv: +x.niv || 1, branche: String(x.branche || '').slice(0, 12) })) : undefined } : {});   // clans : le profil des Clans Élémentaires   // enquete : la partie des Ombres de Baker Street
 const anti = new Map();   // limite simple : 1 création toutes les 20 s par adresse
 app.post('/api/compte', async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress, t = anti.get(ip) || 0;

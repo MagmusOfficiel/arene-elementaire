@@ -3,6 +3,7 @@
 //  Les règles sont dans shared/clans/quetesPnj.js ; les habitants dans pnj.js.
 // =====================================================================
 import * as QP from '../../../shared/clans/quetesPnj.js';
+import * as PC from '../../../shared/clans/parcours.js';
 import { PNJ_PAR_ID } from '../../../shared/clans/pnj.js';
 import { sfx } from '../sfx.js';
 import { $, ICO_RESS, esc, nf, p, toast } from './ui-commun.js';
@@ -11,7 +12,13 @@ import { faire } from './ui-reseau.js';
 
 const lot = (o) => Object.entries(o).map(([k, v]) => `<b>${nf(v)}</b> ${ICO_RESS[k] || k}`).join(' + ');
 // E sur un habitant : sa quête s'il en a une pour toi, sinon une réplique dans une bulle
-export function parlerA(id) {
+export async function parlerA(id) {
+  // v79 : une étape du parcours des nouveaux venus se valide en parlant à cet habitant
+  const i = PC.etape(p), e = PC.ETAPES[i];
+  if (e?.parler && PC.pnjDe(p, i) === id) {
+    const r = await faire('parcours', {});
+    if (r.ok) { sfx.fanfare?.(); monde.parler(id, r.res.dit); toast(`🎓 ${esc(e.titre)} : ${Object.entries(r.res.rec).map(([k, v]) => (k === 'monture' ? '🐴 un poney (écurie, touche N)' : `+${nf(v)} ${ICO_RESS[k]}`)).join(' · ')}`); return; }
+  }
   const et = QP.etat(p, id);
   if (!et || et === 'faite') return monde.parler(id);
   const n = PNJ_PAR_ID[id], q = QP.QUETES[id], pr = QP.progres(p, id);

@@ -36,7 +36,9 @@ export const ILLUS = new Set([...'gd_egide gd_represailles gd_bastion gd_serment
   'cri_guerre', 'second_vent', 'forteresse', 'execution', 'eclair_arcanique', 'bouclier_arcanique', 'missiles', 'meditation', 'torrent', 'nova',
   'savoir', 'transmutation', 'rayon', 'tir', 'piege', 'tir_rapide', 'volee', 'fleche_poison', 'repli', 'pluie_fleches',
   'oeil_faucon', 'tir_precis', 'estoc', 'parade', 'botte', 'fente', 'garde_haute', 'elan', 'danse_lames', 'coup_grace', 'concentration', 'rage_ardente', 'feinte', 'coup_bouclier']);
-export const ILLUS_MONSTRES = new Set(['seigneur_magma', 'hydre', 'reine_epine', 'salamandre', 'diablotin', 'golem_cendre', 'feu_follet', 'phenix_cendre', 'chimere', 'crabe', 'meduse', 'sirene', 'anguille', 'tortue_dragon', 'kraken', 'champignon', 'loup_ronces', 'treant', 'guepe', 'cerf_emeraude', 'mante', 'titan_magma', 'leviathan_abyssal', 'ancien_sylvain']);
+export const ILLUS_MONSTRES = new Set(['seigneur_magma', 'hydre', 'reine_epine', 'salamandre', 'diablotin', 'golem_cendre', 'feu_follet', 'phenix_cendre', 'chimere', 'crabe', 'meduse', 'sirene', 'anguille', 'tortue_dragon', 'kraken', 'champignon', 'loup_ronces', 'treant', 'guepe', 'cerf_emeraude', 'mante', 'titan_magma', 'leviathan_abyssal', 'ancien_sylvain',
+  'scarabee_braise', 'chaman_braise', 'chauve_souris', 'djinn', 'golem_obsidienne', 'roi_scorpion', 'grenouille', 'pretresse_ecume', 'requin',
+  'esprit_marees', 'crocodile', 'reine_corail', 'araignee', 'druide_fou', 'sanglier', 'grand_duc', 'ours_ronces', 'colosse_racines']);
 // les mots-clés des cartes sont soulignés et expliqués au survol (v61)
 const MOTS = [
   [/(Brûlure|brûlure)( \d+)?/g, STATUTS.brulure], [/Trempés?( \d+)?/g, STATUTS.trempe], [/Affaiblis?( \d+)?/g, STATUTS.affaibli],

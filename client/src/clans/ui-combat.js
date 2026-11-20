@@ -120,6 +120,8 @@ const TITRES_INTENTION = {
   attaque: (t) => { const [d, n] = t.split('×'); return `Au prochain tour, il t'attaque : ${d} dégâts${n ? `, ${n} fois` : ''}. Ton bouclier absorbe d'abord les dégâts.`; },
   defense: (t) => `Il va se protéger : ${t} de bouclier.`,
   buff: (t) => `Il se renforce : ${t} de force (ses attaques feront plus mal).`,
+  groupe: (t) => `Il protège tout son groupe : ${t} de bouclier pour chaque monstre.`,
+  soin: (t) => `Il soigne tout son groupe : ${t} PV pour chaque monstre blessé.`,
   epines: (t) => `Il se couvre d'épines : chaque attaque que tu lui portes te renvoie ${t} dégâts.`,
   malus: (t) => (t === '❓' ? 'Brouillard : ses intentions sont cachées.' : `Il va t'infliger un mauvais statut : ${t.replace('🔥', 'brûlure ').replace('💧', 'trempé ').replace('🥀', 'affaibli ')}.`),
 };
@@ -154,7 +156,7 @@ export function dessinerCombat(donner = false, entree = false) {
   $('cbEnnemis').innerHTML = c.ennemis.map((e, n) => {
     const its = C.decrireIntention(c, e), illus = ILLUS_MONSTRES.has(e.id);
     return `<div class="ennemi ${e.rang || ''} ${e.maudit ? 'maudit' : ''} ${typeCombat === 'mondial' ? 'mondial' : ''} ${e.pv <= 0 ? 'parti' : ''} ${e.pv > 0 && e.pv / e.pvMax < 0.35 ? 'blesse' : ''} ${carteChoisie != null ? 'ciblable' : ''} ${entree ? 'entreeD' : ''}" data-e="${e.uid}" style="--respire:${(3 + ((n * 0.7 + e.pvMax) % 1.4)).toFixed(2)}s;--decale:-${((n * 1.3 + e.pvMax * 0.37) % 3).toFixed(2)}s;${entree ? `animation-delay:${150 + n * 120}ms` : ''}">
-      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}" title="${esc(TITRES_INTENTION[it.type](it.txt))}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
+      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}" title="${esc(TITRES_INTENTION[it.type](it.txt))}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵', groupe: '🛡️👥', soin: '💚' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
       <div class="corps"><div class="portrait" style="${illus ? `background-image:url(${import.meta.env.BASE_URL}clans/monstres/${e.id}.webp)` : ''}">${illus ? '' : e.ico}</div><div class="ombre"></div></div>
       <div class="nomE">${e.maudit ? '<span class="tagMaudit">MAUDIT</span> ' : ''}${esc(e.nom)}</div>
       <div class="jauge" data-pv="${e.pv}"><span class="bouclier ${e.bloc ? 'vu' : ''}">${e.bloc || ''}</span><div class="barre vie ${e.bloc ? 'protege' : ''}"><i class="fantome" style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><i style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><b>${Math.max(0, e.pv)} / ${e.pvMax}</b></div></div>
