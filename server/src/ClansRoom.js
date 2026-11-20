@@ -11,7 +11,7 @@
 // =====================================================================
 import colyseus from 'colyseus';
 import { noterErreur } from './journal.js';
-import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO } from '../../shared/clans/geo.js';
+import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison } from '../../shared/clans/geo.js';
 import { nouveauDuel, jouer as jouerDuel, finTour as finTourDuel, vue as vueDuel, deckValide, PV_DUEL } from '../../shared/clans/duel.js';
 import { BUTIN_DUEL } from '../../shared/clans/profil.js';
 import { BOSS_MONDIAUX, MONDIAL, POINTS, NOMS_CLANS, PALIER_MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial } from '../../shared/clans/mondial.js';
@@ -20,6 +20,7 @@ import crypto from 'node:crypto';
 import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
 import * as MT from '../../shared/clans/montures.js';
+import * as DC from '../../shared/clans/deco.js';
 import * as HF from '../../shared/clans/hautsfaits.js';
 import * as T from '../../shared/clans/territoires.js';
 import * as A from '../../shared/clans/arene.js';
@@ -30,6 +31,7 @@ import { retrouver, enregistrer, ACTIONS, signer } from './clansProfils.js';
 import * as P from '../../shared/clans/profil.js';
 import { rejouer } from '../../shared/clans/combat.js';
 import * as Q from '../../shared/clans/quetes.js';
+import * as X from '../../shared/clans/expedition.js';
 import { RARES } from '../../shared/clans/cartes.js';
 
 const { Room } = colyseus;
@@ -97,6 +99,7 @@ export class ClansRoom extends Room {
         const r = f(j.p, m, ctx) || { ok: false };
         if (ctx.p) { j.p = ctx.p; this.arriver(c, j); }
         if (r.ok) { j.sale = true; this.identite(j); }
+        if (r.ok && j.groupe && ['expeCombat', 'expeRelique', 'expeMystere', 'expeAbandon'].includes(m.type)) this.apresActionGroupe(c, j, m.type, r.res);
         if (r.ok && m.type === 'renommer') this.broadcast('chat', { systeme: true, t: `${ancienNom} s’appelle désormais ${j.nom}.` });
         rep({ ok: !!r.ok, raison: r.raison, res: r.res });
       } catch (e) { noterErreur(`clans · act ${m.type}`, e); rep({ ok: false, raison: 'Erreur du serveur.' }); }
@@ -171,6 +174,65 @@ export class ClansRoom extends Room {
     sur('duelFin', (c, m, j) => { const x = this.duels.get(c.sessionId); if (x && finTourDuel(x.d, x.ids.indexOf(c.sessionId))) this.majDuel(x); });
     sur('duelAbandon', (c) => { const x = this.duels.get(c.sessionId); if (x) this.terminerDuel(x, 1 - x.ids.indexOf(c.sessionId), 'abandon'); });
 
+    // ---------- expéditions en groupe (v78) ----------
+    this.groupes = new Map();   // id -> { id, chef (sid), membres [sid], terr, palier, bossGagne, parti }
+    this.nGroupe = 0;
+    const cliDe = (sid) => this.clients.find((k) => k.sessionId === sid);
+    sur('groupeInviter', (c, m, j) => {
+      const sid = String(m.cible || ''), cible = this.joueurs.get(sid), cl = cliDe(sid), refus = (t) => c.send('info', { t });
+      if (!cible?.p || !cl || sid === c.sessionId) return refus('Ce joueur n’est plus là.');
+      if (j.p.expedition) return refus('Termine d’abord ton expédition en cours.');
+      if (cible.groupe) return refus(`${cible.nom} est déjà dans un groupe.`);
+      if (cible.p.expedition) return refus(`${cible.nom} est déjà en expédition.`);
+      let g = j.groupe && this.groupes.get(j.groupe);
+      if (g && g.chef !== c.sessionId) return refus('Seul le chef du groupe peut inviter.');
+      if (g?.parti) return refus('Le groupe est déjà parti.');
+      if (!g) { g = { id: `g${++this.nGroupe}`, chef: c.sessionId, membres: [c.sessionId], invites: new Set() }; this.groupes.set(g.id, g); j.groupe = g.id; }
+      if (g.membres.length >= X.TAILLE_GROUPE) return refus(`Un groupe compte ${X.TAILLE_GROUPE} joueurs au plus.`);
+      g.invites.add(sid); cl.send('groupeInvitation', { gid: g.id, de: j.nom, clan: j.clan });
+      c.send('info', { t: `Invitation envoyée à ${cible.nom}.` }); this.envoyerGroupe(g);
+    });
+    sur('groupeRepondre', (c, m, j) => {
+      const g = this.groupes.get(String(m.gid || '')); if (!g || !g.invites.has(c.sessionId)) return;
+      g.invites.delete(c.sessionId);
+      const chef = cliDe(g.chef);
+      if (!m.oui) { chef?.send('info', { t: `${j.nom} a décliné l’invitation.` }); return; }
+      if (j.groupe || j.p.expedition || g.parti || g.membres.length >= X.TAILLE_GROUPE) return c.send('info', { t: 'Trop tard : impossible de rejoindre ce groupe.' });
+      g.membres.push(c.sessionId); j.groupe = g.id; this.envoyerGroupe(g);
+    });
+    sur('groupeQuitter', (c, m, j) => this.quitterGroupe(c.sessionId, 'quitte'));
+    sur('groupePartir', (c, m, j) => {
+      const g = j.groupe && this.groupes.get(j.groupe), refus = (t) => c.send('info', { t });
+      if (!g || g.chef !== c.sessionId || g.parti) return;
+      const terr = String(m.terr || ''), palier = Math.floor(Number(m.palier)) || 1;
+      if (g.membres.length < 2) return refus('Invite au moins un compagnon d’abord.');
+      for (const sid of g.membres) { const k = this.joueurs.get(sid); if (!k?.p || k.p.expedition || k.duel || k.manche) return refus(`${k?.nom || 'Un membre'} n’est pas prêt.`); if (palier > (k.p.paliers[terr] || 1)) return refus(`${k.nom} n’a pas encore débloqué ce palier.`); }
+      const graine = Math.floor(Math.random() * 2 ** 31);
+      for (const sid of g.membres) {
+        const k = this.joueurs.get(sid), r = X.commencerExpedition(k.p, terr, palier, graine);
+        if (!r.ok) continue;
+        const b = PJ.bonusDe(this.projetsAJour(), k.p.clan, 'butin'); if (b) k.p.expedition.bonusButin = b;
+        k.p.expedition.groupe = { id: g.id, n: g.membres.length };
+        k.statut = 'expedition'; k.sale = true; const cl = cliDe(sid); if (cl) this.pousserProfil(cl, k);
+      }
+      Object.assign(g, { parti: true, terr, palier, bossGagne: false });
+      this.envoyerGroupe(g, { depart: true });
+    });
+    sur('groupeEntrer', (c, m, j) => {
+      const g = j.groupe && this.groupes.get(j.groupe); if (!g?.parti) return;
+      if (g.chef !== c.sessionId) return c.send('info', { t: 'C’est le chef du groupe qui choisit la salle.' });
+      const actifs = g.membres.map((sid) => this.joueurs.get(sid)).filter((k) => k?.p?.expedition);
+      const pasPret = actifs.find((k) => !X.pretAPartir(k.p.expedition));
+      if (pasPret) return c.send('info', { t: `Attends ${pasPret.nom} : ${pasPret.p.expedition.combatEnCours ? 'il est en plein combat' : 'il doit encore faire un choix'}.` });
+      const salle = String(m.salle || '');
+      if (!X.choixPossibles(j.p.expedition).includes(salle)) return;
+      for (const k of actifs) {
+        const r = X.entrer(k.p, salle); if (!r.ok) continue;
+        k.sale = true; const cl = cliDe(this.sidDe(k));
+        if (cl) { this.pousserProfil(cl, k); cl.send('groupeSalle', { salle, res: { type: r.type, soin: r.soin, gain: r.gain, relique: r.relique, mystere: r.mystere, aTerre: r.aTerre, releve: r.releve } }); }
+      }
+      this.envoyerGroupe(g);
+    });
     // ---------- sanctuaires : le contrôle des territoires ----------
     const gardes = lireSanctuaires() || {};
     this.sanct = T.SANCTUAIRES.map((x) => ({ id: x.id, prop: ['feu', 'eau', 'plante'].includes(gardes[x.id]) ? gardes[x.id] : x.terr, capt: null, conteste: false }));
@@ -423,7 +485,62 @@ export class ClansRoom extends Room {
   identite(j) {
     const p = j.p; if (!p) return;
     j.nom = p.nom; j.clan = p.clan; j.classe = p.classe || ''; j.branche = p.branche || null; j.niv = P.niveau(p);
-    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p); j.maison = p.maison || p.nom; j.mont = MT.actif(p) || '';
+    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p); j.maison = cleMaison(p); j.mont = MT.actif(p) || ''; j.deco = DC.code(p); j.branche = p.branche || null;
+  }
+  // ---------- expéditions en groupe (v78) ----------
+  sidDe(k) { for (const [sid, x] of this.joueurs) if (x === k) return sid; return null; }
+  envoyerGroupe(g, extra = {}) {
+    const vue = { id: g.id, parti: !!g.parti, terr: g.terr || null, palier: g.palier || null, chef: g.chef,
+      membres: g.membres.map((sid) => { const k = this.joueurs.get(sid), x = k?.p?.expedition; return { sid, nom: k?.nom || '?', clan: k?.clan, classe: k?.classe, pv: x?.pv ?? null, pvMax: x?.pvMax ?? null, etat: !x ? (g.parti ? 'fini' : 'pret') : x.aTerre ? 'aTerre' : x.combatEnCours ? 'combat' : (x.choixRelique || x.mystere) ? 'choix' : 'pret', position: x?.position || null }; }), ...extra };
+    for (const sid of g.membres) this.clients.find((k) => k.sessionId === sid)?.send('groupe', { ...vue, moi: sid });
+  }
+  apresActionGroupe(c, j, type, res) {
+    const g = this.groupes.get(j.groupe); if (!g) return;
+    if (type === 'expeAbandon') return this.quitterGroupe(c.sessionId, 'abandon');
+    if (type === 'expeCombat' && res?.fin === 'victoire') g.bossGagne = true;
+    this.verifierGroupe(g);
+  }
+  // fin de l'expédition du groupe : quand plus personne ne peut avancer
+  verifierGroupe(g) {
+    if (!g.parti) return this.envoyerGroupe(g);
+    const ks = g.membres.map((sid) => [sid, this.joueurs.get(sid)]).filter(([, k]) => k?.p);
+    const encore = ks.filter(([, k]) => k.p.expedition), debout = encore.filter(([, k]) => !k.p.expedition.aTerre);
+    if (debout.length === 0) {
+      // tous à terre (ou tous arrivés) : ceux qui restent finissent, victoire si le boss est tombé
+      for (const [sid, k] of encore) {
+        const b = X.terminer(k.p, g.bossGagne ? 'victoire' : 'defaite'); k.statut = 'libre'; k.sale = true;
+        const cl = this.clients.find((x) => x.sessionId === sid); if (cl) { this.pousserProfil(cl, k); cl.send('groupeBilan', b); }
+      }
+      for (const [sid, k] of ks) { k.groupe = null; this.clients.find((x) => x.sessionId === sid)?.send('groupe', null); }
+      this.groupes.delete(g.id); return;
+    }
+    this.envoyerGroupe(g);
+  }
+  quitterGroupe(sid, raison) {
+    const k = this.joueurs.get(sid), g = k?.groupe && this.groupes.get(k.groupe); if (!g) return;
+    g.membres = g.membres.filter((x) => x !== sid); k.groupe = null;
+    const cl = this.clients.find((x) => x.sessionId === sid); cl?.send('groupe', null);
+    // il continue seul (un membre à terre qui part finit son expédition)
+    const x = k.p?.expedition;
+    if (x?.groupe) { delete x.groupe; if (x.aTerre) { const b = X.terminer(k.p, 'defaite'); cl?.send('groupeBilan', b); } k.sale = true; if (cl) this.pousserProfil(cl, k); }
+    for (const s2 of g.membres) this.clients.find((y) => y.sessionId === s2)?.send('info', { t: `${k.nom} a quitté le groupe${raison === 'depart' ? ' (déconnexion)' : ''}.` });
+    if (g.membres.length < 2) {
+      // plus qu'un joueur : le groupe se dissout, il continue seul (ou finit s'il est à terre)
+      for (const s2 of g.membres) {
+        const k2 = this.joueurs.get(s2), c2 = this.clients.find((y) => y.sessionId === s2); if (!k2) continue;
+        k2.groupe = null; c2?.send('groupe', null);
+        const x2 = k2.p?.expedition;
+        if (x2?.groupe) {
+          delete x2.groupe;
+          if (x2.aTerre) { const b = X.terminer(k2.p, g.bossGagne ? 'victoire' : 'defaite'); c2?.send('groupeBilan', b); }
+          k2.sale = true; if (c2) this.pousserProfil(c2, k2);
+        }
+      }
+      this.groupes.delete(g.id); return;
+    }
+    if (g.chef === sid) g.chef = g.membres[0];
+    for (const s2 of g.membres) { const k2 = this.joueurs.get(s2); if (k2?.p?.expedition?.groupe) k2.p.expedition.groupe.n = g.membres.length; }
+    this.verifierGroupe(g);
   }
   pousserProfil(client, j) { if (j.p) client.send('profil', { p: j.p, sig: signer(j.p), jeton: j.jeton }); }
 
@@ -441,6 +558,7 @@ export class ClansRoom extends Room {
     const x = this.duels.get(client.sessionId);
     if (x) this.terminerDuel(x, 1 - x.ids.indexOf(client.sessionId), 'depart');   // fuir un duel, c'est le perdre
     this.file = this.file.filter((f) => f.sid !== client.sessionId);
+    this.quitterGroupe(client.sessionId, 'depart');
     const j = this.joueurs.get(client.sessionId);
     if (j?.p && ![...this.joueurs.entries()].some(([id, a]) => id !== client.sessionId && a.jeton === j.jeton)) enregistrer(j.jeton, j.p);
     this.joueurs.delete(client.sessionId);
@@ -500,7 +618,7 @@ export class ClansRoom extends Room {
   // 8 fois par seconde : les joueurs proches de lui (positions, en nombres) ;
   // 1 fois par seconde : tout le monde, pour la mini-carte et la liste des clans ;
   // nom, clan, niveau… : seulement quand ça change.
-  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '', j.maison === j.nom ? '' : j.maison || '', j.mont || '']; }
+  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '', j.maison === j.nom ? '' : j.maison || '', j.mont || '', j.deco || '', j.branche || '']; }
   envoyer() {
     if (!this.clients.length) return;
     this.tick = (this.tick || 0) + 1;

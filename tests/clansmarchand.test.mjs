@@ -6,7 +6,7 @@ import * as P from '../shared/clans/profil.js';
 import { obstacles, praticable } from '../shared/clans/geo.js';
 import { ACTIONS } from '../server/src/clansProfils.js';
 
-const T0 = Date.UTC(2026, 10, 19, 14, 5);
+const T0 = (() => { let s = MA.slotDe(Date.UTC(2026, 10, 19, 14, 5)); while (!MA.present(s)) s++; return s * MA.DUREE + 5 * 60000; })();
 const riche = () => { const p = P.nouveauProfil('feu', 'Ana', T0, 'mage'); Object.assign(p.ress, { essence: 9999, eclats: 999, braises: 999, perles: 999, seve: 999, cristal: 9, perle_noire: 9, graine_or: 9 }); return p; };
 
 test('marchand : ses places sont praticables, il bouge à chaque passage', () => {
@@ -14,7 +14,7 @@ test('marchand : ses places sont praticables, il bouge à chaque passage', () =>
   for (const pl of MA.PLACES) assert.ok(praticable(pl.pos[0], pl.pos[1], o), pl.nom);
   let avant = null;
   for (let k = 0; k < 200; k++) {
-    const m = MA.marchandDe(T0 + k * MA.DUREE);
+    const m = MA.marchandDe(T0 + k * MA.DUREE * MA.TOUS_LES);
     assert.equal(m.offres.length, 3);
     for (const of of m.offres) { assert.ok(Object.keys(of.donne).length === 1 && Object.keys(of.recoit).length === 1); assert.notDeepEqual(Object.keys(of.donne), Object.keys(of.recoit)); }
     if (avant) assert.notEqual(m.place, avant, 'jamais deux fois de suite au même endroit');
@@ -35,10 +35,19 @@ test('marchand : acheter une fois par passage, à côté de lui', () => {
   assert.ok(MA.acheter(p, 1, pos, T0).ok);
   assert.equal(MA.acheter(p, 5, pos, T0).ok, false);
   // au passage suivant, on peut de nouveau
-  const m2 = MA.marchandDe(T0 + MA.DUREE);
-  assert.ok(MA.acheter(p, 0, { x: m2.x, y: m2.y }, T0 + MA.DUREE).ok);
+  const m2 = MA.marchandDe(T0 + MA.DUREE * MA.TOUS_LES);
+  assert.ok(MA.acheter(p, 0, { x: m2.x, y: m2.y }, T0 + MA.DUREE * MA.TOUS_LES).ok);
   // sans les moyens
   const pauvre = P.nouveauProfil('eau', 'Bo', T0, 'mage'); for (const k of Object.keys(pauvre.ress)) pauvre.ress[k] = 0;
   assert.equal(MA.acheter(pauvre, 0, pos, T0).ok, false);
   assert.equal(ACTIONS.marchandAcheter(riche(), { i: 0 }, {}).ok, false, 'le serveur exige la position');
+});
+
+test('marchand : il ne vient qu’un passage sur 3, et dit quand il revient', () => {
+  const absent = MA.marchandDe(T0 + MA.DUREE);
+  assert.equal(absent.present, false);
+  assert.equal(absent.revient, T0 - 5 * 60000 + MA.DUREE * MA.TOUS_LES);
+  assert.match(MA.acheter(riche(), 0, { x: absent.x, y: absent.y }, T0 + MA.DUREE).raison, /reparti/);
+  let n = 0; for (let k = 0; k < 30; k++) if (MA.marchandDe(T0 + k * MA.DUREE).present) n++;
+  assert.equal(n, 10);
 });

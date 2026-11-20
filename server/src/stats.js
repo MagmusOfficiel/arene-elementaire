@@ -288,6 +288,10 @@ export async function ecrireProfilClans(jeton, p) {
 export function lireSanctuaires() { return data.clansSanctuaires || null; }
 export function ecrireSanctuaires(props) { data.clansSanctuaires = { ...props }; dirty = true; }
 // ---------- Les Clans Élémentaires : les projets de clan de la semaine (v52) ----------
+// ---------- Les Clans Élémentaires : les maisons posées par les joueurs (v72) ----------
+// { empreinte du jeton : [clan, x, y] } : pour qu'on ne pose pas deux maisons au même endroit
+export function maisonsPosees(clan, sauf = null) { return Object.entries(data.clansMaisons || {}).filter(([k, v]) => k !== sauf && v[0] === clan).map(([, v]) => ({ x: v[1], y: v[2] })); }
+export function ecrireMaison(cle, clan, x, y) { (data.clansMaisons ||= {})[cle] = [clan, x, y]; dirty = true; }
 export function lireProjets() { return data.clansProjets || null; }
 export function ecrireProjets(e) { data.clansProjets = e; dirty = true; }
 

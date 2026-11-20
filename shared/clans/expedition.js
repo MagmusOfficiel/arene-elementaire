@@ -11,14 +11,18 @@ import { ELEMENTS, RARES } from './cartes.js';
 import { alea } from './combat.js';
 import { pvMax, deckCombat } from './profil.js';
 import * as RQ from './reliques.js';
+import * as MY from './mystere.js';
 
 export const ETAGES = 6;
+export const BONUS_GROUPE = 0.25;   // v78 : +25 % de butin par compagnon
+export const TAILLE_GROUPE = 3;
 export const SALLES = {
   combat: { nom: 'Combat', ico: '⚔️' },
   elite: { nom: 'Élite', ico: '💀' },
   repos: { nom: 'Feu de camp', ico: '🏕️' },
   tresor: { nom: 'Trésor', ico: '💎' },
   rare: { nom: 'Monstre rare', ico: '🌟' },
+  mystere: { nom: 'Mystère', ico: '❓' },
   boss: { nom: 'Boss', ico: '👑' },
 };
 
@@ -34,7 +38,8 @@ export function genererCarte(graine) {
       else if (e >= 2 && x < 0.22) type = 'elite';
       else if (e >= 1 && x < 0.3) type = 'rare';
       else if (x < 0.4) type = 'repos';
-      else if (x < 0.55) type = 'tresor';
+      else if (x < 0.52) type = 'tresor';
+      else if (e >= 1 && x < 0.66) type = 'mystere';   // v75 : les salles mystère
       return { id: `${e}-${i}`, etage: e, i, type, vers: [] };
     }));
   }
@@ -67,7 +72,7 @@ export function tirerMaledictions(graine) {
 const maudit = (m) => ({ ...m, maudit: true });
 // les salles où l'on peut aller maintenant
 export function choixPossibles(x) {
-  if (x.fini) return [];
+  if (x.fini || x.mystere) return [];
   if (!x.position) return x.carte.etages[0].map((s) => s.id);
   return salle(x.carte, x.position).vers;
 }
@@ -93,14 +98,21 @@ export function entrer(p, id) {
   const x = p.expedition;
   if (!x || !choixPossibles(x).includes(id)) return { ok: false };
   if (x.choixRelique) return { ok: false, raison: 'Choisis d’abord une relique.' };
+  if (x.mystere) return { ok: false, raison: 'Décide d’abord quoi faire dans la salle mystère.' };
   x.position = id; x.salles++;
   const s = salle(x.carte, id), mult = PALIERS[x.palier - 1].butin;
+  // v78 : en groupe, un membre à terre suit ses compagnons sans combattre ; un feu de camp le relève
+  if (x.aTerre) {
+    if (s.type === 'repos') { x.aTerre = false; x.pv = Math.max(1, Math.round(x.pvMax * 0.3)); return { ok: true, type: 'repos', soin: x.pv, releve: true }; }
+    return { ok: true, type: s.type, aTerre: true };
+  }
   if (s.type === 'repos') { const soin = Math.round(x.pvMax * (x.mods?.includes('disette') ? 0.175 : 0.35) * (RQ.a(x.reliques, 'tente') ? 1.5 : 1)); x.pv = Math.min(x.pvMax, x.pv + soin); return { ok: true, type: 'repos', soin }; }
   if (s.type === 'tresor') {
     const g = { essence: Math.round(45 * mult), mat: Math.round(5 * mult) }; x.butin.essence += g.essence; x.butin.mat += g.mat;
     const [rel] = RQ.tirerChoix(x, 1); if (rel) RQ.ajouter(x, rel);   // un trésor contient une relique (s'il en reste)
     return { ok: true, type: 'tresor', gain: g, relique: rel || null };
   }
+  if (s.type === 'mystere') { x.mystere = { evt: MY.evenementDe(x, id), salle: id }; return { ok: true, type: 'mystere', mystere: MY.vue(x) }; }
   x.combatEnCours = id;   // si la page se recharge pendant le combat, on le reprend
   return { ok: true, type: s.type, combat: combatDe(p, id) };
 }
@@ -108,7 +120,10 @@ export function entrer(p, id) {
 export function apresCombat(p, combat) {
   const x = p.expedition, s = salle(x.carte, x.position), mult = PALIERS[x.palier - 1].butin;
   p.stats.combats++; x.combatEnCours = null;
-  if (combat.fini === 'defaite') return terminer(p, 'defaite');
+  if (combat.fini === 'defaite') {
+    if (x.groupe) { x.aTerre = true; x.pv = 0; return { ok: true, aTerre: true, gain: { essence: 0, mat: 0 } }; }   // v78 : en groupe, on tombe sans tout perdre
+    return terminer(p, 'defaite');
+  }
   p.stats.victoires++;
   x.pv = combat.joueur.pv;
   if (RQ.a(x.reliques, 'gourde')) x.pv = Math.min(x.pvMax, x.pv + 5);
@@ -135,14 +150,24 @@ export function choisirRelique(p, id) {
 export function terminer(p, issue) {
   const x = p.expedition; if (!x) return { ok: false };
   // x.bonusButin : bonus du Phare des marées (projet de clan terminé la semaine passée), fixé au départ
-  const garde = issue === 'victoire' ? 1 : 0.5, mat = ELEMENTS[x.territoire].materiau, b = 1 + (x.bonusButin || 0);
+  const garde = issue === 'victoire' ? 1 : 0.5, mat = ELEMENTS[x.territoire].materiau, b = 1 + (x.bonusButin || 0) + BONUS_GROUPE * ((x.groupe?.n || 1) - 1);
   const gain = { essence: Math.floor(x.butin.essence * garde * b), [mat]: Math.floor(x.butin.mat * garde * b) };
   p.ress.essence += gain.essence; p.ress[mat] += gain[mat];
   if (x.butin.rare) { const r = RARES[x.territoire].id; gain[r] = Math.floor(x.butin.rare * garde); p.ress[r] = (p.ress[r] || 0) + gain[r]; }
   let debloque = null;
   if (issue === 'victoire' && x.palier === p.paliers[x.territoire] && x.palier < PALIERS.length) { p.paliers[x.territoire]++; debloque = p.paliers[x.territoire]; }
   x.fini = issue;
-  const bilan = { ok: true, fin: issue, gainTotal: gain, debloque, territoire: x.territoire, palier: x.palier, bonus: x.bonusButin || 0, reliques: x.reliques || [] };
+  const bilan = { ok: true, groupe: x.groupe?.n || 1, fin: issue, gainTotal: gain, debloque, territoire: x.territoire, palier: x.palier, bonus: x.bonusButin || 0, reliques: x.reliques || [] };
   p.expedition = null;
   return bilan;
 }
+
+// v75 : la réponse du joueur dans une salle mystère
+export function choisirMystere(p, i) {
+  const x = p.expedition; if (!x?.mystere) return { ok: false };
+  const evt = x.mystere.evt, r = MY.choisir(x, i);
+  return r.ok ? { ok: true, evt, issue: r.issue, pv: x.pv, pvMax: x.pvMax } : r;
+}
+
+// v78 : un membre du groupe est prêt à changer de salle (pas en combat, pas de choix en attente)
+export const pretAPartir = (x) => !!x && !x.fini && !x.combatEnCours && !x.choixRelique && !x.mystere;

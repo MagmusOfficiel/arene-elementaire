@@ -13,17 +13,22 @@ export const MONTURES = {
   destrier: { nom: 'Destrier de braise', ico: '🔥', vit: 1.4, niv: 8, cout: { essence: 3000, braises: 150 }, desc: 'Un cheval noir à la crinière de flammes.' },
   raie: { nom: 'Raie des lagons', ico: '🌊', vit: 1.4, niv: 8, cout: { essence: 3000, perles: 150 }, desc: 'Elle flotte au-dessus du sol comme dans l’eau.' },
   cerf: { nom: 'Cerf sylvestre', ico: '🦌', vit: 1.4, niv: 8, cout: { essence: 3000, seve: 150 }, desc: 'Ses bois fleurissent au printemps.' },
-  dragon: { nom: 'Dragon élémentaire', ico: '🐉', vit: 1.6, niv: 15, cout: { essence: 9000, cristal: 15, perle_noire: 15, graine_or: 15 }, desc: 'La monture des légendes. Personne ne va plus vite.' },
+  dragon: { nom: 'Dragon élémentaire', ico: '🐉', vit: 1.6, niv: 15, cout: { essence: 9000, cristal: 15, perle_noire: 15, graine_or: 15 }, desc: 'La monture des légendes.' },
+  // v72 : deux montures qui ne s'achètent pas, elles se gagnent (et restent à vie)
+  loup: { nom: 'Loup spectral', ico: '🐺', vit: 1.5, niv: 1, desc: 'Il a suivi ton retour du Cauchemar.', gagnee: { txt: 'Bats un boss d’expédition en Cauchemar.', test: (p) => (p.stats?.cauchemar || 0) >= 1 } },
+  phenix: { nom: 'Phénix doré', ico: '🦅', vit: 1.65, niv: 1, desc: 'L’oiseau des champions. Il ne touche jamais le sol.', gagnee: { txt: 'Atteins le rang Platine (1 400 Elo) en arène classée.', test: (p) => Math.max(p.stats?.areneMax || 0, p.arene?.meilleur || 0) >= 1400 } },
 };
 export const IDS = Object.keys(MONTURES);
 export const valide = (id) => typeof id === 'string' && Object.hasOwn(MONTURES, id);
-export const possedees = (p) => (Array.isArray(p?.montures?.l) ? p.montures.l.filter(valide) : []);
+export const gagnees = (p) => IDS.filter((id) => MONTURES[id].gagnee?.test(p || {}));
+export const possedees = (p) => [...new Set([...(Array.isArray(p?.montures?.l) ? p.montures.l.filter(valide) : []), ...gagnees(p)])];
 export const actif = (p) => (valide(p?.montures?.actif) && possedees(p).includes(p.montures.actif) ? p.montures.actif : null);
 export const vitesse = (id) => MONTURES[id]?.vit || 1;
 
 export function acheter(p, id) {
   if (!valide(id)) return { ok: false };
   const m = MONTURES[id];
+  if (m.gagnee) return { ok: false, raison: `Cette monture ne s’achète pas : ${m.gagnee.txt}` };
   if (possedees(p).includes(id)) return { ok: false, raison: 'Tu as déjà cette monture.' };
   if (niveau(p) < m.niv) return { ok: false, raison: `Il faut être niveau ${m.niv}.` };
   for (const [k, v] of Object.entries(m.cout)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };

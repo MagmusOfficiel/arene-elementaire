@@ -52,7 +52,7 @@ export function texteCarte(txt) {
 export const etoiles = (niv) => '★'.repeat(niv) + '☆'.repeat(Math.max(0, NIV_MAX - niv));
 export function carteHTML(id, niv = 1, extra = '') {
   const c = CARTES[id];
-  return `<div class="carte ${c.element} r-${c.rarete}${ILLUS.has(id) ? ' aIllus' : ''}${niv > 1 ? ` niv${niv}` : ''}" data-id="${id}" title="${esc(c.nom)} — ${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)} · niveau ${niv}/${NIV_MAX}">
+  return `<div class="carte ${c.element} r-${c.rarete}${c.branche ? ` br br-${c.branche}` : ''}${ILLUS.has(id) ? ' aIllus' : ''}${niv > 1 ? ` niv${niv}` : ''}" data-id="${id}" title="${esc(c.nom)} — ${esc(RARETES[c.rarete].nom)} · ${esc(ELEMENTS[c.element].nom)} · niveau ${niv}/${NIV_MAX}">
     <span class="cc">${c.cout}</span><div class="cn">${esc(c.nom)}</div>
     ${ILLUS.has(id) ? `<div class="ci illus" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${id}.webp)"></div>` : `<div class="ci">${c.ico}</div>`}<div class="ct"><span class="gemme" title="${RARETES[c.rarete].nom}"></span>${{ attaque: 'Attaque', defense: 'Défense', pouvoir: 'Pouvoir' }[c.type] || c.type} · <b class="rarNom">${RARETES[c.rarete].nom}</b></div>
     <div class="cd">${texteCarte(decrire(id, niv))}</div>${niv > 1 ? `<span class="cniv" title="Niveau ${niv} sur ${NIV_MAX}">${etoiles(niv)}</span>` : ''}${c.branche ? `<span class="cclasse cbranche" title="Sort de la branche ${esc(BRANCHES[c.branche].nom)} (${esc(CLASSES[c.classe].nom)})">${BRANCHES[c.branche].ico}</span>` : c.classe ? `<span class="cclasse" title="Carte de ${esc(CLASSES[c.classe].nom)}">${CLASSES[c.classe].ico}</span>` : ''}${extra}</div>`;

@@ -2,8 +2,10 @@
 //  LES CLANS ÉLÉMENTAIRES — la connexion au serveur, la reconnexion, les actions, le chat et la liste des joueurs
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import { cleMaison } from '../../../shared/clans/geo.js';
 import * as F from '../../../shared/clans/familiers.js';
 import * as MT from '../../../shared/clans/montures.js';
+import * as DC from '../../../shared/clans/deco.js';
 import { Client } from 'colyseus.js';
 import { ELEMENTS, CLANS, CLASSES, RARES } from '../../../shared/clans/cartes.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -18,6 +20,7 @@ import { majProjets } from './ui-projets.js';
 import { suivrePasse } from './ui-passe.js';
 import { fenetreFiche, suivreHautsFaits } from './ui-fiche.js';
 import { suivreAscension } from './ui-ascension.js';
+import { suivreMontures } from './ui-montures.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import { afficherClassement, alerteSanctuaire, classArene, enFile, fenetreArene, majBandeauArene, sanctEtat, setClassArene, setEnFile, setSanctEtat, vueFenetre } from './ui-social.js';
 
@@ -39,9 +42,9 @@ export function recevoirProfil(m) {
   if (m.p) { setP(P.completer(m.p)); try { localStorage.setItem(CLE, JSON.stringify({ p: m.p, sig: m.sig, jeton: m.jeton })); } catch { /* plein */ } }
   else try { localStorage.setItem(CLE, JSON.stringify({ jeton: m.jeton, sig: 'aucun', p: null })); } catch { /* plein */ }
   clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 2000);
-  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); monde.majNom(p.nom, p.maison || p.nom); monde.majMonture(MT.actif(p)); if (dansMonde) monde.majMaParcelle(p.parcelle); }
+  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); monde.majNom(p.nom, cleMaison(p)); monde.majMonture(MT.actif(p)); monde.majDeco(DC.code(p), p.branche); if (dansMonde) monde.majMaParcelle(p.parcelle); }
   if (p && avant) annoncerQuetes(avant);
-  if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); }
+  if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); suivreMontures(); }
   if (p && gagneesAvant) for (const id of piecesGagnees()) if (!gagneesAvant.has(id)) { sfx.fanfare(); toast(`🎨 Nouvelle apparence débloquée : <b>${esc(AP.PIECES[id].nom)}</b> ! (bouton 👕)`); }
 }
 export const piecesGagnees = () => new Set(Object.keys(AP.PIECES).filter((id) => AP.PIECES[id].cond && AP.possede(p, id)));
@@ -116,6 +119,7 @@ export function brancher(room) {
     room.onMessage('classement', afficherClassement);
     room.onMessage('sanctuaires', (l) => { setSanctEtat(l); monde.majSanctuaires(l); });
     room.onMessage('projets', (v) => majProjets(v));
+    import('./ui-groupe.js').then((G) => import('./ui-fenetres.js').then((Fe) => G.brancherMessagesGroupe(room, Fe)));
     room.onMessage('fiche', (f) => fenetreFiche(f));
     room.onMessage('alerte', alerteSanctuaire);
     room.onMessage('areneFile', (m) => { setEnFile(m.en ? m.depuis : null); majBandeauArene(); if (vueFenetre() === 'arene') fenetreArene(false); });
@@ -151,7 +155,7 @@ export const infosJ = new Map(), posJ = new Map();
 export let presents = new Set();
 export function listeJoueurs() {
   const l = [];
-  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '', i[10] || '', i[11] || '']); }
+  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '', i[10] || '', i[11] || '', i[12] || '', i[13] || '']); }
   return l;
 }
 export function listeEnLigne(liste) {

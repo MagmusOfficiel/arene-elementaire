@@ -41,7 +41,7 @@ def serveur():
     if not (RACINE / 'client/dist/clans/index.html').exists():
         print('Le jeu n’est pas compilé : lance d’abord `npm run build`.'); sys.exit(2)
     env = {k: v for k, v in os.environ.items() if not k.startswith('UPSTASH')}
-    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', CLANS_TEST_DEPART='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',
+    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', CLANS_TEST_DEPART='1', CLANS_TEST_MARCHAND='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',
                STATS_FILE=str(Path(tempfile.mkdtemp()) / 'stats.json'))
     pr = subprocess.Popen(['node', 'src/index.js'], cwd=RACINE / 'server', env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     for _ in range(60):
@@ -54,6 +54,7 @@ def page(b, nom, mobile=False):
     vp = {'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 760}
     ctx = b.new_context(viewport=vp, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     pg = ctx.new_page(); pg.nom = nom
+    pg.add_init_script('globalThis.__marchandToujours = true')   # v74 : le marchand ne passe plus qu’une heure sur trois
     pg.on('pageerror', lambda e: erreurs_js.append(f'{nom} : {e}'))
     pg.on('dialog', lambda d: d.accept())
     return pg
@@ -269,6 +270,25 @@ def scenario(b):
     B.locator('#listeClans [data-fiche]', has_text='Testeur').first.click(); B.wait_for_selector('.titreFiche', timeout=8000)
     verifier('Testeur' in B.inner_text('#fenetreCorps') and '«' in B.inner_text('.titreFiche'), 'un autre joueur voit sa fiche et son titre')
     fermer(B)
+
+    etape('Expédition en groupe')
+    B.bring_to_front(); aller(B, 326, 1850); D = page(b, 'Ami'); creer(D, 'Ami', 'feu', 'mage'); aller(D, 356, 1850); B.wait_for_timeout(1500)
+    B.bring_to_front(); B.evaluate("__clans.fenetreExpedition('feu')"); B.wait_for_selector('[data-inviter]:has-text("Ami")', timeout=8000)
+    B.click('[data-inviter]:has-text("Ami")'); D.wait_for_selector('#invitationGroupe', timeout=8000); D.click('#invitationGroupe [data-rep="1"]')
+    B.wait_for_function("document.querySelectorAll('.membresGroupe .membre').length === 2", timeout=8000)
+    verifier(True, 'Ami accepte l’invitation de Pyro')
+    B.click('[data-p="1"]')
+    for pg in (B, D): pg.wait_for_function("__clans.p.expedition?.groupe", timeout=8000)
+    verifier(etat(B, 'p.expedition.graine') == etat(D, 'p.expedition.graine'), 'le groupe part sur la même carte')
+    B.wait_for_selector('.salle.possible', timeout=8000); B.locator('.salle.possible').first.click(force=True)
+    for pg in (B, D): pg.wait_for_selector('#combat:not(.cache)', timeout=10000)
+    verifier(True, 'le chef choisit la salle : les deux combattent')
+    for pg in (B, D): pg.bring_to_front(); jouer_combat(pg)
+    B.wait_for_timeout(1500)
+    verifier(etat(B, 'p.expedition?.position') == etat(D, 'p.expedition?.position'), 'ils avancent ensemble')
+    D.evaluate("__clans.act('expeAbandon', {})"); B.wait_for_function("!__clans.p.expedition?.groupe", timeout=8000)
+    verifier(True, 'quand Ami part, Pyro continue seul')
+    B.evaluate("__clans.act('expeAbandon', {})"); B.wait_for_timeout(500); fermer(B); fermer(D)
 
     etape('Sur téléphone')
     T = page(b, 'Mobile', mobile=True); creer(T, 'Mobile', 'plante', 'escrimeur')

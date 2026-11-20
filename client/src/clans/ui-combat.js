@@ -399,6 +399,7 @@ export async function finCombat() {
   if (!rep.ok) { toast(esc(rep.raison || 'Combat refusé par le serveur.')); return p.expedition ? fenetreExpedition(p.expedition.territoire) : fermer(); }
   const r = rep.res;
   if (r.fin) return bilanExpedition(r);
+  if (r.aTerre) { toast('💀 Tu es à terre ! Tes compagnons continuent : le prochain feu de camp te relèvera.'); return fenetreExpedition(p.expedition.territoire); }
   toast(`Victoire ! +${r.gain.essence} ${ICO_RESS.essence} · +${r.gain.mat} matériaux${r.gain.rare ? ` · +${r.gain.rare} ${ICO_RESS[RARES[p.expedition.territoire].id]}` : ''}`);
   fenetreExpedition(p.expedition.territoire);
 }

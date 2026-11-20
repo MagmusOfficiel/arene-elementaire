@@ -24,9 +24,13 @@ import * as HF from '../../shared/clans/hautsfaits.js';
 import { alea } from '../../shared/clans/combat.js';
 import * as AS from '../../shared/clans/ascension.js';
 import * as MT from '../../shared/clans/montures.js';
+import * as QP from '../../shared/clans/quetesPnj.js';
+import * as DC from '../../shared/clans/deco.js';
+import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
-import { lireProfilClans, ecrireProfilClans, jetonValide } from './stats.js';
+import { lireProfilClans, ecrireProfilClans, jetonValide, maisonsPosees, ecrireMaison } from './stats.js';
+import { emplacementMaison } from '../../shared/clans/geo.js';
 
 const SECRET = process.env.CLANS_SECRET || 'clans-elementaires-secret-par-defaut';
 if (!process.env.CLANS_SECRET) console.warn('⚠️  CLANS_SECRET non défini : les copies de profil sont signées avec la clé par défaut.');
@@ -38,6 +42,9 @@ function signatureValide(copie) {
   const a = Buffer.from(signer(copie.p)), b = Buffer.from(copie.sig);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+export const PRIX_DEMENAGEMENT = 1000;
+const pres = (id, ctx) => { const n = PNJ_PAR_ID[id]; if (!n || !ctx?.pos) return false; const q = posPnj(n, Date.now() / 1000); return Math.hypot(ctx.pos.x - q.x, ctx.pos.y - q.y) < 200; };
+const num = (v) => (Number.isFinite(+v) ? +v : NaN);
 export const DELAI_PSEUDO = 24 * 3600000;   // un changement de pseudo par jour
 const propre = (t, n) => String(t || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -95,9 +102,10 @@ export const ACTIONS = {
     return r?.ok ? { ok: true } : (r || { ok: false });
   },
   expeEntrer(p, m) {
+    if (p.expedition?.groupe) return { ok: false, raison: 'En groupe, c’est le chef qui choisit la salle.' };
     if (p.expedition?.combatEnCours) return { ok: false, raison: 'Un combat est en cours.' };
     const r = X.entrer(p, String(m.salle || ''));
-    return r.ok ? { ok: true, res: { type: r.type, soin: r.soin, gain: r.gain, relique: r.relique } } : { ok: false, raison: r.raison || 'Salle inaccessible.' };
+    return r.ok ? { ok: true, res: { type: r.type, soin: r.soin, gain: r.gain, relique: r.relique, mystere: r.mystere, aTerre: r.aTerre, releve: r.releve } } : { ok: false, raison: r.raison || 'Salle inaccessible.' };
   },
   // le client envoie ses coups ; on rejoue le combat et on garde CE résultat
   expeCombat(p, m, ctx) {
@@ -122,6 +130,7 @@ export const ACTIONS = {
   apparenceAcheter(p, m) { return AP.acheter(p, m.id); },
   apparencePorter(p, m) { return AP.porter(p, m.id); },
   // une relique à choisir après un élite (id, ou null pour passer)
+  expeMystere(p, m) { const r = X.choisirMystere(p, Math.floor(Number(m.i))); if (r.ok) Q.evenement(p, 'mystere'); return r.ok ? { ok: true, res: { issue: r.issue, evt: r.evt } } : r; },
   expeRelique(p, m) { if (m.id !== null && typeof m.id !== 'string') return { ok: false }; return X.choisirRelique(p, m.id); },
   // le titre affiché sous le nom (un haut fait atteint), ou aucun
   // changer de pseudo (v70) : le compte (le jeton) ne change pas ; la maison reste à sa place
@@ -143,6 +152,25 @@ export const ACTIONS = {
     if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
     const r = AS.finir(p, c); return r.ok ? { ok: true, res: { victoire: r.victoire } } : { ok: false };
   },
+  // poser sa maison où l'on veut sur la terre de son clan (v72) : la 1re fois gratuite, ensuite 1 000 essence
+  maisonPoser(p, m, ctx) {
+    const x = num(m.x), y = num(m.y);
+    if (!ctx.pos || Math.hypot(ctx.pos.x - x, ctx.pos.y - (y + 40)) > 90) return { ok: false, raison: 'Va sur place pour poser ta maison.' };
+    const e = emplacementMaison(p.clan, x, y, maisonsPosees(p.clan, ctx.cle));
+    if (e.raison) return { ok: false, raison: e.raison };
+    const prix = p.maisonPos ? PRIX_DEMENAGEMENT : 0;
+    if (p.ress.essence < prix) return { ok: false, raison: `Il faut ${prix} essence pour déménager.` };
+    p.ress.essence -= prix; p.maisonPos = { x: e.x, y: e.y };
+    ecrireMaison(ctx.cle, p.clan, e.x, e.y);
+    return { ok: true, res: { x: e.x, y: e.y, prix } };
+  },
+  // les quêtes des habitants (v76) : il faut être près de l'habitant
+  pnjAccepter(p, m, ctx) { if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' }; return QP.accepter(p, m.id); },
+  pnjRendre(p, m, ctx) { if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' }; const r = QP.rendre(p, m.id); return r.ok ? { ok: true, res: { rec: r.rec, merci: r.merci, ami: QP.amiDe(p, PNJ_PAR_ID[m.id].clan) } } : r; },
+  decoAcheter(p, m) { return DC.acheter(p, m.id); },
+  decoPoser(p, m) { return DC.poser(p, String(m.empl || ''), m.id === null ? null : String(m.id || '')); },
+  parcheminFabriquer(p) { return AS.fabriquerParchemin(p); },
+  ascensionChanger(p, m) { return AS.changer(p, typeof m.b === 'string' ? m.b : ''); },
   ascensionChoisir(p, m) { return AS.choisir(p, typeof m.b === 'string' ? m.b : ''); },
   // le marchand ambulant : prendre une de ses 3 offres (il faut être à côté de lui)
   marchandAcheter(p, m, ctx) { return MA.acheter(p, m.i, ctx?.pos); },

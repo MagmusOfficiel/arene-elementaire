@@ -2,6 +2,8 @@
 //  LES CLANS ÉLÉMENTAIRES — le choix du clan, la carte, la barre du haut, le son, le guide et les commandes tactiles
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import { cleMaison } from '../../../shared/clans/geo.js';
+import * as QP from '../../../shared/clans/quetesPnj.js';
 import { ELEMENTS, CLANS, CLASSES, LISTE_CLASSES, RARES } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES } from '../../../shared/clans/monstres.js';
 import * as X from '../../../shared/clans/expedition.js';
@@ -84,8 +86,9 @@ export const monde = creerMonde($('monde'), {
   libre: () => $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
   marchandBouge: (m) => marchandBouge(m),
   fiche: (id) => voirFiche(id),
+  etatPnj: (id) => (p ? QP.etat(p, id) : null),
   agir: (l) => {
-    if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle();
+    if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle(); else if (l.action === 'pnj') import('./ui-pnj.js').then((m) => m.parlerA(l.id));
     else if (l.action === 'projet') fenetreProjet();
     else if (l.action === 'marchand') fenetreMarchand();
     else if (l.action === 'filon') room?.send('ramasser', { id: l.id });
@@ -121,7 +124,7 @@ export async function entrerMonde() {
   await monde.preparer((f) => etatChargement(`Préparation de la carte… ${Math.round(f * 100)} %<br><small>(seulement la première fois)</small>`));
   etatChargement('');
   $('ecranMonde').classList.remove('cache');
-  majBarre(); monde.demarrer(p.clan, p.nom, p.classe, p.maison || p.nom); monde.majMaParcelle(p.parcelle);
+  majBarre(); monde.demarrer(p.clan, p.nom, p.classe, cleMaison(p)); monde.majMaParcelle(p.parcelle);
   majPastille(); guide.demarrer(); if (monde.tactile) $('tactile').classList.remove('cache');
   const x = p.expedition;
   if (x?.combatEnCours) setTimeout(() => lancerCombat(X.combatDe(p, x.combatEnCours), X.salle(x.carte, x.combatEnCours).type), 400);
@@ -202,8 +205,8 @@ export const guide = (() => {
       cible: () => ({ ...OUVRAGES[p.clan], nom: PJ.PROJETS[p.clan].nom }) },
     { id: 'ameliorer', quand: () => (p.ress.eclats || 0) >= 20, fait: () => Object.values(p.collection).some((c) => c.niv > 1),
       txt: () => `Tu as des <b>éclats ${ICO_RESS.eclats}</b> : ouvre ton <b>Deck 🃏</b> et améliore une carte. Elle frappe plus fort, protège mieux, et ça se voit en combat.` },
-    { id: 'marchand', quand: () => p.stats.victoires >= 2, fait: () => !!p.marchand,
-      txt: () => `Un <b>marchand ambulant 🛒</b> change de place toutes les 20 minutes. Il échange les matériaux des autres clans, des éclats et des ressources rares : suis la flèche !`,
+    { id: 'marchand', quand: () => p.stats.victoires >= 2 && monde.marchand.present, fait: () => !!p.marchand,
+      txt: () => `Un <b>marchand ambulant 🛒</b> passe 20 minutes par heure, chaque fois à un autre endroit. Il échange les matériaux des autres clans, des éclats et des ressources rares : suis la flèche !`,
       cible: () => { const m = monde.marchand; return { x: m.x, y: m.y, nom: 'Marchand ambulant' }; } },
     { id: 'familiers', quand: () => p.stats.victoires >= 3 || F.possedes(p).length > 0, fait: () => false,
       txt: () => (F.possedes(p).length ? `Un <b>familier</b> t'a rejoint ! Il te suit et t'aide au début de chaque combat. Ouvre les <b>Familiers 🐾</b>${touche('F')} pour le choisir.` : `Les <b>familiers 🐾</b> te suivent partout et t'aident au début de chaque combat. On les trouve sur les boss d'expédition, ou on les fabrique${touche('F')}.`) },

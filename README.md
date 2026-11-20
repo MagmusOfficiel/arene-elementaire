@@ -839,3 +839,79 @@ Correctif : un effet visuel de combat pouvait demander un cercle de rayon négat
 ## Les Clans Élémentaires : les illustrations des sorts de branche (v71)
 
 Les 48 sorts de branche ont leur illustration (générées sur Anifusion, 384 × 384 en WebP dans `client/public/clans/cartes/`). « Élan du duelliste » et « Ballet de lames » ont été régénérées (la première ressemblait trop à une licence existante, la seconde avait un cadrage trop osé).
+
+## Les Clans Élémentaires : parchemin, montures à gagner, maison posée (v72)
+
+- **Parchemin de réorientation** (fenêtre Ascension, une fois sa branche choisie) : il se fabrique pour 6 000 essence, 200 éclats et 10 de chaque ressource rare. L'utiliser fait passer à l'autre branche de sa classe ; les sorts de l'ancienne branche deviennent des éclats et son titre disparaît. Le bouton demande une confirmation (deux clics).
+- **Deux montures à gagner** (elles ne s'achètent pas et restent à vie) : 🐺 **Loup spectral** (+50 %) en battant un boss d'expédition en Cauchemar, 🦅 **Phénix doré** (+65 %, il vole) en atteignant le rang Platine (1 400 Elo) en arène. Un message prévient quand on en gagne une.
+- **Poser sa maison** : dans la fenêtre de sa maison, « La poser où tu veux sur ta terre ». Un fantôme de la maison suit le joueur (vert : possible ; rouge : la raison) ; E ou « Poser ici » la pose, Échap annule. Règles (`emplacementMaison` dans `shared/clans/geo.js`) : sur la terre de son clan, hors du cœur du village, sur un terrain libre (pas de chemin, d'arbre, de rocher ni d'eau), loin des portails, de l'autel, des sanctuaires et des ouvrages, et à au moins 150 px des autres maisons posées. La première fois est gratuite, chaque déménagement coûte 1 000 essence. Le serveur garde la liste des maisons posées (`clansMaisons`) pour que deux joueurs ne se posent pas au même endroit. Les maisons posées bloquent le passage comme les autres, et les bâtiments de la parcelle (lanternes, obélisque, atelier) les suivent.
+
+Tests : `tests/clansmaisons.test.mjs`.
+
+## Les Clans Élémentaires : deck illustré et cartes de branche (v73)
+
+- **Plus de cadre de couleur par rareté** : toutes les cartes ont le même cadre bronze ; la rareté se lit avec la gemme sous l'illustration, le mot coloré (« Épique », « Légendaire »…) et la couronne des légendaires.
+- **Le deck façon Hearthstone** : chaque carte du deck est un bandeau avec son coût, son nom (couleur de la rareté), le nombre d'exemplaires et un morceau de son illustration en fond. Au survol, la carte entière apparaît en grand à côté ; le « − » au survol retire un exemplaire.
+- **Un style à part pour les sorts de branche** (niveau 20) : chaque branche a son cadre, son fond, son bandeau et sa lueur — Berserker rouge sang (avec du sang qui coule sur l'illustration), Gardien or et ivoire, Archimage violet étoilé, Invocateur bleu spectral, Sniper vert forêt, Artificier cuivre, Duelliste bleu roi et argent, Lame d'ombre noir et violet.
+
+## Les Clans Élémentaires : moins de boss et de marchand, des habitants dans les terres (v74)
+
+- **Boss mondial** : le premier arrive 10 min après le démarrage du serveur, puis un toutes les **45 min** (au lieu de 2 min puis 15 min). Il reste 8 min.
+- **Marchand ambulant** : il ne vient plus qu'**un passage de 20 min sur 3**, soit 20 min par heure, chaque fois à un autre endroit. Quand il est absent, il disparaît de la carte et de la mini-carte ; sa fenêtre dit dans combien de temps il revient. (Pour les tests de bout en bout : `CLANS_TEST_MARCHAND=1` côté serveur et `__marchandToujours` côté page le gardent toujours là.)
+- **Les habitants** (`shared/clans/pnj.js`) : 6 PNJ par terre — un forgeron ou une herboriste, le gardien du portail, un enfant qui court partout, un conteur ou une voyante, un artisan, un garde qui fait sa ronde. Ils se promènent dans leur village (ou restent à leur poste) sur des chemins dégagés ; leur position se déduit de l'heure, donc tous les joueurs les voient au même endroit sans rien envoyer sur le réseau. Leur nom et leur métier s'affichent quand on s'approche ; **E** pour leur parler : une bulle s'affiche avec une de leurs répliques (conseils de jeu, histoire du monde, humour), et ils changent de réplique à chaque fois. Un joueur d'un autre clan se fait d'abord accueillir… fraîchement.
+
+Tests : `tests/clanspnj.test.mjs`.
+
+## Les Clans Élémentaires : les salles mystère (v75)
+
+Une nouvelle salle ❓ sur la carte d'expédition (environ une sur sept, jamais au premier ni au dernier étage). On y tombe sur un événement, et il faut choisir avant de continuer :
+
+| Événement | Choix |
+|---|---|
+| 🩸 L'autel de sang | offrir 15 % de ses PV pour une relique, ou passer |
+| 🎩 Le marchand louche | potion (+30 % PV) ou objet mystérieux (une relique), payés avec l'essence du butin ; ou le repousser |
+| 🪤 Le couloir piégé | foncer (−12 % PV, +70 essence) ou avancer prudemment (une chance sur deux de se blesser un peu) |
+| 🧰 Le coffre scellé | le forcer (60 % : gros butin ; 40 % : il explose) ou le laisser |
+| 🤕 Le voyageur blessé | le soigner (−10 % PV, des ressources rares) ou lui laisser de l'eau (+15 essence) |
+| ⛲ La source élémentaire | boire (+25 % PV) ou s'y baigner (+8 PV max pour l'expédition) |
+| 🪙 La fontaine aux vœux | jeter 40 essence (une chance sur deux d'en gagner 130) ou faire un vœu |
+
+L'événement et son hasard se tirent de la graine de l'expédition : le serveur applique le choix, le client affiche la même chose. Code : `shared/clans/mystere.js`, action `expeMystere` ; tests dans `tests/clansmystere.test.mjs`.
+
+## Les Clans Élémentaires : les quêtes des habitants (v76)
+
+Chacun des 18 habitants a une quête (une seule fois par joueur). Un **« ! »** jaune au-dessus d'un habitant : il a une quête pour toi ; un **« ? »** gris : elle est en cours ; un **« ? »** doré : elle est prête, va le voir. **E** ouvre son dialogue : accepter, puis rendre la quête pour être payé (essence, éclats, ressources rares).
+
+- Deux sortes de quêtes : celles qui avancent toutes seules avec les mêmes événements que les quêtes du jour (combats, boss d'un territoire précis, tirages, filons, arène, sanctuaire, boss mondial, projet du clan, récoltes, améliorations, **salles mystère**), et celles où il faut **apporter** des ressources (cristaux, braises, perles, sève).
+- On peut aider les habitants de toutes les terres, pas seulement les siens.
+- Finir les 6 quêtes d'un village donne le titre **« Ami des Terres de Braise / des Lagons d'Azur / de la Sylve »** (à afficher depuis sa fiche).
+- La fenêtre des quêtes montre les quêtes d'habitants en cours et combien restent à découvrir.
+
+Code : `shared/clans/quetesPnj.js`, `client/src/clans/ui-pnj.js`, actions `pnjAccepter` et `pnjRendre` (il faut être près de l'habitant) ; tests dans `tests/clansquetespnj.test.mjs`.
+
+## Les Clans Élémentaires : décorer sa maison (v77)
+
+Dans la fenêtre de sa maison, **🎨 La décorer** : 4 emplacements autour de la maison, une décoration par emplacement, visible par tous les joueurs (purement cosmétique). On achète une décoration une fois, puis on la pose, l'enlève ou la change quand on veut.
+
+| Emplacement | Décorations |
+|---|---|
+| Clôture (devant, de part et d'autre de l'allée) | barrière de bois (400), muret de pierre (900), grille en fer forgé (1 600 + 20 éclats) |
+| Jardin (deux massifs devant) | parterre de fleurs (300), potager (500), jardin élémentaire (1 200 + 10 éclats : fleurs de lave, coraux ou champignons lumineux selon le clan, qui scintillent) |
+| Statue (à gauche) | guerrier (1 500), fontaine animée (2 000), dragon (niveau 15 : 3 500 + 5 de chaque ressource rare, il crache du feu), **trophée du champion** (à gagner : rang Or en arène) |
+| Bannière (à droite, elle ondule) | bannière du clan (300), étendard doré (1 000 + 10 éclats), **étendard de ta branche** (à gagner : choisir sa branche) |
+
+Code : `shared/clans/deco.js` (règles), `client/src/clans/decoArt.js` (dessin), `client/src/clans/ui-deco.js` (fenêtre), actions `decoAcheter` et `decoPoser` ; les décorations voyagent avec les infos des joueurs (index 12 ; la branche en 13). Tests : `tests/clansdeco.test.mjs`.
+
+## Les Clans Élémentaires : les expéditions en groupe (v78)
+
+À 2 ou 3 joueurs (de n'importe quels clans) :
+
+- **Former le groupe** : au portail, la fenêtre d'expédition liste les joueurs proches ; « inviter » leur envoie une invitation (Rejoindre / Non merci, 30 s). Celui qui invite devient le **chef** 👑.
+- **Partir** : le chef choisit le palier (il doit être débloqué pour chaque membre). Tout le monde part sur **la même carte**.
+- **Avancer** : le chef choisit chaque salle, quand tous ont fini leur combat ou leur choix. Chacun affronte les **mêmes monstres** avec son propre deck ; les trésors, reliques, feux de camp et salles mystère s'appliquent à chacun. Le panneau du groupe montre les PV et l'état de chaque membre (prêt, en combat, choisit, à terre).
+- **À terre** : un membre vaincu ne perd pas son butin. Il suit le groupe sans combattre, et le prochain **feu de camp le relève** avec 30 % de ses PV. Si tout le groupe est à terre, l'expédition est perdue (moitié du butin, comme en solo).
+- **Le boss** : si au moins un membre bat le boss, **tout le groupe gagne**, y compris ceux à terre.
+- **Butin** : **+25 % par compagnon** (+50 % à trois).
+- **Quitter** : un membre peut quitter le groupe ou abandonner à tout moment ; une déconnexion le fait partir aussi. S'il ne reste qu'un joueur, il continue seul. Si le chef part, le suivant devient chef.
+
+Code : messages `groupeInviter`, `groupeRepondre`, `groupePartir`, `groupeEntrer`, `groupeQuitter` dans `server/src/ClansRoom.js` ; règles d'expédition (à terre, relève, bonus) dans `shared/clans/expedition.js` ; interface dans `client/src/clans/ui-groupe.js`. Tests : `tests/clansgroupe.test.mjs` et l'étape « Expédition en groupe » du test de bout en bout.

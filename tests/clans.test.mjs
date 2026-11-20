@@ -27,6 +27,7 @@ function expeditionAuto(p, terr, palier, graine) {
     const ch = X.choixPossibles(p.expedition);
     const id = ch.find((k) => X.salle(p.expedition.carte, k).type === 'repos' && p.expedition.pv < p.expedition.pvMax * 0.6) || ch[0];
     const r = X.entrer(p, id);
+    if (r.type === 'mystere') X.choisirMystere(p, r.mystere.choix.length - 1);   // v75 : le bot passe son chemin
     if (r.combat) { const c = C.nouveauCombat(r.combat); jouerCombat(c); const a = X.apresCombat(p, c); if (a.fin) return a; }
   }
   return null;

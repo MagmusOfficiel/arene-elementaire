@@ -40,3 +40,27 @@ export function choisir(p, b) {
   convertirAutresClasses(p);
   return { ok: true };
 }
+
+// ---------- le Parchemin de réorientation (v72) : changer de branche ----------
+// on le fabrique dans la fenêtre de l'Ascension ; l'utiliser change la branche,
+// et les sorts de l'ancienne branche deviennent des éclats (comme pour les classes)
+export const COUT_PARCHEMIN = { essence: 6000, eclats: 200, cristal: 10, perle_noire: 10, graine_or: 10 };
+export function fabriquerParchemin(p) {
+  if (!p.branche) return { ok: false, raison: 'Choisis d’abord une branche.' };
+  for (const [k, v] of Object.entries(COUT_PARCHEMIN)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };
+  for (const [k, v] of Object.entries(COUT_PARCHEMIN)) p.ress[k] -= v;
+  p.parchemins = (p.parchemins || 0) + 1;
+  return { ok: true };
+}
+export function changer(p, b) {
+  if (!p.branche) return { ok: false, raison: 'Tu n’as pas encore de branche.' };
+  if (!(p.parchemins > 0)) return { ok: false, raison: 'Il te faut un Parchemin de réorientation.' };
+  if (b === p.branche) return { ok: false, raison: 'C’est déjà ta branche.' };
+  if (BRANCHES[b]?.classe !== p.classe) return { ok: false, raison: 'Cette branche n’est pas pour ta classe.' };
+  const ancienne = p.branche;
+  p.parchemins--; p.branche = b;
+  if (p.titre === `br:${ancienne}`) p.titre = null;
+  const conv = convertirAutresClasses(p);
+  delete p.avisClasse;   // le message de la v68 ne concerne pas ce cas
+  return { ok: true, res: { n: conv.n, eclats: conv.eclats } };
+}

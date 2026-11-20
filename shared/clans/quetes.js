@@ -8,6 +8,7 @@
 // =====================================================================
 import { semaineDe } from './mondial.js';
 import { gagner as xpPasse } from './passe.js';
+import { avancer as avancerPnj } from './quetesPnj.js';
 
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
 const TERRS = ['feu', 'eau', 'plante'];
@@ -70,6 +71,7 @@ function correspond(d, info) {
 // un événement : fait avancer les quêtes concernées. Renvoie celles qui viennent d'être terminées.
 export function evenement(p, ev, n = 1, info = {}, t = Date.now()) {
   xpPasse(p, ev, n, info, t);   // chaque événement fait aussi avancer le passe de saison (v54)
+  avancerPnj(p, ev, n, info);   // … et les quêtes des habitants (v76)
   const q = aJour(p, t), finies = [];
   for (const x of [...q.j, ...q.s]) {
     const d = DEFS[x.id]; if (!d || d.ev !== ev || x.n >= d.n || !correspond(d, info)) continue;

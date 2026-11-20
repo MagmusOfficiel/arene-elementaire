@@ -664,3 +664,100 @@ kbd { display: inline-block; min-width: 18px; text-align: center; font: bold 11p
 .montures .vitM { margin: 0; color: #9ae8ff; }
 #ficheNom #btPseudo { font-size: 16px; vertical-align: middle; }
 #ficheNom #champPseudo { font-size: 18px; width: 200px; }
+/* v72 — le parchemin de réorientation */
+.ascension .parchemin { max-width: 640px; margin: 16px auto 8px; padding: 12px 16px; border-radius: 12px; background: linear-gradient(170deg, rgba(240,210,140,.14), rgba(40,25,10,.4)); border: 1px solid rgba(240,210,140,.35); }
+.ascension .parchemin h3 { margin: 0 0 4px; font-family: Fredoka, sans-serif; }
+.ascension .autreBranche { margin-top: 10px; }
+.ascension .autreBranche summary { cursor: pointer; color: #d8c8ff; }
+.montures .fam.gagnee { border-color: rgba(255,210,110,.45); background: linear-gradient(170deg, rgba(255,200,90,.12), rgba(0,0,0,.25)); }
+.montures .fam.gagnee.inconnu .vignetteMonture { filter: brightness(.25) drop-shadow(0 0 6px rgba(255,210,110,.5)); }
+/* v72 — poser sa maison */
+#bandeauMaison { position: fixed; left: 50%; top: calc(var(--hautBarre, 56px) + 56px); transform: translateX(-50%); z-index: 45; display: flex; gap: 10px; align-items: center; max-width: min(760px, 94vw);
+  padding: 10px 14px; border-radius: 12px; background: rgba(20,14,28,.94); border: 1px solid rgba(255,216,112,.5); box-shadow: 0 6px 24px rgba(0,0,0,.6); font-size: 14px; }
+#bandeauMaison > div { flex: 1; }
+#bandeauMaison #raisonMaison.ok { color: #8ef0a0; } #bandeauMaison #raisonMaison.non { color: #ffa090; }
+#bandeauMaison .bouton { white-space: nowrap; }
+#bandeauMaison .bouton:disabled { opacity: .45; cursor: not-allowed; }
+
+
+/* =====================================================================
+   v73 — cartes : plus de cadre de couleur par rareté (la gemme et le mot
+   suffisent) ; un style à part pour les sorts de branche ; le deck façon
+   « liste illustrée » avec l'aperçu de la carte au survol
+   ===================================================================== */
+.carte.r-commune, .carte.r-rare, .carte.r-epique, .carte.r-legendaire { --cadre1: #8a6e44; --cadre2: #24180e;
+  box-shadow: 0 0 0 3px var(--cadre1), 0 0 0 5px var(--cadre2), 0 8px 16px rgba(0,0,0,.55); }
+.carte.r-commune .cn { border-bottom-color: var(--cadre1); }
+.carte.r-epique .gemme, .carte.r-legendaire .gemme { box-shadow: 0 0 0 1px var(--cadre1), 0 2px 4px rgba(0,0,0,.6); }
+.carte .gemme { box-shadow: 0 0 0 1px var(--cadre1), 0 2px 4px rgba(0,0,0,.6); }
+
+/* les sorts de branche : chaque branche a sa matière, son cadre et sa lueur */
+.carte.br { --cadre2: #0c0608; box-shadow: 0 0 0 3px var(--cadre1), 0 0 0 5px var(--cadre2), 0 0 14px var(--lueurBr), 0 8px 16px rgba(0,0,0,.55);
+  background: var(--motifBr, none), linear-gradient(170deg, var(--c1), var(--c2)); }
+.carte.br .cn { background: var(--banBr); border-bottom-color: var(--cadre1); }
+.carte.br .cd { background: rgba(0,0,0,.45); }
+.carte.br-berserker { --c1: #8a0c0c; --c2: #1a0204; --cadre1: #b0141a; --lueurBr: rgba(220,20,30,.55); --banBr: linear-gradient(#5a0006, #2a0002);
+  --motifBr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='40' viewBox='0 0 150 40'%3E%3Cpath d='M0 0H150V6C142 6 141 18 138 18S134 8 128 8 124 26 120 26 117 9 110 9 106 14 102 14 98 7 92 7 88 30 84 30 81 10 74 10 70 16 66 16 62 6 56 6 52 22 48 22 45 9 38 9 34 13 30 13 26 7 20 7 16 24 12 24 9 8 0 8Z' fill='%23c4000c' opacity='.85'/%3E%3C/svg%3E") top center / 100% auto no-repeat; }
+.carte.br-gardien { --c1: #7a6430; --c2: #22190a; --cadre1: #e8c860; --lueurBr: rgba(255,220,120,.45); --banBr: linear-gradient(#f4ecd4, #c8b480); }
+.carte.br-gardien .cn { color: #2a1c08; text-shadow: none; }
+.carte.br-archimage { --c1: #3a1a7a; --c2: #0c0624; --cadre1: #9a6aff; --lueurBr: rgba(150,100,255,.5); --banBr: linear-gradient(#2a0e5a, #12042a);
+  --motifBr: radial-gradient(circle at 20% 30%, rgba(255,255,255,.7) 0 1px, transparent 1.5px), radial-gradient(circle at 70% 12%, rgba(255,255,255,.6) 0 1px, transparent 1.5px), radial-gradient(circle at 85% 70%, rgba(255,255,255,.5) 0 1px, transparent 1.5px), radial-gradient(circle at 35% 85%, rgba(200,180,255,.6) 0 1px, transparent 1.5px); }
+.carte.br-invocateur { --c1: #0e4a6a; --c2: #04121e; --cadre1: #5ad8ff; --lueurBr: rgba(90,216,255,.5); --banBr: linear-gradient(#0a3a5a, #041a2a); }
+.carte.br-sniper { --c1: #2a5a2a; --c2: #0a1a0a; --cadre1: #8acf5a; --lueurBr: rgba(140,210,90,.4); --banBr: linear-gradient(#24481e, #0e200c); }
+.carte.br-artificier { --c1: #7a4a1a; --c2: #241206; --cadre1: #d89040; --lueurBr: rgba(255,150,50,.45); --banBr: linear-gradient(#5a3410, #2a1406);
+  --motifBr: repeating-linear-gradient(45deg, rgba(255,190,90,.06) 0 6px, transparent 6px 12px); }
+.carte.br-duelliste { --c1: #1a3a8a; --c2: #060e2a; --cadre1: #c8d4f0; --lueurBr: rgba(190,210,255,.45); --banBr: linear-gradient(#1a2e6a, #0a1236); }
+.carte.br-ombre { --c1: #2a0e3a; --c2: #050208; --cadre1: #6a2a8a; --lueurBr: rgba(140,40,180,.55); --banBr: linear-gradient(#1a0624, #060008);
+  --motifBr: radial-gradient(ellipse at 50% 110%, rgba(140,40,200,.35), transparent 60%); }
+
+/* le deck : une liste de bandeaux illustrés */
+.deckZone { grid-template-columns: 1fr 310px; }
+.listeDeck { padding: 8px; max-height: 66vh; }
+.listeDeck .ligne { position: relative; height: 34px; padding: 0 8px 0 6px; margin: 4px 0; gap: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-left: 3px solid rgba(255,255,255,.2); border-radius: 6px; background: #1a1410; }
+.listeDeck .ligne .artL { position: absolute; right: 0; top: 0; bottom: 0; width: 62%; background-size: cover; background-position: center 35%; display: flex; align-items: center; justify-content: flex-end; padding-right: 34px; font-size: 18px; opacity: .95; }
+.listeDeck .ligne .artL::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #1a1410 0%, rgba(26,20,16,.85) 25%, rgba(26,20,16,.15) 70%, rgba(26,20,16,.55) 100%); }
+.listeDeck .ligne > :not(.artL) { position: relative; z-index: 1; }
+.listeDeck .ligne .cout1 { flex: none; width: 24px; height: 24px; font-size: 13px; background: radial-gradient(circle at 35% 30%, #fff0a0, #e8b030 55%, #8a5a10); box-shadow: 0 0 0 2px #1a1008; }
+.listeDeck .ligne .nomL { font-weight: 800; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+.listeDeck .ligne .nbL { color: #ffd870; font-weight: 800; text-shadow: 0 1px 2px #000; min-width: 18px; text-align: right; }
+.listeDeck .ligne .moins { opacity: 0; transition: opacity .15s; color: #ff8a7a; font-weight: 900; }
+.listeDeck .ligne:hover { background: #241a14; border-color: rgba(255,120,100,.5); }
+.listeDeck .ligne:hover .moins { opacity: 1; }
+.listeDeck .ligne.r-legendaire .nomL { color: #ffc860; } .listeDeck .ligne.r-epique .nomL { color: #e0b8ff; } .listeDeck .ligne.r-rare .nomL { color: #b0dcff; }
+.listeDeck .ligne.br-berserker { border-left-color: #c4000c; } .listeDeck .ligne.br-gardien { border-left-color: #e8c860; } .listeDeck .ligne.br-archimage { border-left-color: #9a6aff; } .listeDeck .ligne.br-invocateur { border-left-color: #5ad8ff; }
+.listeDeck .ligne.br-sniper { border-left-color: #8acf5a; } .listeDeck .ligne.br-artificier { border-left-color: #d89040; } .listeDeck .ligne.br-duelliste { border-left-color: #c8d4f0; } .listeDeck .ligne.br-ombre { border-left-color: #8a3aaa; }
+.apercuCarte { position: fixed; z-index: 60; pointer-events: none; transform: scale(1.3); transform-origin: top left; filter: drop-shadow(0 10px 24px rgba(0,0,0,.7)); animation: apercuEntre .12s ease-out; }
+@keyframes apercuEntre { from { opacity: 0; transform: scale(1.2); } }
+@media (max-width: 820px) { .apercuCarte { display: none; } }
+/* le sang qui coule du bandeau des sorts du Berserker */
+.carte.br-berserker .ci { position: relative; overflow: hidden; }
+.carte.br-berserker .ci::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 14px; z-index: 2; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='24' viewBox='0 0 150 24' preserveAspectRatio='none'%3E%3Cpath d='M0 0H150V3C143 3 142 12 139 12S135 5 129 5 125 20 121 20 118 6 111 6 107 9 103 9 99 4 93 4 89 23 85 23 82 6 75 6 71 10 67 10 63 3 57 3 53 17 49 17 46 6 39 6 35 8 31 8 27 4 21 4 17 18 13 18 10 5 0 5Z' fill='%23a8000a'/%3E%3C/svg%3E") top / 100% 100% no-repeat; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.carte.br-berserker { --motifBr: none; }
+/* v75 — les salles mystère */
+.mystere { text-align: center; max-width: 640px; margin: 0 auto; }
+.mystere .icoMystere { font-size: 64px; filter: drop-shadow(0 0 16px rgba(200,160,255,.6)); animation: flotteMy 3s ease-in-out infinite; }
+@keyframes flotteMy { 50% { transform: translateY(-6px); } }
+.mystere .recit { font-size: 17px; line-height: 1.5; font-style: italic; color: #f0e6ff; margin: 6px 0 12px; }
+.mystere .etatMystere { color: #c8b8e0; }
+.mystere .choixMystere { display: flex; flex-direction: column; gap: 10px; align-items: stretch; margin-top: 12px; }
+.mystere .choixMystere .bouton { white-space: normal; text-align: left; padding: 12px 16px; }
+.salle[title="Mystère"] { background: radial-gradient(circle, #5a3a8a, #2a1a44); }
+/* v76 — les quêtes des habitants */
+.pnjQuete { max-width: 620px; margin: 0 auto; text-align: center; }
+.pnjQuete h2 { color: var(--clan); } .pnjQuete h2 small { color: #c8bca8; font-size: 15px; font-weight: 600; }
+.pnjQuete .dialogue { font-size: 18px; font-style: italic; line-height: 1.5; background: rgba(250,244,228,.96); color: #2a1e14; border: 2px solid var(--clan); border-radius: 12px; padding: 14px 18px; margin: 10px 0 14px; }
+.pnjQuete .boutonsPnj { display: flex; gap: 10px; justify-content: center; margin: 12px 0; }
+/* v77 — décorer sa maison */
+.vignetteDeco { image-rendering: pixelated; width: 200px; height: 88px; align-self: center; }
+.decos .fam.inconnu .vignetteDeco { filter: grayscale(.7) brightness(.6); }
+/* v78 — expéditions en groupe */
+.groupe { margin: 12px 0; padding: 10px 14px; border-radius: 12px; background: rgba(90,140,220,.1); border: 1px solid rgba(120,170,255,.3); }
+.groupe h3 { margin: 0 0 6px; } .groupe h3 small { color: #9ac8ff; font-weight: 600; }
+.groupe .invites { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+.membresGroupe { display: flex; flex-wrap: wrap; gap: 10px; }
+.membresGroupe .membre { flex: 1 1 180px; display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.3); }
+.membresGroupe .membre.aTerre { opacity: .6; }
+.membresGroupe .pvG { height: 8px; border-radius: 4px; background: rgba(0,0,0,.5); overflow: hidden; } .membresGroupe .pvG i { display: block; height: 100%; background: linear-gradient(90deg, #c83a2a, #f06a4a); }
+.aTerre { padding: 8px 12px; border-radius: 10px; background: rgba(120,20,20,.35); border: 1px solid rgba(255,90,70,.4); }
+#invitationGroupe { position: fixed; left: 50%; top: calc(var(--hautBarre, 56px) + 56px); transform: translateX(-50%); z-index: 46; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 12px; background: rgba(14,20,36,.95); border: 1px solid rgba(120,170,255,.6); box-shadow: 0 6px 24px rgba(0,0,0,.6); }

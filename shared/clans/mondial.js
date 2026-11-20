@@ -19,8 +19,8 @@ export const BOSS_MONDIAUX = {
 export const PALIER_MONDIAL = { pv: 1, deg: 1.15, butin: 1, nom: 'Boss mondial' };
 
 export const MONDIAL = {
-  premier: 120e3,            // le premier boss arrive 2 min après le démarrage du serveur
-  intervalle: 15 * 60e3,     // puis un toutes les 15 minutes…
+  premier: 10 * 60e3,        // le premier boss arrive 10 min après le démarrage du serveur (v74 : moins souvent)
+  intervalle: 45 * 60e3,     // puis un toutes les 45 minutes…
   duree: 8 * 60e3,           // … qui reste 8 minutes avant de repartir
   pause: 15e3,               // attente entre deux manches pour un même joueur
   portee: 90,                // distance pour l'engager

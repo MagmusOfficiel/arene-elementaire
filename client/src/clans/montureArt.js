@@ -29,6 +29,42 @@ const DRAGON = [
   '.tRRRRRRRRRRRRo.....',
   '..RRRooooooooRR.....',
   '...RRRRRRRRRRR......'];
+const LOUP = [
+  '....................',
+  '..............e..e..',
+  '..............eBBe..',
+  '.............BBkBBB.',
+  '.............BBBBBBd',
+  'gg..........BBBww...',
+  'gBg.bbBBBBBBBBBb....',
+  '.gBBBBBBBBBBBBBb....',
+  '..bBBBBBBBBBBBb.....',
+  '...bbbbbbbbbbbb.....'];
+const PHENIX_A = [
+  '...YY...............',
+  '..YOOY..............',
+  '..YOOOY.............',
+  '...YOOOY.......RR...',
+  '....YOOOOY....RRkY..',
+  '.....OOOOOOOORRRRYy.',
+  'tt..ROOOOOOOOORR....',
+  'tTt.RRRRRRRRRRR.....',
+  'T.tT..RRRRRRR.......',
+  '.T..T...............'];
+const PHENIX_B = [
+  '....................',
+  '....................',
+  '...............RR...',
+  '..............RRkY..',
+  '.............RRRRYy.',
+  'tt..ROOOOOOOORRR....',
+  'tTt.RRRRRRRRRRR.....',
+  'T.tTYOOOOOOY........',
+  '.T..YOOOOOY.........',
+  '.....YOOOY..........'];
+const VIDE = ['....................', '....................', '....................', '....................'];
+const ETINCELLES_A = ['....................', '...Y.......Y........', '.......Y.......Y....', '....................'];
+const ETINCELLES_B = ['......Y.......Y.....', '....................', '..Y.........Y.......', '....................'];
 const RAIE_A = ['....................', '....................', '....................', '........cccc........', '...bBBBBBBBBBBBBk...', 'bBBBBBBBBBBBBBBBBBB.', '.bbbBBBBBBBBBBBBBb..', '....bbbbbbbbbbbb....', 'tt..................', '....................'];
 const RAIE_B = ['....................', '....................', '....................', 'b.......cccc......b.', '.bBBBBBBBBBBBBBBkBb.', '..BBBBBBBBBBBBBBBB..', '...bbBBBBBBBBBBbb...', '.....bbbbbbbbbb.....', 'tt..................', '....................'];
 const BULLES_A = ['....................', '......g.....g.......', '....................', '.........g......g...'];
@@ -40,6 +76,8 @@ const ART = {
   destrier: { pal: { B: '#2e262c', b: '#16121a', m: '#ff8a20', t: '#ffb040', d: '#ff5a10', k: '#ff3a10' }, poses: [[...CHEVAL, ...PAS], [...CHEVAL.map((l) => l.replace(/m/g, 'M')), ...GALOP]], selle: 6, pal2: { M: '#ffd040' } },
   cerf: { pal: { B: '#b07a44', b: '#7a4e28', d: '#3a2414', a: '#efe2b8', t: '#f4f0e0', k: '#120a06' }, poses: [[...CERF, ...PAS], [...CERF, ...GALOP]], selle: 6 },
   raie: { pal: { B: '#3aa0d8', b: '#1a5a8a', c: '#8ad8f8', k: '#0a1a2a', t: '#1a5a8a', g: '#bff0ff' }, poses: [[...RAIE_A, ...BULLES_A], [...RAIE_B, ...BULLES_B]], selle: 9, flotte: true },
+  loup: { pal: { B: '#9ad8ff', b: '#4a8ac8', e: '#d8f4ff', k: '#ffffff', d: '#1a3a6a', w: '#e8f8ff', g: '#bff0ff' }, poses: [[...LOUP, ...PAS], [...LOUP, ...GALOP]], selle: 6, lueur: 'rgba(150,220,255,.18)' },
+  phenix: { pal: { R: '#e8402a', O: '#ffb030', Y: '#fff0a0', y: '#ffc040', k: '#2a0a0a', t: '#ff7a20', T: '#ffd040' }, poses: [[...PHENIX_A, ...ETINCELLES_A], [...PHENIX_B, ...ETINCELLES_B]], selle: 9, flotte: true, lueur: 'rgba(255,190,80,.2)' },
   dragon: { pal: { R: '#c8342a', o: '#ffc040', w: '#7a1a3a', h: '#f4e0b0', d: '#2a0a0a', k: '#ffe060', t: '#c8342a' }, poses: [[...DRAGON, ...PAS.map((l) => l.replace(/b/g, 'R'))], [...DRAGON, ...GALOP.map((l) => l.replace(/b/g, 'R'))]], selle: 6 },
 };
 export const selleDe = (id) => ART[id]?.selle ?? 6;
@@ -59,6 +97,7 @@ export function dessinerMonture(ctx, id, x, y, gauche = false, pose = 0, t = 0) 
   x = Math.round(x); y = Math.round(y);
   const flot = ART[id].flotte ? Math.round(Math.sin(t * 3) * 1.5) - 2 : 0;
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x - 9, y - 1, 18, 2);
+  if (ART[id].lueur) { ctx.fillStyle = ART[id].lueur; ctx.fillRect(x - 12, y - 16 + flot, 24, 15); }
   if (gauche) { ctx.save(); ctx.translate(x, 0); ctx.scale(-1, 1); ctx.drawImage(f, pose * 20, 0, 20, 14, -10, y - 14 + flot, 20, 14); ctx.restore(); }
   else ctx.drawImage(f, pose * 20, 0, 20, 14, x - 10, y - 14 + flot, 20, 14);
 }

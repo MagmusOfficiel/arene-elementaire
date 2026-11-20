@@ -103,3 +103,29 @@ export function praticable(x, y, obs) {
   for (const dx of [-5, 5]) for (const dy of [-3, 3]) if (bloqueTuile(obs, Math.floor((x + dx) / TUILE), Math.floor((y + dy) / TUILE))) return false;
   return true;
 }
+
+// ---------- v72 : la maison posée par le joueur ----------
+// la clé d'une maison : "x,y" si le joueur l'a posée lui-même, sinon son nom
+// (l'une des 8 maisons du village, choisie par le nom comme avant)
+export function posMaison(clan, cle) {
+  const m = /^(\d+),(\d+)$/.exec(String(cle || ''));
+  return m ? { x: +m[1], y: +m[2], posee: true } : maisonDe(clan, String(cle || ''));
+}
+export const cleMaison = (p) => (p?.maisonPos ? `${p.maisonPos.x},${p.maisonPos.y}` : p?.maison || p?.nom || '');
+export const ECART_MAISONS = 150;   // la place des lanternes, de l'obélisque et de l'atelier autour
+// peut-on poser sa maison en (x, y) ? autres : les maisons déjà posées [{ x, y }]
+export function emplacementMaison(clan, x, y, autres = []) {
+  x = snap(x); y = snap(y);
+  if (territoireDe(x, y) !== clan) return { raison: 'Ta maison doit être sur la terre de ton clan.' };
+  if (dansVillage(x, y, clan, 0.75)) return { raison: 'Trop près du village : éloigne-toi un peu.' };
+  const obs = obstacles(), tx = (x - 8) / TUILE, ty = (y - 8) / TUILE;
+  for (let a = -2; a <= 2; a++) for (let b = -3; b <= 1; b++) {
+    const i = (ty + b) * NT.l + tx + a, s = obs.sols[i];
+    if (bloqueTuile(obs, tx + a, ty + b) || s === 'chemin' || s === 'place' || s === 'paves') return { raison: 'Le terrain n’est pas libre ici (chemin, arbre, rocher ou eau).' };
+  }
+  if (!praticable(x, y + 40, obs)) return { raison: 'Il faut pouvoir arriver devant ta porte.' };
+  const loin = (l, d) => l.every((o) => Math.hypot(o.x - x, o.y - y) >= d);
+  if (!loin(LIEUX, 150) || !loin(SANCTUAIRES, 160) || !loin(Object.values(OUVRAGES), 140)) return { raison: 'Trop près d’un lieu important (portail, autel, sanctuaire…).' };
+  if (!loin(MAISONS[clan], 120) || !loin(autres, ECART_MAISONS)) return { raison: 'Trop près d’une autre maison.' };
+  return { x, y };
+}

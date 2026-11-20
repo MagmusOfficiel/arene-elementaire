@@ -14,6 +14,7 @@ const lot = (o) => Object.entries(o).map(([k, v]) => `<b>${nf(v)}</b> ${ICO[k] |
 export function fenetreMarchand() {
   guide.vu('a_marchand');
   const m = MA.marchandDe(), pris = MA.achats(p, m.slot), min = Math.max(1, Math.ceil((m.part - Date.now()) / 60000));
+  if (!m.present) return toast(`🛒 Le marchand ambulant est sur la route. Il revient dans ${Math.max(1, Math.ceil((m.revient - Date.now()) / 60000))} min.`);
   ouvrir(`<h2>🛒 Le marchand ambulant</h2>
     <p class="sousTitre">« Bien le bonjour ! Je ne reste jamais longtemps au même endroit : encore <b>${min} min</b> ${esc(m.place)}, puis je reprends la route avec d'autres affaires. » Chaque échange se fait une fois par passage.</p>
     <div class="marchand">${m.offres.map((o, i) => {
