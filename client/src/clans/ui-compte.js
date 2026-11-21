@@ -36,7 +36,17 @@ export async function recupererCode(code) {
 }
 const carteP = (x, actif) => `<div class="perso ${actif ? 'actif' : ''}"><span class="icoP">${CLASSES[x.classe]?.ico || '❔'}</span>
   <div><b>${esc(x.nom)}</b><small>${ELEMENTS[x.clan]?.ico || ''} ${esc(ELEMENTS[x.clan]?.clan || '')} · ${esc(CLASSES[x.classe]?.nom || 'sans classe')}${x.branche && BRANCHES[x.branche] ? ` ${BRANCHES[x.branche].ico} ${esc(BRANCHES[x.branche].nom)}` : ''} · niv. ${x.niv || 1}</small></div>
+  <button class="lien" data-code="${esc(x.jeton)}" title="Le code secret de ce personnage">🔑 Code</button>
   ${actif ? '<span class="porte">✓ En jeu</span>' : `<button class="bouton" data-jouer="${esc(x.jeton)}">Jouer</button>`}</div>`;
+// v81 : reprendre un personnage avec son code (le jeton : 20 à 40 lettres, chiffres, - ou _)
+export function ajouterParCode(v) {
+  const j = String(v || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,40}$/.test(j)) return toast('Ce code de personnage n’est pas valide (20 à 40 caractères).');
+  toast('Chargement du personnage…'); jouer(j);
+}
+const blocPerso = () => `<div class="codeCompte"><h3>🧩 Reprendre un personnage avec son code</h3>
+  <p class="sousTitre">Chaque personnage a son propre code secret (bouton 🔑 Code). Garde-le précieusement : quelqu’un qui l’a peut jouer ce personnage.</p>
+  <div class="code"><input id="champPerso" maxlength="40" placeholder="code du personnage" autocomplete="off"><button class="bouton" id="btPerso">Reprendre</button></div></div>`;
 export const blocCode = () => `<div class="codeCompte"><h3>🔑 Ton code de compte</h3>
   <p class="sousTitre">Note-le bien : sur un autre ordinateur ou sur ton téléphone, entre ce code pour retrouver <b>tous tes personnages</b>.</p>
   ${compte.code ? `<div class="code"><span id="codeC">${esc(compte.code)}</span><button class="bouton second" id="btCopier">Copier</button></div>` : '<p class="cout">Ton code est en cours de création… (il faut être connecté au serveur)</p>'}</div>`;
@@ -52,12 +62,14 @@ export function fenetreCompte() {
   compte.sauvegarder();
   const l = persos(), a = jetonActif();
   ouvrir(`<h2>👥 Personnages et compte</h2>
-    <h3>Tes personnages <small>(${l.length} / ${MAX_PERSOS})</small></h3>
+    <h3>Tes personnages <small>(${l.length})</small></h3>
     <div class="persos">${l.map((x) => carteP(x, x.jeton === a)).join('') || '<p class="cout">Aucun personnage.</p>'}</div>
     ${l.length < MAX_PERSOS ? '<button class="bouton" id="btNouveauPerso">+ Créer un nouveau personnage</button> <small class="cout">Ton personnage actuel reste sauvegardé : tu pourras revenir dessus quand tu veux.</small>' : ''}
-    ${blocCode()}${blocRecuperer()}`, () => {
+    ${blocCode()}${blocRecuperer()}${blocPerso()}`, () => {
     $('fenetreCorps').querySelectorAll('[data-jouer]').forEach((b) => b.onclick = () => jouer(b.dataset.jouer));
     if ($('btNouveauPerso')) $('btNouveauPerso').onclick = nouveau;
+    $('fenetreCorps').querySelectorAll('[data-code]').forEach((b) => b.onclick = () => { const c = b.dataset.code; navigator.clipboard?.writeText(c).then(() => toast(`Code copié : <b>${esc(c)}</b>`), () => toast(`Code : <b>${esc(c)}</b>`)); });
+    const cp = $('champPerso'); $('btPerso').onclick = () => ajouterParCode(cp.value); cp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') ajouterParCode(cp.value); };
     brancherCode($('fenetreCorps'));
     compte.onChange = () => { if ($('codeC') === null && $('fenetreCorps').querySelector('.codeCompte')) fenetreCompte(); };
   });

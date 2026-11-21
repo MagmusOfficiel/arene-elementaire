@@ -27,7 +27,7 @@ from playwright.sync_api import sync_playwright
 
 RACINE = Path(__file__).resolve().parent.parent
 PORT = 2597
-URL = f'http://localhost:{PORT}/clans/'
+URL = f'http://localhost:{PORT}/'
 echecs, erreurs_js = [], []
 
 def verifier(cond, msg):
@@ -38,7 +38,7 @@ courante = ['démarrage']
 def etape(titre): courante[0] = titre; print(f'\n▶ {titre}')
 
 def serveur():
-    if not (RACINE / 'client/dist/clans/index.html').exists():
+    if not (RACINE / 'client/dist/index.html').exists():
         print('Le jeu n’est pas compilé : lance d’abord `npm run build`.'); sys.exit(2)
     env = {k: v for k, v in os.environ.items() if not k.startswith('UPSTASH')}
     env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', CLANS_TEST_DEPART='1', CLANS_TEST_MARCHAND='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',

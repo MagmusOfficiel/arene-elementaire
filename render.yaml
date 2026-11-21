@@ -5,7 +5,7 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /health
-    # Base gratuite Upstash Redis pour garder les classements (à remplir dans Render > Environment)
+    # Base Upstash Redis : comptes, personnages et saisons des Clans (à remplir dans Render > Environment)
     envVars:
       - key: UPSTASH_REDIS_REST_URL
         sync: false

@@ -7,8 +7,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "colyseus.js": "0.15.28",
-    "phaser": "^3.90.0"
+    "colyseus.js": "0.15.28"
   },
   "devDependencies": { "vite": "^6.0.0" }
 }

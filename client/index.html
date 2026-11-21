@@ -1,191 +1,128 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Arène Élémentaire</title>
-  <link rel="stylesheet" href="/src/style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Les Clans Élémentaires</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚜️</text></svg>">
+  <link rel="preload" href="/clans/polices/nunito-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/clans/polices/fredoka-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
-  <div id="game"></div>
+  <!-- Choix du clan -->
+  <section id="ecranClan" class="ecran cache">
+    <div class="titreJeu"><small>Feu · Eau · Plante</small><h1>Les Clans Élémentaires</h1><p>Choisis ton clan. Il décide de ton territoire, de ta parcelle et des sorts que tu tireras le plus souvent. <b>Ce choix est définitif.</b></p></div>
+    <label class="champNom">Ton nom <input id="nomJoueur" maxlength="16" placeholder="Ton nom"></label>
+    <p id="etapeClan" class="etape">1. Choisis ton clan</p>
+    <div id="choixClans"></div>
+    <p id="etapeClasse" class="etape cache">2. Choisis ta classe</p>
+    <div id="choixClasses" class="cache"></div>
+    <div id="dejaCompte"></div>
+  </section>
 
-  <!-- Accueil commun : l'Arène ou le Conclave (même site, même compte) -->
-  <div id="hub" class="cache-hub">
-    <div class="hub-titre">Les mondes des <b>éléments</b></div>
-    <div class="hub-cartes">
-      <button id="hubArene" class="hub-carte arene">
-        <span class="hub-ic">⚔️</span><b>Arène élémentaire</b>
-        <small>Combats en temps réel : monde ouvert, battle royale, tournoi, duo, survie.</small>
-      </button>
-      <a id="hubConclave" class="hub-carte conclave" href="/conclave/">
-        <span class="hub-ic">⚜️</span><b>Le Conclave des éléments</b>
-        <small>Déduction sociale de 5 à 10 joueurs : scellez les sanctuaires, démasquez les Corrompus.</small>
-      </a>
-      <a id="hubZone" class="hub-carte zonemorte" href="/zone-morte/">
-        <span class="hub-ic">☣️</span><b>Zone Morte</b>
-        <small>Survie après l'apocalypse dans un monde ouvert infini, seul ou en coop jusqu'à 4.</small>
-      </a>
-      <a id="hubClans" class="hub-carte clans" href="/clans/">
-        <span class="hub-ic">⚜️</span><b>Les Clans Élémentaires</b>
-        <small>Rejoins le Feu, l'Eau ou la Plante : tirages de sorts, combats de cartes contre les monstres, ta parcelle à faire prospérer. <i>Nouveau !</i></small>
-      </a>
-      <a id="hubEnquete" class="hub-carte enquete" href="/enquete/">
-        <span class="hub-ic">🕯️</span><b>Les Ombres de Baker Street</b>
-        <small>Enquêtes dans le Londres de 1891 : détective… ou criminel, selon tes choix. <i>Chapitre 1 disponible.</i></small>
-      </a>
-    </div>
-    <small class="hub-pied">Un seul compte pour tous les jeux : ton niveau et tes champions te suivent.</small>
-  </div>
-
-  <div id="lobby" class="overlay">
-    <div class="panel">
-      <h1>ARÈNE <span>ÉLÉMENTAIRE</span></h1>
-      <p class="sub">Deux éléments. Une fusion. Un seul survivant.</p>
-      <nav id="onglets">
-        <button type="button" data-o="jouer" class="on">⚔ Jouer</button><button type="button" data-o="profil">👤 Profil</button><button type="button" data-o="classements">🏆 Rangs</button><button type="button" data-o="defis">🎯 Défis <i id="defisBadge"></i></button><button type="button" data-o="reglages">⚙ Réglages</button>
-      </nav>
-      <section class="onglet" data-o="jouer">
-        <input id="name" maxlength="16" placeholder="Ton pseudo" autocomplete="off" />
-        <div class="modes">
-          <button id="play" data-mode="arena">🌍 Monde ouvert<small>zombies · réapparition</small></button>
-          <button id="playRoyale" data-mode="royale">👑 Battle royale<small>50 joueurs · 1 vie</small></button>
-          <button id="playTournoi" data-mode="tournoi">🏆 Tournoi<small>8 · duels à élimination</small></button>
-          <button id="playClasse" data-mode="classe">⚔ Classé<small>tournoi · ta cote en jeu</small></button>
-          <button id="playSurvie" data-mode="survie">☠ Survie<small>vagues infinies · 1 vie</small></button>
-          <button id="playDuo" data-mode="duo">🤝 Duo 2v2<small>en équipe · combos d'éléments</small></button>
-        </div>
-        <p id="status"></p>
-        <label class="solo"><input type="checkbox" id="solo"> 🤖 Jouer hors-ligne (solo contre les mannequins)</label>
-        <div class="salon">
-          <label><input type="checkbox" id="prive"> 🔒 Créer un salon privé (choisis le mode ci-dessus)</label>
-          <div class="join"><input id="code" maxlength="4" placeholder="CODE" autocomplete="off" /><button id="joinCode">Rejoindre un ami</button></div>
-        </div>
-        <div class="ctrlTouch">🕹 Joystick à gauche pour bouger · <b>Touche</b> un sort = visée auto · <b>Glisse</b> depuis le sort = vise toi-même · reviens sur le bouton pour annuler</div>
-        <div class="controls touch-hide">
-          <div><b>ZQSD</b> / <b>WASD</b> se déplacer</div>
-          <div><b>Clic gauche</b> attaque de base (maintenir)</div>
-          <div><b>E</b> ou <b>clic droit</b> Sort 1 · <b>Shift</b> Sort 2 · <b>F</b> Sort 3 · <b>Espace</b> Esquive</div>
-          <div><b>1 / 2 / 3</b> choisir une amélioration quand tu montes de niveau</div>
-          <div><b>R</b> Ultime (quand la jauge est pleine) · <b>M</b> couper le son</div>
-          <div>🧟 Tuer des zombies charge ton ultime — une horde déferle toutes les 75 s</div>
-        </div>
-      </section>
-      <section class="onglet hidden" data-o="profil">
-        <div id="titreBox">
-          <div id="profil"></div>
-          <div id="compteBox"><span id="compteTxt">☁ Compte : connexion…</span><button id="compteCopier" type="button">Copier le code</button><details><summary>J'ai déjà un compte</summary><input id="compteCode" maxlength="9" placeholder="K7QF-2XMB" autocomplete="off" /><button id="compteRecup" type="button">Récupérer</button></details></div>
-          <div class="cosm"><label>🏅 Titre <select id="titreSel"></select></label><label>🎨 Couleur du nom <select id="coulSel"></select></label><label>🖼 Cadre <select id="cadreSel"></select></label></div>
-          <span id="gloire"></span>
-          <details><summary>Voir tous les titres</summary><div id="titresListe"></div></details>
-        </div>
-        <div id="grimoireTitle"></div>
-        <div id="gallery"></div>
-        <div id="fiche" class="hidden"><div class="fi-in"><button class="fi-x">✕</button><div class="fi-h"></div><div class="sb-list"></div></div></div>
-      </section>
-      <section class="onglet hidden" data-o="classements">
-        <div id="rangBox"></div>
-        <div id="survieBox"></div>
-        <div id="classement"></div>
-      </section>
-      <section class="onglet hidden" data-o="defis">
-        <div id="defis"></div>
-      </section>
-      <section class="onglet hidden" data-o="reglages">
-        <div id="reglages">
-          <h3>🔊 Son</h3>
-  <div id="volumes"><label>🎵 Musique <input type="range" id="volMusique" min="0" max="1" step="0.05"></label><label>🔊 Effets <input type="range" id="volEffets" min="0" max="1" step="0.05"></label><small>M en jeu : couper le son</small></div>
-          <h3>🖥 Graphismes</h3>
-          <label class="rg">Qualité <select id="rgQualite"><option value="auto">Automatique (s'adapte à l'appareil)</option><option value="haut">Haute — tous les effets</option><option value="moyen">Moyenne — moins de particules</option><option value="bas">Basse — pour téléphone ou PC lent</option></select></label>
-          <label class="rg">Secousses de l'écran <select id="rgSecousses"><option value="normales">Normales</option><option value="fortes">Fortes</option><option value="reduites">Réduites</option><option value="aucune">Aucune (ni secousse ni ralenti)</option></select></label>
-          <label class="rg"><input type="checkbox" id="rgPing"> Afficher la latence (ping)</label>
-          <label class="rg"><input type="checkbox" id="rgFps"> Afficher les images par seconde</label>
-          <h3>🧪 Test des visuels</h3>
-          <label class="rg">Style des champions <select id="rgStyle"><option value="auto">Normal (actuel)</option><option value="illustration">Illustration seule</option><option value="maison">Fait maison (dessiné en jeu)</option><option value="pixel">Pixel art</option><option value="3d">3D rendue en 2D</option></select></label>
-          <label class="rg">Champion imposé en solo <select id="rgTestChamp"><option value="">Aucun (choix normal)</option><option value="feu+terre">Magma (feu + terre)</option><option value="feu+lumiere">Aube (feu + lumière)</option><option value="terre+terre">Terre Pure — mur</option><option value="metal+terre">Titane — étourdissement</option><option value="lumiere+nature">Floraison — soin, Sanctuaire</option><option value="eau+feu">Vapeur — totem, Armée</option><option value="metal+metal">Métal Pur — Prison</option></select></label>
-          <small>Disponibles pour l'instant : Magma en « Fait maison », « Pixel art » et « 3D rendue en 2D ». Coche « Solo » puis lance une partie.</small>
-          <h3>🎮 Contrôles</h3>
-          <label class="rg">Taille de l'interface <select id="rgInterface"><option value="0.85">Petite</option><option value="1">Normale</option><option value="1.15">Grande</option></select></label>
-          <label class="rg">Sensibilité du joystick (téléphone) <input type="range" id="rgJoystick" min="0.15" max="0.55" step="0.05"><small id="rgJoystickV"></small></label>
-          <label class="rg"><input type="checkbox" id="rgVibration"> Vibrations (téléphone)</label>
-          <h3>❓ Aide</h3>
-          <button type="button" id="rgTuto" class="rgBtn">Revoir le tutoriel et les astuces</button>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <div id="choix"><div class="ch-h">Choisis ton champion <span class="reste"></span></div><div class="barre"><i></i></div><div class="cartes"></div><div class="ch-b">Touches 1, 2, 3 ou clic — tu n'es pas encore sur la carte, personne ne peut te toucher</div></div>
-  <div id="roll" class="overlay hidden">
-    <div class="roll-box">
-      <div class="roll-title">TIRAGE ÉLÉMENTAIRE</div>
-      <img id="rollPortrait" alt="" />
-      <div class="slots-roll">
-        <div class="slot-el" id="slotA">?</div>
-        <div class="plus">+</div>
-        <div class="slot-el" id="slotB">?</div>
-      </div>
-      <div id="fusionReveal"></div>
-      <div id="ultReveal"></div>
-    </div>
-  </div>
-
-  <div id="hud" class="hidden">
-    <div id="topleft">
-      <div id="fusionName"></div>
-      <div id="elChips"></div>
-      <div id="fusionDesc"></div>
-      <div id="biome"></div>
-    </div>
-    <div id="scoreboard"></div>
-    <div id="killfeed"></div>
-    <div id="banner"></div>
-    <div id="cutin" class="hidden"><div class="cut-lines"></div><div class="cut-band"><img id="cutImg" alt=""><div class="cut-text"><div id="cutWho"></div><div id="cutName"></div></div></div></div>
-    <div id="hurt"></div>
-    <div id="lowhp"></div>
-    <div id="combo" class="hidden"><b>0</b><span>COMBO</span><i></i></div>
-    <div id="streak"></div>
-    <div id="horde"></div>
-    <div id="royale" class="hidden"></div>
-    <div id="victory" class="hidden"><div class="v-title"></div><img id="vImg" alt=""><div class="v-sub"></div></div>
-    <div id="bottom">
-      <div id="statuses"></div>
-      <div id="vitals">
-        <div id="avatar"><img id="hudPortrait" alt="" /><span id="lvl">1</span></div>
-        <div id="bars">
-          <div id="hpbar"><div id="hplag"></div><div id="hpfill"></div><div id="shieldfill"></div><span id="hptext"></span></div>
-          <div id="xpbar"><div id="xpfill"></div></div>
+  <!-- Le monde -->
+  <section id="ecranMonde" class="ecran cache">
+    <canvas id="monde"></canvas>
+    <header id="barre">
+      <span id="moi"></span>
+      <span id="ressources"></span>
+      <span class="espace"></span>
+      <button id="btPasse" title="Passe de saison (touche P)">🎟️<span> Passe</span><i id="pastilleP" class="cache"></i></button>
+      <button id="btQuetes" title="Quêtes du jour et de la semaine (touche J)">📜<span> Quêtes</span><i id="pastilleQ" class="cache"></i></button>
+      <button id="btParcelle" title="Ta parcelle">🏠<span> Parcelle</span></button>
+      <button id="btDeck" title="Ta collection et ton deck">🃏<span> Deck</span></button>
+      <div id="menuBarre">
+        <button id="btMenu" title="Plus : apparence, familiers, arène, clans, son" aria-haspopup="true" aria-expanded="false">☰<span> Plus</span></button>
+        <div id="menuListe" class="cache" role="menu">
+          <button id="btFiche" role="menuitem">🏅 Ma fiche et hauts faits <small>H</small></button>
+          <button id="btAscension" role="menuitem">🌟 Ascension <small>U</small><i id="pastilleA" class="pastilleMenu cache">!</i></button>
+          <button id="btApparence" role="menuitem">👕 Apparence</button>
+          <button id="btGrimoire" role="menuitem">📚 Grimoire <small>G</small><i id="pastilleG" class="pastilleMenu cache">!</i></button>
+          <button id="btFamiliers" role="menuitem">🐾 Familiers <small>F</small></button>
+          <button id="btCompte" role="menuitem">👥 Personnages et compte</button>
+          <button id="btMontures" role="menuitem">🐎 Écurie (montures) <small>N</small></button>
+          <button id="btArene" role="menuitem">🏟️ Arène classée</button>
+          <button id="btClassement" role="menuitem">🏆 Rivalité des clans</button>
+          <button id="btAide" role="menuitem">❓ Comment jouer <small>?</small></button>
+          <button id="btSon" role="menuitem">🔊 Son <small>M</small></button>
         </div>
       </div>
-      <div id="spellslots"></div>
+    </header>
+    <div id="bandeau" class="cache"></div>
+    <div id="bandeauMondial" class="cache"></div>
+    <div id="bandeauSanct" class="cache"></div>
+    <div id="alerteSanct" class="cache"></div>
+    <div id="bandeauArene" class="cache"></div>
+    <aside id="enLigne"><h3>En ligne <span id="nbEnLigne"></span></h3><div id="listeClans"></div></aside>
+    <div id="chat"><div id="chatOnglets"><button data-c="tous" class="actif">Tous</button><button data-c="clan">Mon clan</button></div><div id="chatMsgs"></div><input id="chatTexte" maxlength="140" placeholder="Écrire… (Entrée)"></div>
+    <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guideOk" class="cache">Compris</button><button id="guidePasser" title="Masquer le guide et ses astuces">Passer</button></div>
+    <div id="tactile" class="cache"><div id="joy"><i id="joyBouton"></i></div><button id="btAgir">✋</button><button id="btChatMobile">💬</button></div>
+    <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir · <b>?</b> aide</div>
+  </section>
+
+  <!-- Fenêtres -->
+  <div id="fenetre" class="cache"><div id="fenetreBoite"><button id="btFermer" title="Fermer">✕</button><div id="fenetreCorps"></div></div></div>
+
+  <!-- Combat (expéditions, boss mondial) : une scène en pixel art, le héros face aux monstres -->
+  <section id="combat" class="scene cache">
+    <canvas id="cbDecor" class="decor"></canvas>
+    <canvas id="cbAmbiance" class="ambiance"></canvas>
+    <div class="voile"></div>
+    <div id="cbHaut" class="haut"><span id="cbTitre"></span><span id="cbInfo"></span></div>
+    <div id="cbTour" class="tourCb"></div>
+    <div id="cbTalent" class="talent"></div>
+    <div id="cbReliques" class="reliquesCb"></div>
+    <div class="arene">
+      <div id="cbHeros" class="heros">
+        <div id="cbMenace" class="menace"></div>
+        <div class="combattant"><canvas id="cbFam" class="familier cache" width="12" height="11"></canvas><canvas id="cbSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="jauge"><span id="cbBloc" class="bouclier"></span><div class="barre vie"><i id="cbPvF" class="fantome"></i><i id="cbPv"></i><b id="cbPvTxt"></b></div></div>
+        <div id="cbStatuts" class="statuts"></div>
+      </div>
+      <div id="cbEnnemis" class="ennemis"></div>
     </div>
-    <div id="salonChip" class="hidden"></div>
-    <div id="sptip" class="hidden"></div>
-    <div id="spellbook" class="hidden"><div class="sb-in"><div class="sb-h"></div><div class="sb-list"></div><div class="sb-f">Touche <b>I</b> ou clic sur ton portrait pour ouvrir / fermer</div></div></div>
-    <div id="evfx"></div>
-    <div id="evpill" class="hidden"></div>
-    <div id="toasts"></div>
-    <div id="bossbar" class="hidden"><div class="bn">👹 TITAN DE LA HORDE</div><div class="bb"><div class="bf"></div></div></div>
-    <div id="tuto" class="hidden"><div class="tt"></div><div class="td"></div><button id="tutoSkip">Passer le tutoriel</button></div>
-    <div id="touch" class="hidden">
-      <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
-      <button id="tb-emote" type="button">💬</button>
-      <div id="tbtns">
-        <button class="tb big" id="tb-b">⚔<span class="cd"></span></button>
-        <button class="tb" id="tb-s1">E<span class="cd"></span></button>
-        <button class="tb" id="tb-s2">⇧<span class="cd"></span></button>
-        <button class="tb" id="tb-s3">F<span class="cd"></span></button>
-        <button class="tb" id="tb-dg">💨<span class="cd"></span></button>
-        <button class="tb ult" id="tb-ult">★<span class="cd"></span></button>
+    <div id="cbEnergie" class="energie"><b id="cbEnergieTxt"></b><small>énergie</small></div>
+    <div id="cbPioche" class="pile pioche" title="Pioche"><i></i><b></b></div>
+    <div id="cbDefausse" class="pile defausse" title="Défausse"><i></i><b></b></div>
+    <span id="cbEpuisees" class="epuisees" title="Cartes épuisées"></span>
+    <div id="cbMain" class="main"></div>
+    <button id="btFinTour" class="finTour" title="Finir ton tour : les ennemis agissent (touche E)">Fin du tour</button>
+    <button id="btVitesse" class="vitesse" title="Vitesse des animations (touche V)">⏩ ×1</button>
+    <div id="cbAide" class="aide"></div>
+    <canvas id="cbFx" class="fx"></canvas>
+    <div id="cbBanniere" class="bannScene"></div>
+  </section>
+
+  <!-- Duel entre joueurs (et arène) : la même scène, face à face -->
+  <section id="duel" class="scene cache">
+    <canvas id="duDecor" class="decor"></canvas>
+    <canvas id="duAmbiance" class="ambiance"></canvas>
+    <div class="voile"></div>
+    <div id="duHaut" class="haut"><span id="duTitre">Duel</span><span id="duTour"></span></div>
+    <div class="arene">
+      <div id="duHeros" class="heros">
+        <div class="combattant"><canvas id="duSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="jauge"><span id="duBloc" class="bouclier"></span><div class="barre vie"><i id="duPvF" class="fantome"></i><i id="duPv"></i><b id="duPvTxt"></b></div></div>
+        <div id="duStatuts" class="statuts"></div>
+      </div>
+      <div id="duAdv" class="heros adversaire">
+        <div class="mainAdv"></div>
+        <div class="combattant"><canvas id="duSpriteAdv" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="nomAdv"></div>
+        <div class="jauge"><span class="bouclier"></span><div class="barre vie"><i class="fantome"></i><i class="pvAdv"></i><b></b></div></div>
+        <div class="statuts"></div>
       </div>
     </div>
-    <div id="rotate">📱↻<br>Tourne ton téléphone en mode paysage</div>
-    <div id="upgrades" class="hidden"><div class="up-title"></div><div class="up-cards"></div></div>
-    <div id="dead" class="hidden">K.O. — nouveau tirage dans quelques secondes…</div>
-  </div>
+    <div id="duEnergie" class="energie"><b id="duEnergieTxt"></b><small>énergie</small></div>
+    <div id="duMain" class="main"></div>
+    <div id="duJournal" class="journal"></div>
+    <button id="btDuelFin" class="finTour">Fin du tour</button>
+    <button id="btDuelAbandon" class="abandon">Abandonner</button>
+    <canvas id="duFx" class="fx"></canvas>
+    <div id="duBanniere" class="bannScene"></div>
+  </section>
 
-  <script src="/config.js"></script>
-  <script type="module" src="/src/main.js"></script>
+  <div id="reseau" class="cache"></div>
+  <div id="toasts"></div>
+  <script type="module" src="/src/clans/main.js"></script>
 </body>
 </html>

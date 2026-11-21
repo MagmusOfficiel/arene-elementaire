@@ -1,10 +1,9 @@
 // =====================================================================
-//  COMPTE : un code (« K7QF-2XMB ») qui sauvegarde la progression sur le serveur
-//  (niveau, cosmétiques, titres, cote du Classé, grimoire, record de Survie)
-//  pour la retrouver sur un autre appareil ou après avoir vidé le navigateur.
+//  COMPTE : un code (« K7QF-2XMB ») qui garde la liste des personnages des Clans
+//  sur le serveur, pour les retrouver sur un autre appareil ou après avoir vidé le navigateur.
 //  Le compte est créé tout seul dès que le serveur est joignable.
 // =====================================================================
-const CLES = { progression: 'progression', classe: 'classe', grimoire: 'grimoire', survie: 'survie_record', pseudo: 'pseudo', zm: 'zoneMorteCompte', zmRecord: 'zoneMorteRecord', enquete: 'ombresBS', clans: 'clansProfil', clansPersos: 'clansPersos' };
+const CLES = { pseudo: 'pseudo', clans: 'clansProfil', clansPersos: 'clansPersos' };
 const lireLocal = () => { try { return JSON.parse(localStorage.getItem('compte')) || {}; } catch { return {}; } };
 const etat = lireLocal();
 const garder = () => localStorage.setItem('compte', JSON.stringify(etat));
@@ -16,8 +15,7 @@ function clansLeger() {
 }
 function collecter() {
   const j = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-  return { progression: j(CLES.progression), classe: j(CLES.classe), grimoire: j(CLES.grimoire), survie: +(localStorage.getItem(CLES.survie) || 0), pseudo: localStorage.getItem(CLES.pseudo) || '',
-    zm: localStorage.getItem(CLES.zm) || '', zmRecord: j(CLES.zmRecord), enquete: localStorage.getItem(CLES.enquete) || '', clans: clansLeger(), clansPersos: j(CLES.clansPersos) || [] };
+  return { pseudo: localStorage.getItem(CLES.pseudo) || '', clans: clansLeger(), clansPersos: j(CLES.clansPersos) || [] };
 }
 
 export function creerCompte(http) {
@@ -52,8 +50,14 @@ export function creerCompte(http) {
       if (code.length !== 8) throw new Error('Le code fait 8 caractères (ex. K7QF-2XMB).');
       code = `${code.slice(0, 4)}-${code.slice(4)}`;
       const c = await req('GET', `/api/compte/${code}`);
+      // v81 : on ne perd jamais un personnage de ce navigateur : sa liste est fusionnée avec celle du compte
+      const lp = (v) => { try { const l = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(l) ? l : []; } catch { return []; } };
+      const ici = lp(localStorage.getItem(CLES.clansPersos));
+      try { const x = JSON.parse(localStorage.getItem(CLES.clans) || 'null'); if (x?.jeton && !ici.some((e) => e.jeton === x.jeton)) ici.push({ jeton: x.jeton, nom: x.p?.nom || 'Personnage', clan: x.p?.clan || '', classe: x.p?.classe || '', niv: 0 }); } catch { /* rien */ }
+      const fusion = [...lp(c.clansPersos)]; for (const e of ici) if (e?.jeton && !fusion.some((f) => f.jeton === e.jeton)) fusion.push(e);
+      c.clansPersos = fusion;
       for (const [k, cle] of Object.entries(CLES)) {
-        const v = c[k]; if (v == null || v === '') { if (k === 'zm') localStorage.removeItem(cle); continue; }
+        const v = c[k]; if (v == null || v === '') continue;
         localStorage.setItem(cle, typeof v === 'object' ? JSON.stringify(v) : String(v));
       }
       etat.code = code; etat.maj = c.maj || Date.now(); garder();

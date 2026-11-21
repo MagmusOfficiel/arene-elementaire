@@ -1,331 +1,28 @@
-# Arène Élémentaire — v0.5
+# Les Clans Élémentaires
 
-Jeu en ligne 2D (vue du dessus) : chaque joueur reçoit **2 éléments au hasard**, qui fusionnent en un kit de sorts + un ultime, puis atterrit dans l'arène.
-
-**Stack :** Phaser 3 (client navigateur) + Colyseus 0.15 (serveur Node autoritaire).
-
-## Nouveautés v0.5
-
-- **2 modes** : Mêlée (réapparition) et **Battle royale** (1 vie, zone qui rétrécit, vainqueur, manches qui s'enchaînent, mode spectateur).
-- **Son** : effets synthétisés par élément (spatialisés : volume + gauche/droite selon la distance) et musique de combat (`tools/gen_music.py`). Touche **M** pour couper.
-- **Cinématique d'ultime** façon shōnen (portrait + lignes de vitesse), coups critiques, écran rouge quand on est touché.
-- **Réseau optimisé** : projectiles simulés côté client (un message au lancement), statuts en masque de bits, valeurs compressées → **bande passante divisée par 2,3** (11,4 → 5,0 Ko/s). Prédiction de ton déplacement (plus de latence ressentie).
-- **Poids divisé par 2,5** : toutes les images en WebP (11 → 4,4 Mo).
-- **Grimoire** des fusions découvertes et **classement** dans le lobby. Statistiques d'équilibrage : `/api/stats`.
-- **Équilibrage** : Orage et Flamme noire affaiblis (zones plus courtes, combos Électrocuté 1,4× et Flamme noire 1,15×).
-- **Mise en ligne** : voir `GUIDE_MISE_EN_LIGNE.md` (Render gratuit, sans rien installer).
+Jeu en ligne : choisis ton clan (Feu, Eau, Plante) et ta classe, fais pousser ta parcelle, tire des sorts,
+pars en expédition façon Slay the Spire, affronte les autres joueurs en duel de cartes et prends les territoires ennemis.
 
 ## Lancer
 
-```bash
+```
 npm install
-npm run dev
+npm run dev        # serveur (port 2567) + client (port 5173)
+npm test           # tests des règles et du serveur
+npm run build && npm run test:clans   # test de bout en bout dans un vrai navigateur
 ```
 
-- Client : http://localhost:5173 (ouvre plusieurs onglets pour tester le multijoueur)
-- Serveur : ws://localhost:2567
-- Sur le même Wi-Fi, tes potes peuvent rejoindre via `http://TON-IP-LOCALE:5173`
-
-**Production** (un seul serveur sert le jeu et le multijoueur) :
-```bash
-npm run build && npm start      # → http://localhost:2567
-```
-
-## Contrôles
-
-| Touche | Action |
-|---|---|
-| ZQSD / WASD / flèches | Se déplacer |
-| Clic gauche (maintenir) | Attaque de base |
-| E ou clic droit | Sort 1 (offensif) |
-| Shift ou Espace | Sort 2 (utilitaire) |
-| R | Ultime (jauge à 100 %) |
-
-## Contenu du prototype
-
-- **8 éléments** : Feu, Eau, Terre, Vent, Éclair, Glace, Ombre, Métal → **28 fusions + 8 formes Pures** (5 % de chance)
-- **Kit généré** : Sort = Forme (élément A) + modificateur (élément B). Le Sort 2 vient de B et finit par une nova de A.
-- **Tags** : Brûlure, Mouillé, Ralenti, Poussée, **Chaîne** (l'éclair rebondit sur 2 cibles), **Givre**, **Marque** (+20 % de dégâts subis), **Perforant** (ignore bouclier et armure)
-- **10 interactions** : Vaporisation, Attisé, Embourbé, Éteint, Électrocuté, Gelé, Dégel, Brisé, Flamme noire, Foudre maudite
-- **Nouveaux utilitaires** : Surcharge (vitesse), Pas de l'ombre (téléportation + invisibilité), Peau d'acier (−50 % de dégâts)
-- **Arène 3200×2400** avec 4 biomes (+15 % de dégâts dans le biome de ton élément), orbes (ultime + soin), mini-carte
-- **Carte dédiée 4000×3000** : une ville en ruines au centre, 8 biomes (un par élément) avec leurs structures (forges, cabanes, mines, moulins, igloos, usines, cryptes, pylônes), soit 69 bâtiments qui bloquent les déplacements et les projectiles
-- **Zombies (PvPvE)** : Rôdeur, Coureur et Colosse. Les tuer charge l'ultime et peut lâcher un orbe. **Une horde** déferle toutes les 75 s et traque les joueurs.
-- **Portraits de fusion** affichés au tirage et dans le HUD (voir ci-dessous)
-- **3 mannequins IA** pour tester seul (ils tapent aussi les zombies)
-- Mode Mêlée avec réapparition : à chaque mort → **nouveau tirage**
-
-## Portraits de personnages (images IA)
-
-Dépose les images dans `client/public/portraits/`, nommées par fusion :
-
-| Fichier | Fusion |
-|---|---|
-| `feu+vent.jpg` | Tempête de flammes (Homme Phénix) |
-| `eau+feu.jpg` | Vapeur |
-| `feu+terre.jpg` | Magma |
-| `eau+terre.jpg` | Boue |
-| `eau+vent.jpg` | Ouragan |
-| `terre+vent.jpg` | Sable |
-| `feu+feu.jpg` · `eau+eau.jpg` · `terre+terre.jpg` · `vent+vent.jpg` | Formes Pures |
-
-Les 10 portraits sont déjà inclus. Les médaillons en jeu sont dans `client/public/tokens/` (découpe ronde 128×128 du visage). Si une image manque, le jeu fonctionne quand même : un cercle de couleur la remplace.
-
-## Direction artistique (v0.4)
-
-- **Persos** : les 36 illustrations IA sont détourées (`client/public/sprites/`) et affichées debout, animées (respiration, course, orientation, flash d'impact, chute à l'atterrissage).
-- **Carte peinte** : `tools/gen_ground.py` génère le sol (8 biomes, ville pavée, chemins, ombres) en 4 tuiles JPEG.
-- **Bâtiments en vue 3/4** : `tools/gen_buildings.py` dessine les 69 bâtiments (toits, façades, fenêtres, cheminées, effets lumineux).
-- **Décors et effets** : `tools/gen_props.py` crée arbres, rochers, cristaux, lampadaires… et les textures de particules.
-- **Tri par profondeur** : on passe derrière les maisons et les arbres.
-- **Zombies illustrés** : dépose `rodeur.png`, `coureur.png`, `colosse.png` (fond transparent) dans `client/public/zombies/`.
-
-Pour régénérer l'art après avoir modifié la carte :
-```bash
-node tools/export_map.mjs > /tmp/map.json
-python3 tools/gen_ground.py /tmp/map.json client/public/art
-python3 tools/gen_buildings.py /tmp/map.json client/public/art
-python3 tools/gen_props.py client/public/art
-```
+En production (Render, Docker), le serveur sert aussi la page compilée (`client/dist`).
+Variables : `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` (le jeton **normal**, pas le « read only »), `CLANS_SECRET`, `JOURNAL_CLE`.
 
 ## Structure
 
-```
-shared/data.js          ← TOUT l'équilibrage : éléments, fusions, ultimes, tags, interactions
-server/src/ArenaRoom.js ← simulation (20 ticks/s), exécuteur de sorts générique, IA des bots
-server/src/schema.js    ← état synchronisé (joueurs, projectiles, zones, orbes)
-client/src/ArenaScene.js← rendu Phaser, entrées, interpolation, mini-carte
-client/src/hud.js       ← interface : tirage, sorts, classement, kill feed
-```
+- `shared/clans/` : les règles du jeu (cartes, combat, expéditions, profil…), utilisées par le client et le serveur
+- `server/src/` : le serveur Colyseus (`ClansRoom.js`), les profils (`clansProfils.js`) et la sauvegarde (`stats.js`)
+- `client/index.html` et `client/src/clans/` : la page du jeu ; `client/public/clans/` : illustrations, polices, page d'équilibrage
+- `tests/` : tests des règles (`clans*.test.mjs`) et test de bout en bout (`clans_e2e.py`)
 
-## Ajouter un élément (ex. Éclair)
-
-1. Dans `shared/data.js` → `ELEMENTS`, ajoute `eclair` (couleur, tag, basique, offensif, utilitaire, mod).
-2. Ajoute son tag dans `TAGS` (+ logique dans `hit()` côté serveur si c'est un nouvel effet).
-3. Ajoute les fusions `eclair+eau`, `eclair+feu`, `eclair+terre`, `eclair+vent`, `eclair+eclair` dans `FUSIONS`.
-4. (Optionnel) un biome dans `BIOMES`.
-
-Formes d'ultime disponibles : `pluie`, `tornade`, `nova`, `zone`.
-Formes de sort : `projectile`, `eventail`, `impact`, `dash`, `soin`, `bouclier`.
-
-## Prochaines étapes (Phase 1)
-
-- Sprites de personnages en vue du dessus (à partir des portraits) à la place des cercles
-- Passifs de fusion, obstacles et terrain réactif (l'herbe brûle, l'eau gèle)
-- Mode battle royale : zone qui rétrécit, 1 seule vie
-- Prédiction côté client pour un déplacement plus fluide avec du lag
-
-## v0.6 — Classes, corps à corps et ultimes
-- **7 classes** (Bretteur, Brute, Assassin, Tank, Mage, Tireur, Invocateur) attribuées selon la fiche de chaque champion (`shared/champions.js`). Les classes de mêlée frappent vraiment au corps à corps (arcs de coupe, charges, sauts écrasants, tourbillons, frappes dans le dos).
-- **3e sort** sur la touche **F** (technique de classe colorée par le 2e élément).
-- **5 familles d'ultimes spectaculaires** : météore, rayon titanesque, domaine runique, dragon élémentaire, invocation géante — voile d'écran, rayons, cratères, flash et secousse.
-- Le compte à rebours des hordes ne se fige plus.
-- Poses d'attaque IA facultatives : déposez `sprites_atk/<Fusion>.webp` et ajoutez le nom dans `sprites_atk/index.json`. Le sprite change pendant l'attaque.
-
-## v0.7 — Sensations de combat
-- Attaques en 3 temps pour tous les champions : le perso arme son coup, jaillit vers la cible, puis revient, avec une image rémanente et un contour lumineux de son élément.
-- Compteur de **COMBO** (coups enchaînés + dégâts totaux) et séries d'éliminations (Double, Triple, Carnage, Inarrêtable).
-- Élimination : coup de zoom et flash. Impacts : traînée d'étincelles vers la cible.
-- **Ultime prêt** : le perso brille et crépite, avec l'annonce « ULTIME PRÊT — R ».
-- **PV bas** (< 30 %) : les bords de l'écran battent comme un cœur.
-
-## v0.8 — 3 modes, esquive, niveaux, bots malins
-- **🌍 Monde ouvert** (salle `arena`) : zombies, hordes, réapparition infinie.
-- **👑 Battle royale 100** (salle `royale`, 100 places) : les places vides sont remplies par des bots, 1 vie, zone qui rétrécit sur 3 min 30.
-- **🏆 Tournoi** (salle `tournoi`, 8 places) : quarts, demies et finale en duels simultanés, dans des arènes dorées. Chaque duel gagné = +1 niveau et PV remis à fond. Au bout de 75 s, celui qui a le plus de PV gagne.
-- **Esquive** (Espace) : roulade de 230 px, invincible 0,32 s, recharge 2,5 s. Shift reste le sort 2.
-- **Niveaux** : XP gagnée par les dégâts, éliminations, zombies et orbes. À chaque niveau, choisis 1 bonus parmi 3 avec 1/2/3 ou un clic : Puissance, Vivacité, Vitalité, Vitesse, Vampirisme, Âme ardente, Peau de pierre, Œil du tueur. Les niveaux repartent de zéro à chaque nouveau tirage.
-- **Bots** : choisissent les cibles affaiblies, gardent la bonne distance selon leur classe, esquivent les projectiles, sortent des zones dangereuses, fuient vers les orbes à PV bas, restent dans la zone du royale et visent en anticipant.
-- Réseau : les effets visuels ne sont envoyés qu'aux joueurs proches. Battle royale 100 : environ 24 Ko/s par joueur.
-- Rendu : les personnages hors de l'écran ne sont plus animés.
-
-## v0.9 — Jouer entre amis, sur téléphone, et le Titan
-- **Salons privés** : coche « 🔒 Créer un salon privé », choisis un mode, et un code à 4 caractères s'affiche en jeu. Touche-le pour copier ou partager le lien `?salon=CODE`. Tes amis entrent le code puis « Rejoindre un ami ». Il faut le serveur en ligne (Render) : les salons n'existent pas en solo. Côté serveur : `GET /api/salon/:code`, et l'option `prive: true` à la création.
-- **Téléphone et tablette** : un joystick apparaît sous le pouce gauche, avec les boutons ⚔ E ⇧ F 💨 ★ à droite. La visée est automatique sur l'ennemi le plus proche, avec une petite vibration à chaque bouton. La caméra est plus reculée, la mini-carte est en haut à droite, et un message demande de passer en paysage. On peut forcer le mode tactile sur PC avec `?tactile=1`.
-- **Tutoriel** à la première partie (6 étapes, peut être passé).
-- **Titan de la horde** : un boss arrive avec une horde sur trois. Il a 1400 PV, plus si plusieurs joueurs sont connectés. Il fait une onde de choc annoncée au sol, invoque des coureurs, et ne peut pas être immobilisé. L'achever rapporte 220 XP, +60 % d'ultime et 6 orbes. Une barre de vie s'affiche en haut de l'écran. Il repart sous terre au bout de 3 minutes.
-- Le clic gauche attaque immédiatement, même sur un clic très court.
-
-## v0.10 — Nouveau HUD et sorts personnalisés par champion
-- **HUD** : bandeau de fusion avec pastilles d'éléments, portrait rond avec badge de niveau, barre de PV qui change de couleur (vert, jaune, rouge) avec une traînée des dégâts récents, bouclier hachuré. Sorts avec icônes et recharge circulaire, qui scintillent quand ils redeviennent prêts. Ultime dans un anneau qui se remplit. Classement numéroté et fil des éliminations avec portraits.
-- **Sorts par champion** (`client/src/styles.js`) : chacun des 36 champions a sa forme de projectile (plume, bulle, kunaï, shuriken, crâne, prisme, flocon, engrenage, épée, croissant…), une double traînée aux couleurs de ses 2 éléments, des éclats propres à l'impact, et un coup au corps à corps adapté à son arme : croissant (faux, haches), griffes, onde de choc (poings, marteaux), lame qui balaie (épées), double entaille, fissure au sol pour les coups lourds. Les rayons sont décorés aux formes du champion.
-- Nouvelles formes générées par `tools/gen_fx2.py`.
-
-## v0.11 — Défis du jour, titres et événements de carte
-- **Défis du jour** : 3 défis (facile +50, moyen +100, difficile +200 de gloire), les mêmes pour tout le monde le même jour, renouvelés à minuit. Ils sont affichés dans le menu avec leur progression, et une notification apparaît en jeu quand l'un est réussi.
-- **Titres** (21) : débloqués par les statistiques cumulées (Chasseur de zombies, Tueur de Titans, Champion du tournoi, Maître du Feu…). Le titre choisi s'affiche en doré au-dessus de ton pseudo, visible par tous les joueurs. Sauvegarde dans le navigateur (`client/src/progress.js`).
-- **Événements de carte** toutes les 55 à 85 s (Monde ouvert et Battle royale) :
-  - ☄ **Pluie de météores** : des impacts annoncés tombent autour des joueurs.
-  - 💎 **Orbe légendaire** : une colonne dorée visible de loin et sur la mini-carte. Elle donne l'ultime et les PV au maximum.
-  - 🌑 **Éclipse** : l'Ombre fait +30 % de dégâts.
-  - 🌪 **Tempête élémentaire** : un élément au hasard fait +30 % de dégâts.
-  - ✨ **Ruée aux orbes** : 18 orbes supplémentaires, qui donnent deux fois plus.
-
-  Chaque événement a sa pastille avec un compte à rebours et son ambiance à l'écran.
-
-## v0.12 — Retours de test : sorts uniques, ultimes plus rares, carte plus grande
-- **Sorts signature** (`shared/signatures.js`) : chacun des 36 champions a son attaque de base, son sort E, son sort F et le nom de son sort Shift, tous propres à lui (plus de « Estocade · Feu » partagé). Nouvelles formes de sorts :
-  - **salve** : plusieurs tirs à la suite ;
-  - **fissure** : une ligne d'impacts qui avance ;
-  - **boomerang** : le projectile revient vers le lanceur ;
-  - **grappin** : le lanceur fonce sur la cible touchée ;
-  - **tentacule** : ramène la cible vers le lanceur ;
-  - **nova avec recul**.
-- **Ultimes plus rares** :
-  - la recharge passive est passée de 1,5 à 0,45 par seconde ;
-  - la recharge par dégâts passe de 0,8 à 0,32 par point ;
-  - les orbes donnent +7 (au lieu de +20) ;
-  - le Titan donne +30 (au lieu de +60) ;
-  - Âme ardente donne +15 % (au lieu de +25 %) ;
-  - plus aucune recharge pendant 12 s après un ultime.
-
-  En test, chaque bot lance 2 à 4 ultimes en 3 minutes de combat continu.
-- **Carte agrandie x1,4** (5600 × 4200) : 108 bâtiments, sol et bâtiments régénérés, 55 orbes, 24 zombies au départ.
-- **Battle royale à 50 joueurs** : zone de départ plus grande (3700) qui se referme en 4 min. Réseau : environ 19,5 Ko/s par joueur.
-- **Personnage chargé avant le combat** : le serveur ne fait apparaître un joueur qu'après le message `pret`, envoyé quand le jeu a fini de se charger.
-- **Terrains élémentaires** (32 zones) :
-  - **lave** : brûle, sauf les champions de Feu, qui y courent plus vite ;
-  - **eau profonde** : ralentit, sauf les champions d'Eau. Un sort d'Éclair qui touche quelqu'un dans l'eau électrise toute la flaque ;
-  - **glace** : on glisse, sauf les champions de Glace ;
-  - **herbes hautes** : on y devient invisible tant qu'on n'attaque pas.
-
-  Les bots sortent de la lave.
-- **Musiques par mode** (`tools/gen_music2.py`) : Monde ouvert (calme), Battle royale (tendue, avec une musique de combat dans les 10 derniers), Tournoi (taikos et cuivres), et une musique de Titan quand le boss est là. Fondus enchaînés entre les pistes.
-
-## v0.13 — Lumière, Nature et explications des sorts
-- **2 nouveaux éléments**, soit 10 éléments et 55 fusions :
-  - ☀ **Lumière** : aveugle (la cible fait -30 % de dégâts pendant 2,5 s).
-  - 🌿 **Nature** : enlace (ralentit ; un 2e coup immobilise).
-
-  Nouveaux combos : Enraciné, Incendie, Croissance, Purification, Éclipse et Prisme. 19 nouveaux champions, chacun avec sa classe, son arme, ses sorts signature, son style visuel et son ultime (Arc-en-ciel, Aube, Paladin, Séraphin, Archange, Aurore, Crépuscule, Croisé, Floraison, Lumière Pure, Mangrove, Incendie, Gaïa, Sylphe, Ronce-foudre, Taïga, Sombrebois, Ronce d'acier, Nature Pure).
-- **Carte à 10 biomes** (4 colonnes × 3 rangées) : nouveaux biomes ☀ Sanctuaire (dalles de marbre, temples dorés, cristaux de lumière) et 🌿 Forêt ancienne (sous-bois, huttes, herbes hautes). La ville est plus large et les arènes du tournoi ont été déplacées.
-- **Explications des sorts** (`shared/describe.js`), générées à partir des valeurs du sort : ce qu'il fait, ses dégâts, ses effets et sa recharge.
-  - Survol d'une case de sort = infobulle.
-  - **I** ou clic sur le portrait = fiche complète de ton champion.
-  - Clic sur un champion du grimoire = sa fiche, même s'il n'est pas encore obtenu.
-- Illustrations : images provisoires (recoloriées) en attendant les vraies illustrations IA des 19 champions.
-
-## Organisation du code (v15)
-
-- `shared/game/ArenaLogic.js` — cœur d'une salle : arrivées/départs, boucle, apparition, bots ajoutés.
-  - `combat.js` (sorts, projectiles, zones, dégâts, mort), `modes.js` (Battle royale, Tournoi/Classé, Duo, événements),
-    `monstres.js` (zombies, boss, Survie), `bots.js` (IA), `commun.js` (constantes partagées).
-- `client/src/ArenaScene.js` — scène Phaser : chargement, boucle, entrées.
-  - `scene/decor.js` (cartes, mini-carte), `scene/persos.js` (joueurs, prédiction, monstres), `scene/effets.js` (sorts et impacts).
-- `server/src/journal.js` — journal des erreurs, consultable sur `/api/erreurs` (variable `JOURNAL_CLE` pour le protéger).
-
-## Tests
-
-- `npm test` — logique de jeu (une partie accélérée de chaque mode, invariants, saisons, cosmétiques)
-  et vrai serveur (API, comptes, salons privés, reconnexion, messages invalides). ~1 min.
-- `npm run test:navigateur` — dans Chrome (Playwright) : menus PC et téléphone, chaque mode en solo,
-  jeu en ligne avec ~200 ms de latence simulée, reconnexion après coupure. Nécessite `npm run build` avant.
-- `node tools/equilibrage.mjs 4 0.5,0.85 5` — duels de bots entre les 55 champions et recalcul des coefficients.
-
-## Mesures et fiabilité (v18)
-
-- **Compression et cache** : le serveur compresse JS/CSS/HTML/JSON (brotli ou gzip) et les garde en mémoire ; les fichiers de `assets/` sont mis en cache 1 an par le navigateur.
-- **Anti-veille Render** : sur Render, le serveur visite `/health` toutes les 10 min pour ne pas s'endormir. Variable `GARDER_EVEILLE=0` pour le couper.
-- **Mesures de confort** : `/api/mesures` résume les FPS, le ping et le temps d'attente des dernières parties (ajoute `?cle=…` si `JOURNAL_CLE` est défini).
-- **Tests automatiques** : `.github/workflows/tests.yml` lance build + tests à chaque push (onglet Actions sur GitHub).
-
-## Test des visuels des champions (v19-v20)
-
-Réglages > Test des visuels : style des champions (normal, illustration, fait maison, pixel art, 3D rendue en 2D) et champion imposé en solo.
-- Pixel art : `python3 tools/lpc_champion.py <spritesheets LPC> client/public <fusion>` (calques CC BY-SA / GPL, crédits dans `sprites_pixel/`).
-- 3D rendue en 2D : `tools/rendu3d/` — `recolor.py` (texture), `rendu.py` (Blender `pip install bpy`, moteur Workbench), `assembler.py` (planches). Modèles KayKit CC0.
-
-## v22 : équilibrage réel, maîtrise, nouveaux sorts
-
-- `/equilibrage.html` : tableau triable des 55 champions (taux de choix, victoires et kills/mort des vrais joueurs), à partir de `/api/stats`.
-- Maîtrise par champion (navigateur, sauvegardée avec le compte) : 5 niveaux, titres « Disciple · Nom » et « Maître · Nom ».
-- Nouvelles formes de sorts : `soin_zone`, `tourelle` (invocation), `mur` ; ultimes `prison`, `sanctuaire`, `armee` ; tag `etourdi` (statut `stun`).
-
-## Le Conclave des éléments (v23)
-
-Jeu de déduction sociale à 5-10 joueurs, sur le même site et le même serveur : `/conclave/`.
-- Règles et partie (logique pure, testée) : `shared/conclave/regles.js`, `shared/conclave/partie.js`.
-- Salle Colyseus `conclave` : `server/src/ConclaveRoom.js` (vues privées par joueur, reconnexion 60 s, résultats en base via `stats.js`).
-- Page : `client/conclave/index.html` + `client/src/conclave/` (DOM, pas de Phaser).
-- Statistiques : `/api/conclave/stats` (victoires par camp, par réglage).
-- Tests : `tests/conclave.test.mjs` (dont 100 parties complètes jouées par des bots) et section 6 de `tests/navigateur.py`.
-
-## Zone Morte, phase 1 « Socle » (v25)
-Troisième jeu du site, page `/zone-morte/` (bouton dans l'accueil commun). Survie à la Project Zomboid, en solo pour l'instant.
-- `shared/survie/monde.js` : monde **infini** généré par morceaux de 32 × 32 m à partir d'une graine. Régions de 8 × 8 morceaux, une ville sur deux environ (centre commerçant avec supermarché, pharmacie, quincaillerie, commissariat… + quartiers de maisons), campagne entre les villes (champs, forêts, routes). Plus on s'éloigne, plus les villes sont grandes. Seules les modifications (portes, vitres) sont sauvegardées.
-- `shared/survie/physique.js` : déplacement avec collisions, portes (ouvrir / fermer), fenêtres à casser puis enjamber, champ de vision par lancer de rayons, heure (1 journée = 40 min) et obscurité.
-- `client/src/zone-morte/` : rendu Phaser (une texture par morceau, toits qui disparaissent quand on entre, ombre hors du champ de vision, nuit avec halo), carte des zones explorées (M), commandes tactiles, sauvegarde locale.
-- Tests : `tests/zonemorte.test.mjs` + section 8 de `tests/navigateur.py`.
-
-## Zone Morte, phase 2 « Zombies » (v26)
-- `shared/survie/zombies.js` : population par morceau (beaucoup en centre-ville, peu à la campagne), seuls les 5 × 5 morceaux autour du joueur sont simulés, les autres rangés (on garde le nombre). Les zombies **entendent** (pas : 3 m en marchant, 9 m en courant, presque rien accroupi ; vitre : 22 m), **voient** (13 m le jour, 6,5 m la nuit, moitié moins si on est accroupi), **errent**, **poursuivent** en contournant les murs (chemin sur la grille), cassent les fenêtres et **enfoncent les portes** (12 coups).
-- `shared/survie/survivant.js` : santé, endurance, blessures (agrippé, égratignure, lacération, morsure : plus probable encerclé ou pris de dos), saignement, bandages de fortune, infection (une morsure tue en ~1 h réelle), mort définitive.
-- Combat : batte (Espace ou clic, on vise à la souris), bousculer (F ou clic droit), achever un zombie à terre, accroupi (C), se bander (B). Écran de mort et record.
-- Tests : 8 nouveaux dans `tests/zonemorte.test.mjs`, section 8 de `tests/navigateur.py` étendue.
-
-## Zone Morte, phase 3 « Survie » (v27)
-- `shared/survie/objets.js` : 25 objets (nourriture, boissons, soins, 7 armes, lampe, piles, sac, planches, clous), butin par meuble (frigo, placard, évier, armoire, commode, bibliothèque, lit) et par rayon de magasin (supermarché, pharmacie, quincaillerie, station-service, commissariat, boutique), toujours le même pour une graine ; inventaire au poids.
-- `shared/survie/survivant.js` : faim, soif, fatigue (humeurs comme dans Project Zomboid), mort de soif ou de faim, armes qui s'usent et cassent, lampe torche (faisceau qui ne traverse pas les murs, mais les zombies te voient de plus loin), sac à dos, sommeil (le temps passe 30 fois plus vite, un zombie tout près te réveille).
-- Client : fouille (E, 1,2 s, un peu de bruit), panneau inventaire (I ou Tab) avec le meuble à côté, poser des objets par terre (cachettes), boire au robinet et remplir les bouteilles à l'évier, dormir dans un lit, L pour la lampe.
-- Tests : 7 nouveaux dans `tests/zonemorte.test.mjs`, fouille et repas dans `tests/navigateur.py`.
-
-## Zone Morte, phase 4 « Base » (v28)
-- `shared/survie/construction.js` : barricades (R : marteau + planche + 2 clous, jusqu'à 3 planches par porte ou fenêtre, bruyant), démontage (X : un meuble vide donne 2 ou 3 planches avec marteau, pied-de-biche ou hache ; une barricade rend sa planche), cuisine (plat de pâtes, soupe, steak grillé sur la cuisinière ou un feu), feu de camp (dehors, 2 planches + allumettes, 4 h, éclaire la nuit).
-- Les zombies arrachent les planches une à une (8 coups chacune) ; une porte barricadée ne s'ouvre plus ; 2 planches cachent la vue.
-- Viande crue : intoxication possible (8 h, la santé baisse). Nouveaux objets : pâtes, légumes, steak, clous en vrac, allumettes, plats cuisinés.
-- Les meubles servent de rangement (« Poser ici »). Objectifs de départ affichés (manger, outils, barricade, dormir, 3 jours).
-- Tests : 6 nouveaux dans `tests/zonemorte.test.mjs`, barricade dans `tests/navigateur.py`.
-
-## Zone Morte, phase 5 « Profondeur » (v29)
-- `shared/survie/competences.js` : 7 compétences qui montent en faisant (Combat, Tir, Charpenterie, Discrétion, Course, Fouille, Premiers soins ; niveaux 1 à 5) et 6 métiers de départ (Sans emploi, Policier, Charpentier, Infirmier, Coureur, Cuisinier).
-- `shared/survie/tir.js` : pistolet et fusil à pompe (cône, 3 plombs), munitions, rechargement (R), précision selon la distance et la compétence, la balle s'arrête aux murs, détonation entendue à 35-45 m.
-- `shared/survie/evenements.js` : calendrier tiré de la graine. Électricité coupée entre le jour 4 et le jour 6 (cuisinières hors service, frigos qui pourrissent un jour après), eau coupée un ou deux jours plus tard ; hélicoptère le jour 2 ou 3 qui attire les morts ; nuits de horde (de plus en plus fréquentes).
-- Compte et classement : la partie est sauvegardée compressée sur le compte (reprise sur un autre appareil), fin de partie = XP de compte + score envoyé à `/api/zonemorte/score`, classement mondial `/api/zonemorte/classement` affiché dans le menu.
-- Tests : 5 nouveaux dans `tests/zonemorte.test.mjs`, 1 dans `tests/serveur.test.mjs`, métier et fin de partie dans `tests/navigateur.py`.
-
-## Zone Morte en coop (v30)
-- `server/src/ZoneMorteRoom.js` : salle privée `zonemorte` (2 à 4 joueurs, code à 4 lettres, trouvée par `/api/salon/:code`). Le serveur fait vivre le monde partagé : zombies (horde multi-joueurs : chacun poursuit le survivant visible le plus proche), portes et vitres, barricades, contenu des meubles, objets posés, feux, heure (le temps ne file en dormant que si tout le monde dort), hélicoptère et hordes. Photos des zombies proches 10 fois par seconde, messages courts pour le reste, petit chat.
-- Chaque joueur garde son survivant (santé, sac, besoins, compétences) dans son navigateur ; les coups et tirs sont calculés par le serveur, qui renvoie les touches.
-- Client : mode réseau « miroir » dans `client/src/zone-morte/main.js` (variable `net`), autres survivants dessinés avec leur nom, sur la carte aussi ; mort = on repart avec un nouveau survivant dans le même monde.
-- Tests : `tests/serveur.test.mjs` (salle coop), `tests/zonemorte.test.mjs` (horde multi-joueurs), section 9 de `tests/navigateur.py`.
-
-## Les Ombres de Baker Street, chapitre 1 (v31)
-Quatrième jeu du site, page `/enquete/` : enquête en 2D dans le Londres de 1891, où tes choix font de toi un détective… ou un criminel.
-- `shared/enquete/moteur.js` : moteur pur (heure, argent, indices, déductions, jauges Justice/Corruption et Yard/Pègre, lieux et horaires, dialogues à conditions et effets, ruelles dangereuses la nuit, blessures et mort, dormir et reprise au dernier matin, délai, accusation, rapport, titres), plus une vérification automatique d'un chapitre.
-- `shared/enquete/chapitre1.js` : « L'Horloger de Clerkenwell » — 8 lieux, 12 personnages, 16 indices, 5 déductions, 8 fins (Justice rendue, Double jeu, L'erreur, Trop tard, Faute de preuves, Le marché, La recrue, Mort).
-- `client/enquete/` + `client/src/enquete/` : écran titre, carte de Londres (fiacre ou à pied), lieux à fouiller, dialogues avec portraits, carnet (indices, déductions, personnes, journal), rencontres nocturnes, accusation avec preuves, rapport final ; illustrations lues dans `client/public/enquete/img/` (portrait_<id>.jpg, decor_<lieu>.jpg, carte.jpg, titre.jpg), silhouettes à la place tant qu'elles manquent.
-- Sauvegarde dans le navigateur et sur le compte commun ; XP de compte à la fin du chapitre.
-- Tests : `tests/enquete.test.mjs` (14 tests, chaque fin jouée automatiquement), section 10 de `tests/navigateur.py`.
-
-## Les Ombres de Baker Street, chapitre 2 (v33)
-
-« La Chambre forte de la City » (`shared/enquete/chapitre2.js`). La banque Crale est vidée sans effraction, le veilleur Tobias Reed est tué, et le Yard veut pendre Hannah Bright.
-
-- **Héritage du chapitre 1** : à la fin d'un chapitre, `M.heritage(ch, e)` résume la fin, le titre, les jauges, l'argent et les drapeaux. `M.nouvelEtat(ch2, nom, heritage)` les reprend (drapeaux préfixés `prec_`, fin en `prec_fin_<fin>`), puis `ch.heriter()` en tire les conséquences : Arthur libre ou en cellule, Lusk en prison ou dans sa boutique, le Doyen ami (mission : faire tomber Hannah) ou ennemi (ses tueurs rôdent la nuit), Vane qui se souvient de ce que tu as fait.
-- 17 indices, 7 déductions, 9 lieux (nouveau : l'hôtel Crale à Mayfair), 15 personnages (nouveaux : Edmund Crale, Martha Reed).
-- 10 fins : justice, double jeu, erreur, complice, faute de preuves, trop tard, **bras droit du Doyen**, **le nouveau Doyen** (prendre la pègre avec Gros Bill), **maître chanteur**, mort.
-- Écran titre : « Chapitre 2 » repart de la dernière fin du chapitre 1 sauvegardée (sinon « Justice rendue »). Le rapport du chapitre 1 propose « Chapitre suivant ».
-- Rencontres conditionnelles (`cond` sur une rencontre) ; option d'accusation propre à chaque chapitre (`ch.option`).
-- Tests : `tests/enquete2.test.mjs` (héritage + chaque fin jouée).
-
-## Les Ombres de Baker Street : plans vus de dessus et tableau Cluedo (v34)
-
-Le chapitre 1 se joue maintenant comme un Cluedo :
-
-- **Plans vus de dessus** (`shared/enquete/plans1.js`, rendu dans `client/src/enquete/plan.js`). Chaque lieu a plusieurs pièces décrites en ASCII (`#` mur, `+` porte, une lettre par pièce). On dirige son détective avec ZQSD, WASD, les flèches ou un clic (chemin le plus court), et E ou Espace examine le meuble ou parle au personnage le plus proche. La nuit, seule la lumière autour du détective éclaire le plan.
-- **Indices cachés** : plus aucun cadre. Les meubles reliés à une zone donnent l'indice ; les autres sont des leurres (3 minutes perdues). Certains indices restent invisibles tant qu'on ne sait pas quoi chercher (`avant`), par exemple la serrure de l'atelier avant d'avoir vu le verrou.
-- **Tableau du détective** (onglet « Tableau » du carnet, `ch.questions`) : Qui ? Avec quoi ? Comment ? Pourquoi ? On barre les hypothèses. Pour accuser, il faut répondre aux quatre ; une réponse ne compte que si elle est juste ET appuyée par un indice ou une déduction de sa liste `preuves`. Il en faut 3 sur 4 (`M.accuserTableau`). Le rapport de fin détaille le raisonnement.
-- `M.verifierChapitre` contrôle aussi chaque plan : rangées de même longueur, meubles sur le sol, chaque zone reliée à un meuble, tout accessible depuis l'entrée.
-- Le chapitre 2 garde pour l'instant l'ancienne vue (décor peint + zones) ; ses plans arrivent ensuite.
-
-## Les Ombres de Baker Street : enquêteur seulement, chapitres débloqués, plans redessinés (v35)
-
-Remplace les sections v33 et v34 sur l'héritage et les voies criminelles :
-
-- **On est seulement enquêteur.** Plus de pots-de-vin, de Chandelle à rejoindre, de jauges ni de titres. Chaque chapitre a 5 fins : `resolu` (le vrai coupable, avec au moins 3 réponses du tableau justes ET prouvées), `relache` (bon suspect, raisonnement insuffisant), `erreur` (mauvais suspect), `delai` et `mort` (on reprend au matin).
-- **1 chapitre = 1 enquête.** Aucun choix ne passe d'un chapitre à l'autre. Résoudre un chapitre le marque dans la sauvegarde (`ombresBS` = `{ v: 2, resolus: [...], partie }`) et débloque le suivant sur l'écran titre.
-- **Chapitre 2** réécrit en enquête indépendante, avec ses plans (`shared/enquete/plans2.js`, dont l'hôtel Crale de Mayfair) et son tableau Qui / Avec quoi / Comment la chambre forte a été ouverte / Pourquoi.
-- **Plans dessinés en code** (`client/src/enquete/plan.js`) : parquet, damier, dalles, planches, marbre, tapis persans ; murs en relief (papier peint, briques, boiseries) ; une quarantaine de meubles dessinés ; feu animé et fumée ; lumière des lampes, du feu et des fenêtres, obscurité selon l'heure, lanterne du détective la nuit ; poussière, brume, vignettage ; personnages animés avec leur tenue (haut-de-forme de Vane, melon de Gribble, plume de Margot…) qui se tournent vers toi ; caméra qui suit le détective ; nom de la pièce à l'entrée ; portrait au-dessus du personnage dont on s'approche.
+## Historique
 
 ## Les Clans Élémentaires, phase 1 (v36)
 
@@ -948,3 +645,18 @@ Code : messages `groupeInviter`, `groupeRepondre`, `groupePartir`, `groupeEntrer
 - **Récompenses** (à réclamer une fois) : 25 / 50 / 75 / 100 % des cartes, toutes les cartes d'une rareté, la moitié puis tous les monstres d'une terre, les trois titans du Cauchemar, tout le bestiaire. Deux titres à gagner : « Maître du grimoire » (100 % des cartes) et « Savant des bêtes » (tout le bestiaire). Une pastille et un message préviennent quand une récompense est prête.
 
 Le bestiaire commence à zéro pour tout le monde (les anciens combats n'étaient pas notés). Code : `shared/clans/grimoire.js`, `client/src/clans/ui-grimoire.js`, action `grimoireReclamer`, monstres dans `shared/clans/monstres.js` (`autres`, `variante`, `tousDe`). Tests : `tests/clansgrimoire.test.mjs` et l'étape « Grimoire » du test de bout en bout.
+
+## Les Clans Élémentaires : ne plus jamais perdre un personnage (v81)
+
+- **Code de personnage** : dans ☰ → 👥 Personnages et compte, chaque personnage a un bouton **🔑 Code** (son code secret, à garder pour soi). Le champ « Reprendre un personnage avec son code » le recharge sur n'importe quel appareil.
+- **Retrouver un compte ne fait plus perdre de personnage** : la liste des personnages de l'appareil est maintenant fusionnée avec celle du compte (avant, elle était remplacée : entrer le code d'un autre appareil pouvait faire « disparaître » le personnage de celui-ci, qui restait pourtant sauvegardé sur le serveur).
+- **Panne de la sauvegarde** : si la base (Upstash) ne répond pas, le jeu ne repart plus d'un personnage vide. Il garde la copie locale si elle existe, sinon il affiche « la sauvegarde ne répond pas, réessaie ». Et avant de créer un personnage, le serveur vérifie une dernière fois qu'aucun personnage n'est déjà gardé sous ce code.
+- **Test d’écriture au démarrage** : le serveur essaie d’écrire dans Upstash et affiche dans les logs Render « ✅ Écriture dans la base : OK » ou une grosse alerte si le jeton est en lecture seule (c’était le cas : rien n’était enregistré).
+- **Retrouver un personnage perdu à la main** : dans la console Upstash (Data Browser), chercher les clés `arene:stats:clans:*` ; la valeur contient le nom du personnage (`"nom"`), et la fin de la clé (après `clans:`) est son code, à coller dans « Reprendre un personnage avec son code ».
+
+## Un seul jeu : Les Clans Élémentaires (v82)
+
+- Les autres jeux du site (l'Arène des éléments, le Conclave des éléments, Zone Morte, Les Ombres de Baker Street) sont retirés : leur code, leurs images, leurs sons, leurs salles de serveur, leurs adresses d'API et leurs tests.
+- Les Clans sont maintenant la page d'accueil (`/`) ; l'ancienne adresse `/clans/` redirige vers `/`.
+- Le compte du site ne garde plus que le pseudo et la liste des personnages des Clans ; les anciennes données des autres jeux sont oubliées au démarrage du serveur.
+- Phaser n'est plus utilisé : la page est bien plus légère.

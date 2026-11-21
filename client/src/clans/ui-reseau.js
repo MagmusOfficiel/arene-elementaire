@@ -132,6 +132,7 @@ export function brancher(room) {
     room.onLeave((code) => {
       const jeton = room.reconnectionToken;
       room = null;
+      if (code === 4002) return etatChargement('La sauvegarde du jeu ne répond pas pour le moment. Ton personnage est en sécurité. <button class="bouton" onclick="location.reload()">Réessayer</button>');
       if (code === 4001) return etatChargement('Ton profil est ouvert dans un autre onglet. <button class="bouton" onclick="location.reload()">Jouer ici</button>');
       if (code === 4000) return;   // départ voulu (room.leave)
       reconnecter(jeton);

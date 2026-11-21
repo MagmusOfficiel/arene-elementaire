@@ -15,7 +15,7 @@ import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison }
 import { nouveauDuel, jouer as jouerDuel, finTour as finTourDuel, vue as vueDuel, deckValide, PV_DUEL } from '../../shared/clans/duel.js';
 import { BUTIN_DUEL } from '../../shared/clans/profil.js';
 import { BOSS_MONDIAUX, MONDIAL, POINTS, NOMS_CLANS, PALIER_MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial } from '../../shared/clans/mondial.js';
-import { pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lireProjets, ecrireProjets, areneEnregistrer, areneJoueurs, classementArene } from './stats.js';
+import { lireProfilClans, pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lireProjets, ecrireProjets, areneEnregistrer, areneJoueurs, classementArene } from './stats.js';
 import crypto from 'node:crypto';
 import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
@@ -82,13 +82,21 @@ export class ClansRoom extends Room {
     });
     // ---------- profil de combat (deck, PV, essence pour le butin) ----------
     // ---------- les actions qui changent le profil (le serveur fait foi) ----------
-    this.onMessage('act', (c, m = {}) => {
+    const act = (c, m = {}) => {
       const j = this.joueurs.get(c.sessionId); if (!j) return;
       const rep = (o) => c.send('r', { id: m.rid, ...o, profil: j.p ? { p: j.p, sig: signer(j.p), jeton: j.jeton } : null });
       try {
         const f = Object.hasOwn(ACTIONS, m.type) ? ACTIONS[m.type] : null;
         if (!f) return rep({ ok: false, raison: 'Action inconnue.' });
         if (m.type !== 'creer' && !j.p) return rep({ ok: false, raison: 'Profil introuvable.' });
+        // v81 : avant de créer, on vérifie une dernière fois qu'aucun personnage n'est déjà gardé sous ce jeton
+        if (m.type === 'creer' && !j.p && !j.creationVerifiee) {
+          lireProfilClans(j.jeton).then((ex) => {
+            if (ex) { j.p = P.completer(ex); this.arriver(c, j); return rep({ ok: false, raison: 'Ton personnage existe déjà : il est rechargé.' }); }
+            j.creationVerifiee = true; act(c, m);
+          }, () => rep({ ok: false, raison: 'La sauvegarde ne répond pas : réessaie dans une minute.' }));
+          return;
+        }
         if (j.duel || j.manche) return rep({ ok: false, raison: 'Termine d’abord ton combat en cours.' });
         // anti-spam : un seau de 15 actions qui se remplit de 10 par seconde
         const t = Date.now(); j.seau = Math.min(15, (j.seau ?? 15) + ((t - (j.seauT || t)) / 1000) * 10); j.seauT = t;
@@ -103,7 +111,8 @@ export class ClansRoom extends Room {
         if (r.ok && m.type === 'renommer') this.broadcast('chat', { systeme: true, t: `${ancienNom} s’appelle désormais ${j.nom}.` });
         rep({ ok: !!r.ok, raison: r.raison, res: r.res });
       } catch (e) { noterErreur(`clans · act ${m.type}`, e); rep({ ok: false, raison: 'Erreur du serveur.' }); }
-    });
+    };
+    this.onMessage('act', act);
     // les profils modifiés sont enregistrés régulièrement (et au départ du joueur)
     this.clock.setInterval(() => { for (const j of this.joueurs.values()) if (j.sale && j.p) { j.sale = false; enregistrer(j.jeton, j.p); } }, 20000);
     // ---------- filons rares ----------
@@ -459,6 +468,7 @@ export class ClansRoom extends Room {
   // ---------- arrivée : le serveur retrouve le profil du joueur ----------
   async onJoin(client, o = {}) {
     const r = await retrouver({ jeton: o.jeton, copie: o.copie, ancien: o.ancien });
+    if (r.source === 'panne') { client.send('info', { t: 'La sauvegarde du jeu ne répond pas pour le moment : ton personnage est en sécurité, réessaie dans une minute.' }); client.leave(4002); return; }
     // déjà connecté avec ce profil (autre onglet) : on garde le profil en mémoire, l'ancien onglet est fermé
     for (const [id, autre] of this.joueurs) if (autre.jeton === r.jeton && id !== client.sessionId) {
       if (autre.p) r.p = autre.p;

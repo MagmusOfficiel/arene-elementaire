@@ -55,9 +55,13 @@ const propre = (t, n) => String(t || '').replace(/[<>]/g, '').replace(/\s+/g, ' 
 export async function retrouver({ jeton, copie, ancien }) {
   if (!jetonValide(jeton)) jeton = nouveauJeton();
   let p = null, source = 'nouveau';
-  try { p = await lireProfilClans(jeton); if (p) source = 'serveur'; } catch (e) { console.warn('Lecture du profil des Clans impossible :', e.message); }
+  // v81 : si la base ne répond pas, on ne repart JAMAIS d'un profil vide avec ce jeton (créer un personnage
+  // écraserait le vrai) : on garde la copie locale si elle est valide, sinon on refuse l'entrée pour l'instant
+  let panne = false;
+  try { p = await lireProfilClans(jeton); if (p) source = 'serveur'; } catch (e) { panne = true; console.warn('Lecture du profil des Clans impossible :', e.message); }
   if (!p && signatureValide(copie) && copie.jeton === jeton && P.profilValide(copie.p)) { p = copie.p; source = 'copie'; }
   if (!p && ancien) { p = P.assainir(ancien); if (p) source = 'migration'; }
+  if (!p && panne && jeton) return { jeton, p: null, source: 'panne' };
   if (p) P.completer(p);
   return { jeton, p, source };
 }

@@ -7,17 +7,13 @@ import zlib from 'node:zlib';
 import express from 'express';
 import colyseus from 'colyseus';
 import { WebSocketTransport } from '@colyseus/ws-transport';
-import { ArenaRoom } from './ArenaRoom.js';
-import { ConclaveRoom } from './ConclaveRoom.js';
-import { ZoneMorteRoom } from './ZoneMorteRoom.js';
 import { ClansRoom } from './ClansRoom.js';
 import { noterErreur, listeErreurs } from './journal.js';
 import { noterMesure, resumeMesures } from './mesures.js';
-import { statsConclave, partieZoneMorte, classementZoneMorte } from './stats.js';
 import { equilibrage, remettreEquilibrage } from './stats.js';
 import { CARTES as CARTES_CLANS } from '../../shared/clans/cartes.js';
 import { MONSTRES as MONSTRES_CLANS, BOSS_CAUCHEMAR } from '../../shared/clans/monstres.js';
-import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance, rapportFusions, classement, classementCote, coteDe, placeDe, classementSurvie, palmares } from './stats.js';
+import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance } from './stats.js';
 
 const PORT = Number(process.env.PORT || 2567);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,7 +28,6 @@ app.use((req, res, next) => {
 app.use('/api/compte', express.json({ limit: '100kb' }));
 app.use('/api/erreurs', express.json({ limit: '8kb' }));
 app.use('/api/mesures', express.json({ limit: '4kb' }));
-app.use('/api/zonemorte', express.json({ limit: '2kb' }));
 
 // Journal des erreurs (serveur + navigateurs)
 process.on('uncaughtException', (e) => noterErreur('serveur', e));
@@ -82,11 +77,8 @@ app.post('/api/clans/equilibrage/reset', (req, res) => {
 });
 
 // Comptes : créer, lire, sauvegarder (le code du compte sert de clé)
-// zm : la partie de Zone Morte en cours ; enquete : celle des Ombres de Baker Street (compressée, 48 ko au plus) ; zmRecord : sa meilleure survie
-const zmRecordValide = (r) => (r && typeof r === 'object' ? { jours: Math.min(365, Number(r.jours) || 0), tues: Math.floor(Number(r.tues) || 0) } : undefined);
-const contenuCompte = (b) => (b && typeof b === 'object' ? { progression: b.progression, classe: b.classe, grimoire: b.grimoire, survie: b.survie, pseudo: String(b.pseudo || '').slice(0, 16),
-  zm: typeof b.zm === 'string' && b.zm.length <= 48000 ? b.zm : undefined, zmRecord: zmRecordValide(b.zmRecord),
-  enquete: typeof b.enquete === 'string' && b.enquete.length <= 30000 ? b.enquete : undefined,
+// le compte ne garde que la liste des personnages des Clans (et le pseudo)
+const contenuCompte = (b) => (b && typeof b === 'object' ? { pseudo: String(b.pseudo || '').slice(0, 16),
   clans: typeof b.clans === 'string' && b.clans.length <= 30000 ? b.clans : undefined,
   clansPersos: Array.isArray(b.clansPersos) ? b.clansPersos.slice(0, 6).filter((x) => x && typeof x.jeton === 'string' && x.jeton.length <= 80).map((x) => ({ jeton: x.jeton, nom: String(x.nom || '').slice(0, 16), clan: String(x.clan || '').slice(0, 8), classe: String(x.classe || '').slice(0, 12), niv: +x.niv || 1, branche: String(x.branche || '').slice(0, 12) })) : undefined } : {});   // clans : le profil des Clans Élémentaires   // enquete : la partie des Ombres de Baker Street
 const anti = new Map();   // limite simple : 1 création toutes les 20 s par adresse
@@ -110,41 +102,15 @@ app.put('/api/compte/:code', async (req, res) => {
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 app.get('/health', (_req, res) => res.send('ok'));
-// Salon privé : code à 4 caractères -> identifiant de salle
-app.get('/api/salon/:code', async (req, res) => {
-  const code = String(req.params.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-  const rooms = await colyseus.matchMaker.query({});
-  const r = rooms.find((x) => x.metadata?.code === code);
-  if (!r) return res.status(404).json({ erreur: 'Salon introuvable' });
-  res.json({ roomId: r.roomId, mode: r.metadata.mode, joueurs: r.clients, max: r.maxClients });
-});
-app.get('/api/conclave/stats', (req, res) => res.json(statsConclave(req.query.nom ? String(req.query.nom).slice(0, 16) : null)));
 app.get('/api/version', (_req, res) => res.json({ version: VERSION_JEU, sauvegarde: persistance }));
-app.get('/api/stats', (_req, res) => res.json(rapportFusions()));       // équilibrage par fusion
-app.get('/api/classement', (_req, res) => res.json(classement(10)));   // meilleurs joueurs
-// Mode classé : top 20 de la saison, et ma cote / ma place
-app.get('/api/classe', (_req, res) => res.json(classementCote(20)));
-app.get('/api/palmares', (_req, res) => res.json(palmares()));   // top 10 des saisons terminées
-app.get('/api/survie', (_req, res) => res.json(classementSurvie(10)));
-// Zone Morte : fin de partie (une par minute et par adresse) et classement
-const antiZm = new Map();
-app.post('/api/zonemorte/score', (req, res) => {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress, t = antiZm.get(ip) || 0;
-  if (Date.now() - t < 60000) return res.status(429).json({ erreur: 'Trop de parties envoyées.' });
-  antiZm.set(ip, Date.now()); if (antiZm.size > 5000) antiZm.clear();
-  res.json({ place: partieZoneMorte(req.body || {}) });
-});
-app.get('/api/zonemorte/classement', (_req, res) => res.json(classementZoneMorte(10)));
-app.get('/api/classe/:jeton', (req, res) => {
-  const j = String(req.params.jeton || '').slice(0, 40), c = coteDe(j);
-  res.json(c ? { ...c, place: placeDe(j) } : null);
-});
+// les anciennes adresses des Clans (/clans/) mènent à la page d'accueil
+app.get(['/clans', '/clans/', '/clans/index.html'], (_req, res) => res.redirect(301, '/'));
 
 // En production, le serveur sert aussi le client compilé (client/dist)
 const dist = path.resolve(__dirname, '../../client/dist');
 if (fs.existsSync(dist)) {
   // Compression : les fichiers texte (JS, CSS, HTML, JSON) sont compressés une fois puis gardés en mémoire.
-  // Phaser passe ainsi de 1,2 Mo à ~0,25 Mo. Les images (webp) et sons (ogg) sont déjà compressés.
+  // Les images (webp) sont déjà compressées.
   const compresses = new Map();
   const TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
   app.use((req, res, next) => {
@@ -191,18 +157,10 @@ function cacheDe(chemin) {
 
 const httpServer = http.createServer(app);
 const gameServer = new colyseus.Server({ transport: new WebSocketTransport({ server: httpServer }) });
-gameServer.define('arena', ArenaRoom, { mode: 'melee' });
-gameServer.define('royale', ArenaRoom, { mode: 'royale' });
-gameServer.define('tournoi', ArenaRoom, { mode: 'tournoi' });
-gameServer.define('classe', ArenaRoom, { mode: 'tournoi', classe: true });
-gameServer.define('survie', ArenaRoom, { mode: 'survie' });
-gameServer.define('duo', ArenaRoom, { mode: 'duo' });
-gameServer.define('conclave', ConclaveRoom);   // Le Conclave des éléments (page /conclave)
-gameServer.define('zonemorte', ZoneMorteRoom);   // Zone Morte en coop (page /zone-morte)
-gameServer.define('clans', ClansRoom);   // Les Clans Élémentaires : le monde partagé (page /clans)
+gameServer.define('clans', ClansRoom);   // Les Clans Élémentaires : le monde partagé
 
 gameServer.listen(PORT).then(() => {
-  console.log(`⚔️  Arène Élémentaire — serveur sur http://localhost:${PORT}`);
+  console.log(`⚜️  Les Clans Élémentaires — serveur sur http://localhost:${PORT}`);
   garderEveille();
 });
 

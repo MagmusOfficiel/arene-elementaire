@@ -16,7 +16,6 @@ import * as T from '../../../shared/clans/territoires.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { feuillePerso, dessinerAura } from './monde.js';
 import { sfx } from '../sfx.js';
-import { progress } from '../progress.js';
 import { lancerCombat } from './ui-combat.js';
 import { $, ICO_RESS, ILLUS, carteHTML, coutHTML, esc, etoiles, nf, p, statut, texteCarte, toast } from './ui-commun.js';
 import { dansMonde, fermer, guide, ouvrir } from './ui-monde.js';
@@ -277,12 +276,11 @@ export function traiterSalle(id, r) {
   lancerCombat(X.combatDe(p, id), r.type);
 }
 export function bilanExpedition(r) {
-  const mat = ELEMENTS[r.territoire].materiau, xp = r.fin === 'victoire' ? 150 * r.palier : 40;
-  try { progress.gagnerXp(xp); progress.save(); } catch { /* rien */ }
+  const mat = ELEMENTS[r.territoire].materiau;
   statut('libre');
   ouvrir(`<h2>${r.fin === 'victoire' ? '👑 Expédition réussie !' : '💀 Expédition terminée'}</h2>
     <p>${r.fin === 'victoire' ? 'Le boss est tombé.' : 'Tu rentres au village en boitant, avec la moitié de ton butin.'}</p>
-    <p class="recolte">Tu ramènes <b>${nf(r.gainTotal.essence)} ${ICO_RESS.essence}</b> et <b>${nf(r.gainTotal[mat])} ${ICO_RESS[mat]}</b>${r.gainTotal[RARES[r.territoire].id] ? ` et <b>${r.gainTotal[RARES[r.territoire].id]} ${ICO_RESS[RARES[r.territoire].id]}</b>` : ''} · +${xp} XP de compte${r.bonus ? ` <small>(dont +${Math.round(r.bonus * 100)} % du ${PJ.PROJETS.eau.ico} ${PJ.PROJETS.eau.nom})</small>` : ''}</p>
+    <p class="recolte">Tu ramènes <b>${nf(r.gainTotal.essence)} ${ICO_RESS.essence}</b> et <b>${nf(r.gainTotal[mat])} ${ICO_RESS[mat]}</b>${r.gainTotal[RARES[r.territoire].id] ? ` et <b>${r.gainTotal[RARES[r.territoire].id]} ${ICO_RESS[RARES[r.territoire].id]}</b>` : ''}${r.bonus ? ` <small>(dont +${Math.round(r.bonus * 100)} % du ${PJ.PROJETS.eau.ico} ${PJ.PROJETS.eau.nom})</small>` : ''}</p>
     ${annonceFamilier(r.familier)}
     ${r.debloque ? `<p>🔓 <b>${PALIERS[r.debloque - 1].nom}</b> débloqué dans les ${esc(TERRITOIRES[r.territoire].nom)} !</p>` : ''}
     <button class="bouton" id="btOk">Retour au monde</button>`, () => { placerVignettes(); $('btOk').onclick = fermer; });
