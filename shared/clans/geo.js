@@ -27,7 +27,9 @@ export function bruit(x, y) { return Math.sin(x * 0.013 + Math.sin(y * 0.021) * 
 const bruitL = (x, y) => bruit(x * 0.5, y * 0.5);   // grandes formes (côtes, lacs de lave)
 
 // v87 : les Terres Brisées (neutres, sans clan), au sud
-export const dansFaille = (x, y) => y > FAILLE_Y + bruitL(x, y) * 26;
+// la lisière n'est pas droite : elle ondule et se déchire (v87)
+export const lisiereFaille = (x) => FAILLE_Y + 26 + Math.sin(x / 140) * 22 + Math.sin(x / 47 + 1.3) * 9 + bruitL(x, FAILLE_Y) * 20;
+export const dansFaille = (x, y) => y > lisiereFaille(x);
 // à quel territoire appartient un point (null : le Carrefour ou les Terres Brisées, neutres)
 export function territoireDe(x, y) {
   if (dansFaille(x, y)) return null;
@@ -99,7 +101,7 @@ export function obstacles() {
     const v = alea(tx * 13.7 + ty * 71.3);
     if (v > (bord ? 0.75 : DENS[s])) continue;
     const t = territoireDe(x, y), w = alea(tx * 3.1 + ty * 9.7);
-    const type = dansFaille(x, y) ? (w < 0.5 ? 'cristal' : w < 0.8 ? 'rocher' : 'arbre_mort') : !t ? (w < 0.6 ? 'arbre' : 'buisson') : t === 'feu' ? (w < 0.45 ? 'rocher' : w < 0.8 ? 'arbre_mort' : 'cristal') : t === 'eau' ? (w < 0.6 ? 'palmier' : w < 0.85 ? 'rocher_clair' : 'corail') : (w < 0.7 ? 'pin' : w < 0.9 ? 'arbre' : 'champignon');
+    const type = dansFaille(x, y) ? (w < 0.45 ? 'cristal_vide' : w < 0.75 ? 'rocher_vide' : w < 0.9 ? 'arbre_vide' : 'obelisque') : !t ? (w < 0.6 ? 'arbre' : 'buisson') : t === 'feu' ? (w < 0.45 ? 'rocher' : w < 0.8 ? 'arbre_mort' : 'cristal') : t === 'eau' ? (w < 0.6 ? 'palmier' : w < 0.85 ? 'rocher_clair' : 'corail') : (w < 0.7 ? 'pin' : w < 0.9 ? 'arbre' : 'champignon');
     l.push({ x, y, tx, ty, t, type, r: 7 }); grille[i] = 1;
   }
   // les maisons : 3 tuiles de large, 2 de profondeur

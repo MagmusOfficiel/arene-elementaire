@@ -6,7 +6,7 @@
 //    des petits sprites dessinés en code, triés par profondeur (y) ;
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
-import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, NIV_FAILLE, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
+import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, lisiereFaille, NIV_FAILLE, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
 import { dessinerMonture, selleDe, decalageFlot } from './montureArt.js';
@@ -21,7 +21,7 @@ import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
 import { PIECES, lireCode } from '../../../shared/clans/apparence.js';
 export { MONDE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe };
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
-const COUL = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a' };
+const COUL = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a', brisees: '#8a60e0' };   // v87 : la Faille
 const POLICE = '"Nunito", system-ui, sans-serif';   // v63 : lisible, chiffres nets (la police pixel rendait les chiffres illisibles)
 try { for (const w of [700, 800, 900]) document.fonts?.load(`${w} 14px Nunito`); } catch { /* rien */ }
 
@@ -115,6 +115,8 @@ async function peindreSol(obs, progres) {
           else if (bord2 && s === 'lave') col = hex('#ff9a2a');
           else if (bord2 && (x * 7 + y * 3) % 5 === 0) col = hex('#cfeeff');
         } else if ((vois[3] && LIQUIDE.has(vois[3]) && ly > 13) || (vois[2] && LIQUIDE.has(vois[2]) && ly < 1)) k = 0.75;
+        // v87 : la lisière des Terres Brisées — une fissure sombre qui luit en violet
+        if (y > FAILLE_Y - 30 && y < FAILLE_Y + 120 && ss !== 'dalle' && ss !== 'chemin') { const e = y - lisiereFaille(x); if (e > -2 && e < 2) col = hex('#0e0818'); else if (e >= 2 && e < 4) col = (x + y) & 1 ? hex('#b080ff') : hex('#6a3ac0'); else if (e <= -2 && e > -6) k *= 0.7; }
         const i = (y * MONDE.l + x) * 4; d[i] = col[0] * k; d[i + 1] = col[1] * k; d[i + 2] = col[2] * k; d[i + 3] = 255;
       }
     }
@@ -172,10 +174,15 @@ const DECOR = {
   rocher_clair: sprite(22, 18, (P, D) => { D(11, 10, 7, '#6e6a60'); D(10, 9, 6, '#9a9488'); D(8, 7, 3, '#c4beb0'); }),
   arbre_mort: sprite(26, 38, (P) => { P('#3a2a22', 11, 12, 4, 25); P('#2a1c16', 13, 12, 2, 25); P('#3a2a22', 6, 14, 5, 2); P('#3a2a22', 5, 9, 2, 6); P('#3a2a22', 15, 18, 6, 2); P('#3a2a22', 19, 12, 2, 7); P('#3a2a22', 10, 5, 2, 8); P('#3a2a22', 14, 7, 2, 6); P('#ff6a20', 12, 30, 1, 1); }),
   cristal: sprite(20, 26, (P) => { const sh = (x, y, w, h, c1, c2) => { for (let k = 0; k < h; k++) { const ww = k < 3 ? k + 1 : w; P(c1, x + (w - ww) / 2 | 0, y + k, ww, 1); } P(c2, x + 1, y + 2, 1, h - 3); }; sh(8, 3, 5, 20, '#d8302a', '#ffb0a0'); sh(3, 10, 4, 13, '#a8201a', '#ff7a60'); sh(13, 8, 4, 15, '#ff5a2a', '#ffd0a0'); }),
+  // v87 : le décor des Terres Brisées
+  cristal_vide: sprite(20, 28, (P) => { const sh = (x, y, w, h, c1, c2) => { for (let k = 0; k < h; k++) { const ww = k < 3 ? k + 1 : w; P(c1, x + (w - ww) / 2 | 0, y + k, ww, 1); } P(c2, x + 1, y + 2, 1, h - 3); }; sh(8, 2, 5, 23, '#7a48d8', '#e0c8ff'); sh(3, 11, 4, 14, '#4a2a9a', '#a080ff'); sh(13, 8, 4, 17, '#5a8ae8', '#c8f0ff'); P('#ffffff', 10, 4); }),
+  rocher_vide: sprite(22, 18, (P, D) => { D(11, 10, 7, '#141020'); D(10, 9, 6, '#2a2438'); D(9, 7, 3, '#463c5c'); P('#b080ff', 14, 11, 2, 1); P('#b080ff', 7, 12, 1, 1); }),
+  arbre_vide: sprite(26, 38, (P) => { P('#2a2234', 11, 12, 4, 25); P('#1a1424', 13, 12, 2, 25); P('#2a2234', 6, 14, 5, 2); P('#2a2234', 5, 9, 2, 6); P('#2a2234', 15, 18, 6, 2); P('#2a2234', 19, 12, 2, 7); P('#2a2234', 10, 5, 2, 8); P('#2a2234', 14, 7, 2, 6); P('#c8a0ff', 5, 8); P('#c8a0ff', 19, 11); P('#80e0ff', 10, 4); P('#9a70ff', 12, 28, 2, 1); }),
+  obelisque: sprite(18, 40, (P) => { P('#3a3448', 5, 6, 8, 32); P('#4e4660', 5, 6, 3, 32); P('#2a2434', 4, 36, 10, 3); P('#3a3448', 7, 2, 4, 4); P('#1a1624', 9, 14, 1, 9); P('#1a1624', 8, 22, 2, 1); P('#b080ff', 8, 10, 2, 2); P('#80e0ff', 8, 26, 2, 1); }),
   corail: sprite(20, 18, (P) => { for (const [x, h] of [[5, 10], [9, 14], [13, 9], [16, 6]]) { P('#e8506a', x, 17 - h, 2, h); P('#ff8a9a', x, 17 - h, 1, 2); } P('#e8506a', 6, 9, 3, 2); P('#e8506a', 11, 6, 3, 2); }),
   champignon: sprite(20, 20, (P, D) => { P('#e8dcc0', 8, 10, 4, 8); P('#c8bca0', 10, 10, 2, 8); for (let y = 0; y < 7; y++) { const w = Math.min(8, 3 + y * 2); P('#c82a2a', 10 - w, 3 + y, w * 2, 1); } P('#fff', 6, 5, 2, 2); P('#fff', 11, 4, 2, 1); P('#fff', 13, 7, 2, 2); P('#8a1a1a', 2, 9, 16, 1); }),
 };
-const ancreDecor = { arbre: [16, 40], pin: [13, 42], buisson: [10, 14], palmier: [18, 45], rocher: [11, 16], rocher_clair: [11, 16], arbre_mort: [13, 37], cristal: [10, 24], corail: [10, 17], champignon: [10, 18] };
+const ancreDecor = { arbre: [16, 40], pin: [13, 42], buisson: [10, 14], palmier: [18, 45], rocher: [11, 16], rocher_clair: [11, 16], arbre_mort: [13, 37], cristal: [10, 24], cristal_vide: [10, 26], rocher_vide: [11, 16], arbre_vide: [13, 37], obelisque: [9, 38], corail: [10, 17], champignon: [10, 18] };
 
 function spriteMaison(k) {
   const mur = { feu: ['#4a3a36', '#3a2c28'], eau: ['#ece4d0', '#c8bca0'], plante: ['#8a5a30', '#6a4220'] }[k];

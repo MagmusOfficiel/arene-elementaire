@@ -717,3 +717,11 @@ Le bestiaire commence à zéro pour tout le monde (les anciens combats n'étaien
 - Le niveau reste recalculé à chaque connexion depuis les victoires et les boss (rien à migrer). Les joueurs actuels redescendent (ex. 100 victoires + 25 boss : 67 → 28), mais gardent tout ce qu'ils ont déjà débloqué ou acheté (branche d'Ascension, montures, décorations).
 - Au survol du niveau dans la barre du haut : l'XP actuelle et l'XP qu'il faut pour le niveau suivant.
 - La liste « Revenir à un personnage » n'affiche plus de niveau au-delà du maximum (un vieux « niv. 100 » d'avant la v83 traînait dans certains comptes), et le serveur plafonne ce chiffre.
+
+## Correctifs des Terres Brisées (v89)
+
+- **Bug majeur corrigé** : en approchant de la Faille, le dessin de la carte plantait à chaque image (la couleur de la région manquait) → plus de portail, plus de minimap, plus de noms ni de « ! » au-dessus des habitants. Tout s'affiche de nouveau.
+- La lisière de la Faille n'est plus une ligne droite : elle ondule et forme une fissure sombre qui luit en violet.
+- Décor propre à la région : cristaux violets, roches d'obsidienne, arbres morts aux lueurs violettes, obélisques brisés (au lieu des cristaux rouges et des cactus du Feu).
+- Le bandeau affiche « 🌀 Les Terres Brisées » en entrant (au lieu de « Le Carrefour »).
+- Tests : variable `CLANS_TEST_NIVEAU` pour lancer le serveur de test avec un personnage de haut niveau.

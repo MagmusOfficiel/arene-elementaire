@@ -2,6 +2,7 @@
 //  LES CLANS ÉLÉMENTAIRES — le choix du clan, la carte, la barre du haut, le son, le guide et les commandes tactiles
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import * as G from '../../../shared/clans/geo.js';
 import { cleMaison } from '../../../shared/clans/geo.js';
 import * as QP from '../../../shared/clans/quetesPnj.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -127,11 +128,12 @@ export const monde = creerMonde($('monde'), {
     else if (l.action === 'defier') { if (p.expedition) return toast('Termine d’abord ton expédition.'); room?.send('defier', { cible: l.id }); }
   },
   position: (j) => {
-    const t = monde.territoire();
+    const t = G.dansFaille(j.x, j.y) ? 'brisees' : monde.territoire();   // v87
     if (t !== derniereTerr) {
       derniereTerr = t;
       const b = $('bandeau');
-      if (!t) { b.className = ''; b.textContent = 'Le Carrefour — terre neutre'; }
+      if (t === 'brisees') { b.className = ''; b.textContent = '🌀 Les Terres Brisées — terre sans clan, monstres fusionnés'; }
+      else if (!t) { b.className = ''; b.textContent = 'Le Carrefour — terre neutre'; }
       else if (t === p.clan) { b.className = ''; b.textContent = `${TERRITOIRES[t].ico} ${TERRITOIRES[t].nom} — ton territoire`; }
       else { b.className = 'ennemi'; b.innerHTML = `⚠️ ${esc(TERRITOIRES[t].nom)} — territoire du ${esc(ELEMENTS[t].clan)}. Ses joueurs peuvent t'attaquer ici. Filons : ${ICO_RESS[RARES[t].id]} ${esc(RARES[t].nom)}.`; }
       clearTimeout(b._t); b._t = setTimeout(() => b.classList.add('cache'), 5000);
