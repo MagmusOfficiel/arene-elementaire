@@ -116,7 +116,7 @@ test('Cauchemar : débloqué après le palier III, 2 malédictions fixes, monstr
 test('apparence : achat, pièces gagnées, code réseau, rien de truqué', async () => {
   const P = await import('../shared/clans/profil.js'), AP = await import('../shared/clans/apparence.js');
   const p = P.nouveauProfil('eau', 'T', 0, 'tireur');
-  assert.equal(AP.code(p), 't_clan.c_clan.h_classe.a_aucune');
+  assert.equal(AP.code(p), 't_clan.c_clan.h_classe.a_aucune.l_aucune.r_aucune.k_aucune');
   p.ress.essence = 500;
   assert.equal(AP.acheter(p, 't_or').ok, false);                       // trop cher
   assert.ok(AP.acheter(p, 't_nuit').ok); assert.equal(p.ress.essence, 100);
@@ -127,5 +127,5 @@ test('apparence : achat, pièces gagnées, code réseau, rien de truqué', async
   assert.equal(AP.acheter(p, 'h_couronne').ok, false);                 // ça se gagne, ça ne s'achète pas
   p.arene.meilleur = 1000; assert.equal(AP.portee(p).chapeau, 'h_classe');   // plus le droit : on revient à la base
   for (const id of ['__proto__', 'constructor', 'toString', 'x']) { assert.equal(AP.acheter(p, id).ok, false); assert.equal(AP.porter(p, id).ok, false); }
-  assert.deepEqual(AP.lireCode('t_nuit.<script>.h_paille.zz'), { tenue: 't_nuit', cheveux: 'c_clan', chapeau: 'h_paille', aura: 'a_aucune' });
+  assert.deepEqual(AP.lireCode('t_nuit.<script>.h_paille.zz'), { tenue: 't_nuit', cheveux: 'c_clan', chapeau: 'h_paille', aura: 'a_aucune', ailes: 'l_aucune', arme: 'r_aucune', cape: 'k_aucune' });
 });

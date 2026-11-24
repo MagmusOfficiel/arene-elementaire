@@ -149,13 +149,19 @@ button { font: inherit; cursor: pointer; }
 .statut { font-size: 12px; background: rgba(0,0,0,.6); border-radius: 8px; padding: 1px 6px; cursor: help; }
 @keyframes monte { to { transform: translateY(-60px); opacity: 0; } }
 
-/* messages éphémères : en bas au centre, ils ne cachent plus le titre des fenêtres ni la barre (v61) */
-#toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(560px, 92vw); }
-.toast { pointer-events: auto; cursor: pointer; background: linear-gradient(rgba(22,16,30,.96), rgba(10,8,16,.96)); border: 1px solid rgba(232,192,96,.7); box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06); padding: 9px 18px; border-radius: 12px; text-align: center; line-height: 1.4; animation: toast var(--duree, 3.2s) forwards; }
+/* messages éphémères (v83) : en haut à droite, sous la barre ; on clique au travers, ils ne gênent jamais */
+#toasts { position: fixed; top: calc(var(--hautBarre, 56px) + 10px); right: 12px; z-index: 80; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; width: min(340px, 86vw); }
+.toast { pointer-events: none; background: linear-gradient(rgba(22,16,30,.93), rgba(10,8,16,.93)); border: 1px solid rgba(232,192,96,.55); border-left: 4px solid var(--or, #e8c060); box-shadow: 0 6px 20px rgba(0,0,0,.5); padding: 8px 14px; border-radius: 10px; line-height: 1.35; font-size: 14px; animation: toast var(--duree, 3.2s) forwards; }
 .toast.rejoue { animation: toastRejoue .3s, toast var(--duree, 3.2s) forwards; }
-@keyframes toast { 0% { opacity: 0; transform: translateY(12px) scale(.97); } 6%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes toast { 0% { opacity: 0; transform: translateX(30px); } 6%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(16px); } }
 @keyframes toastRejoue { 50% { transform: scale(1.04); } }
-body.tactile #toasts { bottom: 168px; }
+body.tactile #toasts { top: calc(var(--hautBarre, 56px) + 6px); width: min(300px, 80vw); }
+body.tactile .toast { font-size: 13px; padding: 6px 11px; }
+/* l'historique des messages (🔔) */
+.notifs { display: flex; flex-direction: column; gap: 6px; }
+.notif { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,.05); line-height: 1.4; }
+.notif small { display: block; opacity: .6; font-size: 11px; }
+#btNotifs { position: relative; }
 
 /* ---------- classes ---------- */
 .etape { margin: 4px 0 -4px; color: var(--or); letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
@@ -204,8 +210,8 @@ body.tactile #toasts { bottom: 168px; }
 
 /* ---------- quêtes ---------- */
 #barre button { position: relative; }
-#pastilleQ, #pastilleP { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #e8402a; color: #fff; font: bold 11px/18px system-ui, sans-serif; font-style: normal; text-align: center; box-shadow: 0 0 8px #e8402a; animation: pastille 1.4s ease-in-out infinite; }
-#pastilleQ.cache, #pastilleP.cache { display: none; }
+#pastilleQ, #pastilleP, #pastilleN { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #e8402a; color: #fff; font: bold 11px/18px system-ui, sans-serif; font-style: normal; text-align: center; box-shadow: 0 0 8px #e8402a; animation: pastille 1.4s ease-in-out infinite; }
+#pastilleQ.cache, #pastilleP.cache, #pastilleN.cache { display: none; }
 @keyframes pastille { 50% { transform: scale(1.15); } }
 .quetes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .quete { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); }
@@ -461,7 +467,7 @@ button.lien { background: none; border: none; color: #a89c84; text-decoration: u
 .lienFiche { cursor: pointer; } .lienFiche:hover { text-decoration: underline; }
 .ficheHaut { display: flex; gap: 18px; align-items: center; margin-bottom: 12px; }
 .ficheHaut h2 { margin: 0; }
-.portraitFiche { image-rendering: pixelated; width: 80px; height: 130px; background: radial-gradient(circle at 50% 60%, rgba(232,192,96,.18), transparent 70%); border-radius: 12px; }
+.portraitFiche { image-rendering: pixelated; width: 120px; height: 130px; background: radial-gradient(circle at 50% 60%, rgba(232,192,96,.18), transparent 70%); border-radius: 12px; }
 .titreFiche { margin: 2px 0 6px; color: #ffd870; font-style: italic; }
 .famFiche { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 13px; color: #c8bca4; }
 .famFiche canvas { image-rendering: pixelated; width: 24px; height: 22px; }
@@ -790,3 +796,109 @@ kbd { display: inline-block; min-width: 18px; text-align: center; font: bold 11p
 .grRec.pret { background: rgba(232,192,96,.14); border: 1px solid var(--or); } .grRec.recu { opacity: .55; }
 .grIco { font-size: 22px; } .grOk { color: #7ae07a; font-size: 20px; } .grProg { opacity: .8; font-size: 13px; white-space: nowrap; }
 @media (max-width: 600px) { [data-vue="grimoire"] .filtres button { font-size: 13px; padding: 4px 9px; } .bestiaire { grid-template-columns: repeat(2, 1fr); } .bete .portrait { width: 72px; height: 72px; line-height: 72px; font-size: 42px; } }
+/* ---------- v83 : la fête du niveau (on clique au travers) ---------- */
+.feteNiveau { position: fixed; inset: 0; z-index: 90; pointer-events: none; display: flex; align-items: center; justify-content: center; animation: fnFond 3.2s forwards; }
+@keyframes fnFond { 0% { background: rgba(0,0,0,0); } 10%, 75% { background: radial-gradient(circle, rgba(40,26,6,.55), transparent 60%); } 100% { background: rgba(0,0,0,0); } }
+.fnRayons { position: absolute; width: 520px; height: 520px; border-radius: 50%; background: repeating-conic-gradient(rgba(255,216,112,.28) 0 10deg, transparent 10deg 22deg); animation: fnTourne 3.2s linear forwards; mask: radial-gradient(circle, #000 30%, transparent 70%); -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); }
+@keyframes fnTourne { 0% { transform: scale(.2) rotate(0); opacity: 0; } 15% { opacity: 1; transform: scale(1) rotate(20deg); } 80% { opacity: 1; } 100% { transform: scale(1.2) rotate(70deg); opacity: 0; } }
+.fnCarte { position: relative; text-align: center; padding: 18px 46px; border-radius: 16px; background: linear-gradient(#2a1c08, #120c04); border: 2px solid #e8c060; box-shadow: 0 0 40px rgba(232,192,96,.6), inset 0 0 20px rgba(232,192,96,.25); animation: fnCarte 3.2s cubic-bezier(.2,1.6,.4,1) forwards; }
+.fnCarte small { display: block; font: 600 14px var(--pix, system-ui); letter-spacing: .2em; text-transform: uppercase; color: #e8c060; }
+.fnCarte b { display: block; font: bold 86px/1 var(--pix, system-ui); color: #fff4d0; text-shadow: 0 0 24px #ffb830, 0 4px 0 #6a4210; }
+.fnCarte em { display: block; margin-top: 6px; font-style: normal; color: #ffe8b0; font-size: 15px; }
+@keyframes fnCarte { 0% { transform: scale(.3); opacity: 0; } 12% { transform: scale(1.08); opacity: 1; } 20% { transform: none; } 82% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-30px) scale(.95); } }
+.feteNiveau i { position: absolute; width: 8px; height: 8px; border-radius: 2px; background: #ffd870; box-shadow: 0 0 8px #ffb830; animation: fnEclat var(--t) .15s ease-out forwards; opacity: 0; }
+@keyframes fnEclat { 0% { opacity: 1; transform: rotate(var(--a)) translateX(0); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(.4); } }
+@media (max-width: 600px) { .fnCarte b { font-size: 64px; } .fnRayons { width: 360px; height: 360px; } }
+/* v83 : suppression d'un personnage */
+.perso .supP { opacity: .55; } .perso .supP:hover { opacity: 1; }
+.alerteSup { background: rgba(224,64,42,.12); border: 1px solid rgba(224,64,42,.5); border-radius: 8px; padding: 10px 12px; }
+.choixSup { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+.bouton.danger { background: linear-gradient(#c8402a, #8a2414); border-color: #e86a50; color: #fff; }
+.bouton.danger:disabled { opacity: .45; cursor: not-allowed; }
+/* v84 : étourdi après une défaite en duel */
+#etourdi { position: fixed; left: 50%; top: 34%; transform: translateX(-50%); z-index: 70; pointer-events: none; text-align: center; padding: 12px 26px; border-radius: 14px; background: rgba(20,14,30,.88); border: 1px solid #a890ff; box-shadow: 0 0 24px rgba(168,144,255,.45); }
+#etourdi b { display: block; font: bold 26px var(--pix, system-ui); color: #e8e0ff; animation: etourdiTourne 1.2s ease-in-out infinite; }
+#etourdi small { color: #c8c0e8; }
+#etourdi.cache { display: none; }
+@keyframes etourdiTourne { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+/* ---------- v85 : création du héros en 3 étapes ---------- */
+#ecranClan { justify-content: flex-start; padding-top: 28px; }
+.creation { display: flex; gap: 22px; width: min(1180px, 100%); align-items: flex-start; }
+.apercuHeros { position: sticky; top: 10px; flex: 0 0 240px; padding: 18px; border-radius: 16px; text-align: center; background: linear-gradient(170deg, #241c30, #0e0a14); border: 1px solid rgba(232,192,96,.35); box-shadow: 0 10px 30px rgba(0,0,0,.45); transition: background .4s; }
+.apercuHeros[data-clan="feu"] { background: linear-gradient(170deg, #4a1a0c, #140806); border-color: rgba(255,138,74,.5); }
+.apercuHeros[data-clan="eau"] { background: linear-gradient(170deg, #0f2e58, #050e1e); border-color: rgba(106,184,255,.5); }
+.apercuHeros[data-clan="plante"] { background: linear-gradient(170deg, #134a1a, #051108); border-color: rgba(122,224,122,.5); }
+.apScene { height: 190px; display: flex; align-items: flex-end; justify-content: center; background: radial-gradient(ellipse at 50% 92%, rgba(0,0,0,.45) 0 22%, transparent 23%), radial-gradient(circle at 50% 55%, rgba(255,255,255,.08), transparent 60%); }
+#apercuHeros { width: 168px; height: 182px; image-rendering: pixelated; animation: flotte 3s ease-in-out infinite; }
+.apercuHeros b { display: block; margin-top: 10px; font: 600 22px 'Fredoka', 'Nunito', system-ui, sans-serif; color: #fff4d0; }
+.apercuHeros small { display: block; color: #d8ccb4; margin-top: 2px; }
+#apStats { list-style: none; padding: 0; margin: 12px 0 0; text-align: left; font-size: 13px; line-height: 1.45; display: flex; flex-direction: column; gap: 6px; }
+#apStats li { background: rgba(0,0,0,.25); border-radius: 8px; padding: 6px 9px; }
+.creaEtapes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.pas { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0; counter-reset: pas; }
+.pas li { flex: 1; counter-increment: pas; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.05); color: #9a90a8; font-weight: 700; text-align: center; border: 1px solid transparent; }
+.pas li::before { content: counter(pas); display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 50%; background: rgba(255,255,255,.1); font-size: 12px; }
+.pas li.actif { color: #fff4d0; border-color: var(--or); background: rgba(232,192,96,.12); }
+.pas li.fait { color: #b8e0a8; } .pas li.fait::before { content: '✓'; background: #3a7a3a; }
+.creaPage .etape { margin: 0 0 12px; color: #d8ccb4; text-align: center; letter-spacing: 0; text-transform: none; font-size: 15px; }
+.creaPage[data-e="3"] { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px; border-radius: 14px; background: rgba(255,255,255,.04); }
+.creaPage[data-e="3"].cache { display: none; }
+.creaPage .champNom input { font-size: 18px; padding: 10px 14px; width: 240px; }
+#recapCrea { text-align: center; } #recapCrea p { margin: 4px 0; }
+.bouton.grand { font-size: 18px; padding: 12px 28px; }
+.creaNav { min-height: 24px; }
+.clanCarte p.sec { opacity: .8; font-size: 13px; }
+@media (max-width: 820px) {
+  .creation { flex-direction: column; align-items: stretch; }
+  .apercuHeros { position: static; flex: none; display: grid; grid-template-columns: 90px 1fr; grid-template-areas: 'scene nom' 'scene desc' 'stats stats'; text-align: left; padding: 12px; gap: 0 12px; }
+  .apScene { grid-area: scene; height: 110px; } #apercuHeros { width: 96px; height: 104px; }
+  .apercuHeros b { grid-area: nom; margin-top: 18px; } .apercuHeros small { grid-area: desc; } #apStats { grid-area: stats; }
+  .clanCarte { width: 100%; padding: 12px 14px; display: grid; grid-template-columns: 56px 1fr; gap: 0 12px; align-items: center; }
+  .clanCarte .gros { font-size: 40px; grid-row: span 3; } .clanCarte h2 { text-align: left; margin: 0; font-size: 20px; } .clanCarte p { margin: 2px 0; font-size: 13px; }
+  .classeCarte { width: calc(50% - 8px); padding: 10px; } .classeCarte .gros { font-size: 32px; } .classeCarte p { font-size: 12px; }
+}
+/* ---------- v85 : la parcelle refaite ---------- */
+.parcLieu { font: 500 14px 'Nunito', system-ui; color: #c8bca8; margin-left: 6px; }
+.parcActions { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 14px; color: #d8ccb4; margin-bottom: 8px; }
+.parcelleScene { position: relative; }
+.parcReserve { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px dashed rgba(232,192,96,.4); font-size: 15px; }
+.parcReserve .bouton { font-size: 16px; }
+.parcJauge { flex: 0 0 180px; height: 10px; border-radius: 6px; background: rgba(255,255,255,.12); overflow: hidden; }
+.parcJauge i { display: block; height: 100%; background: linear-gradient(90deg, #6ad06a, #e8c060); }
+.parcJauge.pleine i { background: linear-gradient(90deg, #e8c060, #ff8a4a); }
+.parcProd { flex: 1; display: flex; flex-direction: column; font-size: 13px; line-height: 1.35; color: #f0e6d0; }
+.parcReserve .bouton { white-space: nowrap; }
+.bouton.pulse { animation: pulseBt 1.4s ease-in-out infinite; }
+@keyframes pulseBt { 50% { box-shadow: 0 0 0 6px rgba(232,192,96,.25); } }
+.parcBonus { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.parcBonus span { font-size: 12.5px; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); }
+.batTete { display: flex; gap: 10px; align-items: center; }
+.batIco { font-size: 34px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: rgba(255,255,255,.06); }
+.batTete h3 { margin: 0; }
+.pips { display: flex; gap: 4px; margin-top: 4px; } .pips i { width: 14px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.15); } .pips i.on { background: var(--or); box-shadow: 0 0 6px rgba(232,192,96,.6); }
+.batMaint { font-size: 14px; margin: 10px 0 6px; }
+.batSuiv { font-size: 12.5px; color: #b8e0a8; margin: 0 0 6px; } .batSuiv small { display: block; color: #c8bca8; font-weight: 700; }
+.batCout { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-bottom: 8px; } .batCout .manque { color: #ff8a7a; }
+.batMax { color: var(--or); font-weight: 700; }
+@media (max-width: 600px) { .parcReserve { flex-wrap: wrap; } .parcJauge { flex: 1 1 100%; } }
+/* ---------- v85 : decks conseillés ---------- */
+#btConseils { font-size: 13px; margin-left: 8px; }
+.conseils { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.conseil { padding: 14px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; gap: 8px; }
+.conseil.top { border-color: var(--or); background: rgba(232,192,96,.07); }
+.consTete { display: flex; gap: 10px; align-items: center; } .consIco { font-size: 30px; } .consTete h3 { margin: 0; } .consTete small { color: #c8bca8; }
+.conseil p { margin: 0; font-size: 13.5px; color: #d8ccb4; }
+.consListe { display: flex; flex-direction: column; gap: 3px; }
+.consCarte { font-size: 13px; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.25); border-left: 3px solid #8a8a8a; cursor: help; }
+.consCarte i { display: inline-block; width: 18px; font-style: normal; font-weight: 800; color: #9ad0ff; }
+.consCarte em { color: var(--or); font-style: normal; }
+.consCarte.r-rare { border-color: #4a9ae8; } .consCarte.r-epique { border-color: #b05ae8; } .consCarte.r-legendaire { border-color: #e8a830; }
+.consCarte.manque { opacity: .55; }
+.conseil .bouton { align-self: flex-start; margin-top: auto; }
+/* ---------- v85 : les titres stylés ---------- */
+.titreBadge { display: inline-flex; align-items: center; gap: 8px; padding: 4px 16px; font-weight: 800; letter-spacing: .02em; color: var(--tt); background: linear-gradient(var(--tf1), var(--tf2)); border-top: 2px solid var(--tb); border-bottom: 2px solid var(--tb); clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); box-shadow: 0 0 16px var(--tl); text-shadow: 0 1px 0 rgba(0,0,0,.7); position: relative; }
+.titreBadge i { font-style: normal; }
+.titreBadge.or, .titreBadge.legende { animation: titreLueur 2.4s ease-in-out infinite; }
+@keyframes titreLueur { 50% { filter: drop-shadow(0 0 6px var(--tl)); } }
+.titreBadge.deco-sang { text-shadow: 0 1px 0 #000, 0 0 6px #ff2a1a; background-image: linear-gradient(var(--tf1), var(--tf2)), radial-gradient(circle at 20% 100%, #c01a10 2px, transparent 3px); }
+.titreFi { margin: 4px 0 0; }

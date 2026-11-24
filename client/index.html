@@ -10,12 +10,26 @@
 <body>
   <!-- Choix du clan -->
   <section id="ecranClan" class="ecran cache">
-    <div class="titreJeu"><small>Feu · Eau · Plante</small><h1>Les Clans Élémentaires</h1><p>Choisis ton clan. Il décide de ton territoire, de ta parcelle et des sorts que tu tireras le plus souvent. <b>Ce choix est définitif.</b></p></div>
-    <label class="champNom">Ton nom <input id="nomJoueur" maxlength="16" placeholder="Ton nom"></label>
-    <p id="etapeClan" class="etape">1. Choisis ton clan</p>
-    <div id="choixClans"></div>
-    <p id="etapeClasse" class="etape cache">2. Choisis ta classe</p>
-    <div id="choixClasses" class="cache"></div>
+    <div class="titreJeu"><small>Feu · Eau · Plante</small><h1>Les Clans Élémentaires</h1></div>
+    <!-- v85 : création du héros en 3 étapes, avec un aperçu qui suit les choix -->
+    <div class="creation">
+      <aside class="apercuHeros">
+        <div class="apScene"><canvas id="apercuHeros" width="24" height="26"></canvas></div>
+        <b id="apNom">Ton héros</b><small id="apDesc">Choisis ton clan pour commencer.</small>
+        <ul id="apStats"></ul>
+      </aside>
+      <div class="creaEtapes">
+        <ol class="pas"><li data-e="1">Clan</li><li data-e="2">Classe</li><li data-e="3">Nom</li></ol>
+        <div class="creaPage" data-e="1"><p id="etapeClan" class="etape">Ton clan décide de ton territoire, de ta parcelle et des sorts que tu tires le plus souvent.</p><div id="choixClans"></div></div>
+        <div class="creaPage cache" data-e="2"><p id="etapeClasse" class="etape">Ta classe décide de tes PV, de ton talent et de tes cartes de classe.</p><div id="choixClasses"></div></div>
+        <div class="creaPage cache" data-e="3">
+          <label class="champNom">Ton nom <input id="nomJoueur" maxlength="16" placeholder="Ton nom" autocomplete="off"></label>
+          <div id="recapCrea"></div>
+          <button id="btCreer" class="bouton grand">⚔️ Entrer dans le monde</button>
+        </div>
+        <div class="creaNav"><button id="creaRetour" class="lien cache">← Retour</button></div>
+      </div>
+    </div>
     <div id="dejaCompte"></div>
   </section>
 
@@ -28,6 +42,7 @@
       <span class="espace"></span>
       <button id="btPasse" title="Passe de saison (touche P)">🎟️<span> Passe</span><i id="pastilleP" class="cache"></i></button>
       <button id="btQuetes" title="Quêtes du jour et de la semaine (touche J)">📜<span> Quêtes</span><i id="pastilleQ" class="cache"></i></button>
+      <button id="btNotifs" title="Derniers messages">🔔<i id="pastilleN" class="pastille cache"></i></button>
       <button id="btParcelle" title="Ta parcelle">🏠<span> Parcelle</span></button>
       <button id="btDeck" title="Ta collection et ton deck">🃏<span> Deck</span></button>
       <div id="menuBarre">
@@ -74,9 +89,10 @@
     <div class="arene">
       <div id="cbHeros" class="heros">
         <div id="cbMenace" class="menace"></div>
-        <div class="combattant"><canvas id="cbFam" class="familier cache" width="12" height="11"></canvas><canvas id="cbSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="combattant"><canvas id="cbFam" class="familier cache" width="12" height="11"></canvas><canvas id="cbSprite" class="sprite" width="24" height="26"></canvas><div class="ombre"></div></div>
         <div class="jauge"><span id="cbBloc" class="bouclier"></span><div class="barre vie"><i id="cbPvF" class="fantome"></i><i id="cbPv"></i><b id="cbPvTxt"></b></div></div>
         <div id="cbStatuts" class="statuts"></div>
+        <div id="cbAllie" class="allie cache"><div class="portrait"></div><div class="nomA"></div><div class="jauge"><span class="bouclier"></span><div class="barre vie"><i class="fantome"></i><i></i><b></b></div></div></div>
       </div>
       <div id="cbEnnemis" class="ennemis"></div>
     </div>
@@ -100,13 +116,13 @@
     <div id="duHaut" class="haut"><span id="duTitre">Duel</span><span id="duTour"></span></div>
     <div class="arene">
       <div id="duHeros" class="heros">
-        <div class="combattant"><canvas id="duSprite" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="combattant"><canvas id="duSprite" class="sprite" width="24" height="26"></canvas><div class="ombre"></div></div>
         <div class="jauge"><span id="duBloc" class="bouclier"></span><div class="barre vie"><i id="duPvF" class="fantome"></i><i id="duPv"></i><b id="duPvTxt"></b></div></div>
         <div id="duStatuts" class="statuts"></div>
       </div>
       <div id="duAdv" class="heros adversaire">
         <div class="mainAdv"></div>
-        <div class="combattant"><canvas id="duSpriteAdv" class="sprite" width="16" height="26"></canvas><div class="ombre"></div></div>
+        <div class="combattant"><canvas id="duSpriteAdv" class="sprite" width="24" height="26"></canvas><div class="ombre"></div></div>
         <div class="nomAdv"></div>
         <div class="jauge"><span class="bouclier"></span><div class="barre vie"><i class="fantome"></i><i class="pvAdv"></i><b></b></div></div>
         <div class="statuts"></div>

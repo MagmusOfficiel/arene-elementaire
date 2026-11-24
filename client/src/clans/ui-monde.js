@@ -4,6 +4,7 @@
 // =====================================================================
 import { cleMaison } from '../../../shared/clans/geo.js';
 import * as QP from '../../../shared/clans/quetesPnj.js';
+import * as P from '../../../shared/clans/profil.js';
 import * as PC from '../../../shared/clans/parcours.js';
 import { PNJ_PAR_ID, posPnj } from '../../../shared/clans/pnj.js';
 import { ELEMENTS, CLANS, CLASSES, LISTE_CLASSES, RARES } from '../../../shared/clans/cartes.js';
@@ -30,9 +31,9 @@ import { OUVRAGES } from '../../../shared/clans/geo.js';
 export function majBarre() {
   if (!p) return;
   const el = ELEMENTS[p.clan];
-  $('moi').innerHTML = `${esc(p.nom)} <span class="badge ${p.clan}" title="${el.clan}">${el.ico}<i class="nomClan"> ${el.clan}</i></span> ${p.classe ? `<span title="${esc(CLASSES[p.classe].talent)} : ${esc(CLASSES[p.classe].desc)}">${CLASSES[p.classe].ico} ${CLASSES[p.classe].nom}</span>` : ''} <small>niv. ${niveau()}</small>`;
-  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
-    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)" }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
+  $('moi').innerHTML = `${esc(p.nom)} <span class="badge ${p.clan}" title="${el.clan}">${el.ico}<i class="nomClan"> ${el.clan}</i></span> ${p.classe ? `<span title="${esc(CLASSES[p.classe].talent)} : ${esc(CLASSES[p.classe].desc)}">${CLASSES[p.classe].ico} ${CLASSES[p.classe].nom}</span>` : ''} <small title="${(() => { const n = niveau(), x = P.xpDe(p); return n >= P.NIVEAU_MAX ? `Niveau maximum (${x} XP)` : `XP : ${x} / ${P.xpPourNiveau(n + 1)} pour le niveau ${n + 1} — 1 XP par combat gagné, ${P.XP_BOSS} par boss`; })()}">niv. ${niveau()}</small>`;
+  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
+    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
     + `<span title="Duels gagnés / perdus">⚔️ ${p.duels?.gagnes || 0}/${p.duels?.perdus || 0}</span>`;
 }
 export const DESC_CLANS = {
@@ -49,50 +50,71 @@ export const DESC_CLASSES = {
 export function classesHTML() {
   return LISTE_CLASSES.map((k) => { const c = CLASSES[k]; return `<button class="classeCarte" data-c="${k}"><span class="gros">${c.ico}</span><h3>${c.nom}</h3><p>${DESC_CLASSES[k]}</p><p><b>${c.talent}</b> : ${c.desc}</p><p>PV : ${60 + c.pv}</p></button>`; }).join('');
 }
+// ---------- v85 : la création du héros, en 3 étapes (clan, classe, nom) avec un aperçu vivant ----------
 export function ecranClan(seulementClasse = false) {
   $('ecranClan').classList.remove('cache'); $('ecranMonde').classList.add('cache');
   $('nomJoueur').value = p?.nom || localStorage.getItem('pseudo') || '';
   // v79 : revenir à un autre personnage, ou retrouver son compte venu d'un autre appareil
   import('./ui-compte.js').then((C) => {
     const l = C.persos().filter((x) => x.jeton !== C.jetonActif());
-    $('dejaCompte').innerHTML = `${l.length ? `<div class="codeCompte"><h3>👥 Revenir à un personnage</h3><div class="persos">${l.map((x) => `<button class="bouton second" data-jouer="${esc(x.jeton)}">${esc(x.nom)} <small>niv. ${x.niv || 1}</small></button>`).join('')}</div></div>` : ''}${seulementClasse ? '' : C.blocRecuperer()}`;
+    $('dejaCompte').innerHTML = `${l.length ? `<div class="codeCompte"><h3>👥 Revenir à un personnage</h3><div class="persos">${l.map((x) => `<button class="bouton second" data-jouer="${esc(x.jeton)}">${esc(x.nom)} · niv. ${x.niv || 1}</button>`).join('')}</div></div>` : ''}${C.blocRecuperer ? C.blocRecuperer() : ''}`;
     $('dejaCompte').querySelectorAll('[data-jouer]').forEach((b) => b.onclick = () => C.jouer(b.dataset.jouer));
     C.brancherCode($('dejaCompte'));
   });
-  let clan = null;
-  const montrerClasses = () => {
-    $('etapeClasse').classList.remove('cache'); $('choixClasses').classList.remove('cache');
-    $('choixClasses').innerHTML = classesHTML();
-    $('choixClasses').querySelectorAll('.classeCarte').forEach((b) => b.onclick = () => {
-      const k = b.dataset.c;
-      if (seulementClasse) {
-        if (!confirm(`Devenir ${CLASSES[k].nom} ? Ce choix est définitif.`)) return;
-        return faire('classe', { classe: k }).then((r) => { if (!r.ok) return toast(esc(r.raison || 'Impossible.')); entrerMonde(); toast(`Te voilà ${CLASSES[k].nom} ! Tes deux cartes de classe sont dans ton deck.`); });
-      }
-      const nom = $('nomJoueur').value.trim() || localStorage.getItem('pseudo') || 'Joueur';
-      if (!confirm(`Rejoindre le ${ELEMENTS[clan].clan} en tant que ${CLASSES[k].nom} ? Ces choix sont définitifs.`)) return;
-      localStorage.setItem('pseudo', nom);
-      faire('creer', { clan, nom, classe: k }).then((r) => {
-        if (!r.ok) return toast(esc(r.raison || 'Impossible de créer ton profil.'));
-        entrerMonde();
-        setTimeout(() => toast(`Bienvenue dans le ${ELEMENTS[p.clan].clan} ! Tu as 300 essences : va à l'<b>Autel des tirages</b>, au Carrefour.`), 600);
-      });
+  let clan = seulementClasse ? p?.clan : null, classe = null, etape = seulementClasse ? 2 : 1;
+  const apercu = () => {
+    const cv = $('apercuHeros'), g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 24, 26);
+    if (clan) import('./ui-combat.js').then((U) => U.dessinerSprite(cv, clan, classe || 'combattant', 'bas', ''));
+    const c = classe && CLASSES[classe];
+    $('apNom').textContent = $('nomJoueur').value.trim() || 'Ton héros';
+    $('apDesc').innerHTML = clan ? `${ELEMENTS[clan].ico} ${esc(ELEMENTS[clan].clan)}${c ? ` · ${c.ico} ${esc(c.nom)}` : ''}` : 'Choisis ton clan pour commencer.';
+    $('apStats').innerHTML = c ? `<li>❤️ ${60 + c.pv} PV</li><li>⚡ 3 énergie</li><li>✨ ${esc(c.talent)} : ${esc(c.desc)}</li>` : clan ? `<li>${esc(DESC_CLANS[clan][0])}</li>` : '';
+    $('apercuHeros').closest('.apercuHeros').dataset.clan = clan || '';
+  };
+  const aller = (e) => {
+    etape = e;
+    document.querySelectorAll('#ecranClan .creaPage').forEach((x) => x.classList.toggle('cache', +x.dataset.e !== e));
+    document.querySelectorAll('#ecranClan .pas li').forEach((x) => { x.classList.toggle('actif', +x.dataset.e === e); x.classList.toggle('fait', +x.dataset.e < e); });
+    $('creaRetour').classList.toggle('cache', e === 1 || (seulementClasse && e === 2));
+    if (e === 3) {
+      $('recapCrea').innerHTML = `<p>${ELEMENTS[clan].ico} <b>${esc(ELEMENTS[clan].clan)}</b> · ${CLASSES[classe].ico} <b>${esc(CLASSES[classe].nom)}</b></p><p class="cout">Ces choix sont définitifs (ta classe pourra évoluer au niveau 20 avec l’Ascension).</p>`;
+      setTimeout(() => $('nomJoueur').focus(), 50);
+    }
+    apercu();
+  };
+  $('creaRetour').onclick = () => aller(etape - 1);
+  $('nomJoueur').oninput = apercu;
+  $('nomJoueur').onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') $('btCreer').click(); };
+  $('choixClans').innerHTML = CLANS.map((k) => `<button class="clanCarte ${k}" data-k="${k}"><span class="gros">${ELEMENTS[k].ico}</span><h2>${ELEMENTS[k].clan}</h2><p>${DESC_CLANS[k][0]}</p><p class="sec">${DESC_CLANS[k][1]}</p></button>`).join('');
+  $('choixClans').querySelectorAll('.clanCarte').forEach((b) => b.onclick = () => { clan = b.dataset.k; $('choixClans').querySelectorAll('.clanCarte').forEach((x) => x.classList.toggle('choisi', x === b)); sfx.tick?.(); aller(2); });
+  $('choixClasses').innerHTML = classesHTML();
+  $('choixClasses').querySelectorAll('.classeCarte').forEach((b) => {
+    b.onmouseenter = () => { if (!classe) { const v = classe; classe = b.dataset.c; apercu(); classe = v; } };
+    b.onclick = () => {
+      classe = b.dataset.c; $('choixClasses').querySelectorAll('.classeCarte').forEach((x) => x.classList.toggle('choisi', x === b)); sfx.tick?.();
+      if (seulementClasse) return faire('classe', { classe }).then((r) => { if (!r.ok) return toast(esc(r.raison || 'Impossible.')); entrerMonde(); toast(`Te voilà ${CLASSES[classe].nom} ! Tes deux cartes de classe sont dans ton deck.`); });
+      aller(3);
+    };
+  });
+  $('btCreer').onclick = () => {
+    const nom = $('nomJoueur').value.trim() || localStorage.getItem('pseudo') || 'Joueur';
+    localStorage.setItem('pseudo', nom); $('btCreer').disabled = true;
+    faire('creer', { clan, nom, classe }).then((r) => {
+      $('btCreer').disabled = false;
+      if (!r.ok) return toast(esc(r.raison || 'Impossible de créer ton profil.'));
+      entrerMonde();
+      setTimeout(() => toast(`Bienvenue dans le ${ELEMENTS[p.clan].clan} ! Tu as 300 essences : va à l'<b>Autel des tirages</b>, au Carrefour.`), 600);
     });
   };
-  if (seulementClasse) {
-    $('etapeClan').textContent = 'Nouveau : choisis ta classe'; $('choixClans').innerHTML = ''; $('choixClans').classList.add('cache');
-    return montrerClasses();
-  }
-  $('choixClans').innerHTML = CLANS.map((k) => `<button class="clanCarte ${k}" data-k="${k}"><span class="gros">${ELEMENTS[k].ico}</span><h2>${ELEMENTS[k].clan}</h2><p>${DESC_CLANS[k][0]}</p><p>${DESC_CLANS[k][1]}</p></button>`).join('');
-  $('choixClans').querySelectorAll('.clanCarte').forEach((b) => b.onclick = () => {
-    clan = b.dataset.k;
-    $('choixClans').querySelectorAll('.clanCarte').forEach((x) => x.classList.toggle('choisi', x === b));
-    montrerClasses(); $('etapeClasse').scrollIntoView({ behavior: 'smooth' });
-  });
+  if (seulementClasse) $('etapeClasse').textContent = 'Nouveau : choisis ta classe (ce choix est définitif).';
+  aller(etape);
 }
 export let derniereTerr = undefined;
 export const monde = creerMonde($('monde'), {
-  libre: () => $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
+  // v87 : les Terres Brisées s'ouvrent au niveau 30
+  niveau: () => niveau(),
+  faille: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🌀 Les Terres Brisées sont trop dangereuses : il faut être <b>niveau 30</b> pour y entrer.'); } }; })(),
+  libre: () => Date.now() >= etourdiJusqua && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
   marchandBouge: (m) => marchandBouge(m),
   fiche: (id) => voirFiche(id),
   etatPnj: (id) => (p ? QP.etat(p, id) : null),
@@ -125,6 +147,15 @@ export function envoyerPos(j) {
   room.send('pos', { x: j.x, y: j.y, dir: ['bas', 'haut', 'gauche', 'droite'].indexOf(j.dir) });
 }
 export let dansMonde = false;
+// v84 : étourdi après une défaite en duel (10 s), puis renvoyé au village par le serveur
+let etourdiJusqua = 0;
+export function etourdir(s = 10) {
+  etourdiJusqua = Date.now() + s * 1000; monde.arreter?.();
+  let el = $('etourdi'); if (!el) { el = document.createElement('div'); el.id = 'etourdi'; document.body.append(el); }
+  el.classList.remove('cache');
+  const maj = () => { const r = Math.ceil((etourdiJusqua - Date.now()) / 1000); if (r <= 0) { el.classList.add('cache'); return; } el.innerHTML = `<b>💫 Étourdi</b><small>Retour à ton village dans ${r} s…</small>`; setTimeout(maj, 250); };
+  maj();
+}
 export async function entrerMonde() {
   if (dansMonde) return; dansMonde = true;
   $('ecranClan').classList.add('cache');

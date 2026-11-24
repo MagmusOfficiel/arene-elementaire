@@ -6,7 +6,7 @@
 //  joueurs les voient au même endroit, sans rien envoyer sur le réseau.
 //  Leur apparence réutilise les tenues, cheveux et coiffes des joueurs.
 // =====================================================================
-import { CENTRES, LIEUX, OUVRAGES, obstacles, praticable, alea } from './geo.js';
+import { CENTRES, CENTRE_FAILLE, LIEUX, OUVRAGES, obstacles, praticable, alea } from './geo.js';
 
 const portail = (t) => LIEUX.find((l) => l.terr === t);
 const pres = ([x, y], dx, dy) => [x + dx, y + dy];
@@ -51,6 +51,17 @@ export const PNJ = [
     dits: ['Ta maison, tu peux la poser où tu veux sur nos terres. Choisis un coin tranquille !', 'Améliore ta parcelle : plus de production, plus de réserve, et ta maison s’embellit.', 'Le bois de la Sylve est le meilleur du monde. Je ne suis pas objective, je sais.'] },
   { id: 'ronce', clan: 'plante', nom: 'Ronce', role: 'garde du clan', classe: 'combattant', app: 't_clan.c_clan.h_casque.a_aucune', ancre: pres(CENTRES.plante, 0, 160), r: 120,
     dits: ['Les ronces protègent la Sylve. Et moi, je protège les ronces.', 'Un intrus ? Défie-le. S’il gagne, il te prend de l’essence, alors prépare ton deck.', 'Les gens du Feu sont passés ce matin. Ils sentaient le brûlé.'] },
+  // ---- v87 : les Terres Brisées (Chapitre 2) — ceux qui veillent sur la Faille
+  { id: 'orin', clan: 'brisees', nom: 'Orin', role: 'veilleur de la Faille', classe: 'tireur', app: 't_nuit.c_blanc.h_capuche.a_aucune', ancre: pres(CENTRE_FAILLE, -70, -440), r: 0,
+    dits: ['Au-delà de cette porte, la terre est brisée. Il faut le niveau 30 pour tenir debout là-dedans.', 'Les monstres d’ici mélangent les trois éléments. Aucun clan n’a d’avantage sur eux.', 'Je veille. Je ne dors plus beaucoup, depuis la Faille.'] },
+  { id: 'lyra', clan: 'brisees', nom: 'Lyra', role: 'archiviste', classe: 'mage', app: 't_pourpre.c_noir.h_aucun.a_givre', ancre: pres(CENTRE_FAILLE, -170, -40), r: 25,
+    dits: ['Les fragments de faille sont des souvenirs. Je les lis comme des livres.', 'Avant les clans, il n’y avait qu’un peuple. Puis la Faille s’est fermée… une première fois.', 'Ne marche pas sur les cristaux. Ils écoutent.'] },
+  { id: 'varda', clan: 'brisees', nom: 'Varda', role: 'forgeronne du vide', classe: 'combattant', app: 't_or.c_roux.h_bandeau.a_braises', ancre: pres(CENTRE_FAILLE, 170, -30), r: 25,
+    dits: ['Les éclats du vide servent à forger les invocations, à l’atelier. Un allié qui encaisse à ta place, ça change tout.', 'Une invocation frappe à chaque tour. Plus tu l’améliores, plus elle est solide.', 'Le Colosse fusionné ? Il faut lui taper dessus longtemps. Très longtemps.'] },
+  { id: 'sel', clan: 'brisees', nom: 'Sel l’ermite', role: 'ermite', classe: 'escrimeur', app: 't_abysses.c_blanc.h_paille.a_aucune', ancre: pres(CENTRE_FAILLE, 60, 120), r: 60,
+    dits: ['Écoute… tu entends ? C’est le Cœur. Il bat sous nos pieds.', 'J’ai quitté mon clan il y a longtemps. Ici, personne ne demande d’où tu viens.', 'Les gouffres violets ne pardonnent pas. Reste sur les dalles.'] },
+  { id: 'nyx', clan: 'brisees', nom: 'Nyx', role: 'oracle brisée', classe: 'mage', app: 't_nuit.c_rose.h_fleurs.a_lucioles', ancre: pres(CENTRE_FAILLE, -40, 60), r: 15,
+    dits: ['Je vois au-delà du Cauchemar. Ce qu’il y a là-bas n’a pas de nom.', 'Le niveau 50, puis le niveau 80… le chemin est encore long, voyageur.', 'Trois éléments, un seul monde. Tu le comprendras un jour.'] },
 ];
 export const PNJ_PAR_ID = Object.fromEntries(PNJ.map((p) => [p.id, p]));
 
@@ -97,4 +108,4 @@ export function posPnj(pnj, t) {
   const [x, y] = ch.etapes[0].a; return { x, y, dir: 'bas', marche: false };
 }
 // ce qu'il dit à un joueur d'un autre clan
-export const DIT_ETRANGER = { feu: 'Tu n’es pas d’ici, toi. Ne touche pas à nos filons.', eau: 'Un étranger… Les Lagons t’observent, voyageur.', plante: 'La Sylve tolère les visiteurs. Pas les pilleurs.' };
+export const DIT_ETRANGER = { feu: 'Tu n’es pas d’ici, toi. Ne touche pas à nos filons.', eau: 'Un étranger… Les Lagons t’observent, voyageur.', plante: 'La Sylve tolère les visiteurs. Pas les pilleurs.' , brisees: 'Ici, il n’y a plus de clans. Seulement ceux qui survivent.' };

@@ -6,7 +6,8 @@
 //  apporte des ressources. On revient le voir pour être payé.
 //  Finir les 6 quêtes d'un village donne le titre « Ami du village ».
 // =====================================================================
-const T = { feu: 'Terres de Braise', eau: 'Lagons d’Azur', plante: 'Sylve d’Émeraude' };
+import { niveau as niveauDe } from './profil.js';
+const T = { feu: 'Terres de Braise', eau: 'Lagons d’Azur', plante: 'Sylve d’Émeraude', brisees: 'Terres Brisées' };
 // ev : l'événement compté (comme quetes.js) et f son filtre ; donner : ce qu'on apporte au moment de rendre la quête
 export const QUETES = {
   bram: { txt: 'Montre-moi que tu sais te servir d’une forge : améliore 2 cartes.', ev: 'ameliorer', n: 2, rec: { essence: 200, eclats: 40 }, merci: 'Pas mal du tout ! Tiens, des éclats pour la suite.' },
@@ -27,9 +28,15 @@ export const QUETES = {
   aelia: { txt: 'Le grand ouvrage du village a besoin de bras. Donne-lui 60 points.', ev: 'projet', n: 60, rec: { essence: 300, eclats: 15 }, merci: 'La Sylve te remercie, et moi aussi.' },
   brindille: { txt: 'Il me manque de la sève pour mes poutres : 60, s’il te plaît.', donner: { seve: 60 }, rec: { essence: 250, eclats: 15 }, merci: 'Avec ça, je te bâtis une charpente qui tiendra cent ans.' },
   ronce: { txt: 'Prouve ta valeur : gagne 10 combats en expédition.', ev: 'victoire', n: 10, rec: { essence: 300, eclats: 20 }, merci: 'Tu as la peau dure. Comme les ronces.' },
+  // ---- v87 : Chapitre 2, l'histoire des Terres Brisées (5 quêtes qui se suivent ; niv = niveau requis, apres = quête à finir avant)
+  orin: { histoire: 1, niv: 30, txt: 'La Faille s’est ouverte il y a trois nuits. Des choses en sortent : ni Feu, ni Eau, ni Plante… les trois à la fois. Abats 3 de ces monstres et dis-moi ce que tu as vu.', ev: 'victoire', f: { terr: 'brisees' }, n: 3, rec: { essence: 600, fragments: 40 }, merci: 'Fusionnés… Alors les vieilles histoires étaient vraies. Va voir Lyra aux archives, elle saura.' },
+  lyra: { histoire: 2, niv: 30, apres: 'orin', txt: 'Les fragments que laissent ces monstres gardent la mémoire du monde d’avant les clans. Rapporte-m’en 60, je les lirai.', donner: { fragments: 60 }, rec: { eclats: 50, eclat_vide: 2 }, merci: 'Les trois clans n’en faisaient qu’un, jadis. Le Cœur de la Faille les a séparés… et il se réveille. Prends ces éclats du vide : Varda en fera des invocations.' },
+  varda: { histoire: 3, niv: 40, apres: 'lyra', txt: 'Avec des éclats du vide, je forge des cartes qui appellent des alliés. Mais d’abord, prouve que tu tiens debout là-bas : bats 3 élites ou monstres rares des Terres Brisées.', ev: 'victoire', f: { terr: 'brisees', type: ['elite', 'rare'] }, n: 3, rec: { essence: 800, eclat_vide: 4 }, merci: 'Tu as l’étoffe. Va à l’atelier : avec ces éclats, forge ta première invocation. Sel t’attend près du Cœur.' },
+  sel: { histoire: 4, niv: 40, apres: 'varda', txt: 'Le Cœur de la Faille bat au bout du portail. Chaque battement fend la terre un peu plus. Fais-le taire.', ev: 'victoire', f: { terr: 'brisees', type: ['boss'] }, n: 1, rec: { essence: 1000, eclat_vide: 6 }, merci: 'Le silence… enfin. Mais sous le Cœur, il y avait autre chose. Quelque chose de vide. Nyx t’en dira plus.' },
+  nyx: { histoire: 5, niv: 50, apres: 'sel', txt: 'Sous le Cœur dort le Néant originel, ce qui restait avant les éléments. Il ne s’éveille que dans le Cauchemar. Va le chercher, et finis cette histoire.', ev: 'victoire', f: { terr: 'brisees', type: ['boss'], cauchemar: true }, n: 1, rec: { essence: 2000, eclat_vide: 10, eclats: 100 }, merci: 'Le Néant est retombé dans le sommeil. Les trois clans te doivent leur monde — même s’ils ne le sauront jamais. Merci, Héros de la Faille.' },
 };
-export const PAR_CLAN = { feu: ['bram', 'ignis', 'cendrillon', 'mordred', 'pyra', 'gorran'], eau: ['marin', 'nerea', 'loupiot', 'oracle', 'coralie', 'tholos'], plante: ['sylvain', 'faune', 'mousse', 'aelia', 'brindille', 'ronce'] };
-export const TITRES = { feu: 'Ami des Terres de Braise', eau: 'Ami des Lagons d’Azur', plante: 'Ami de la Sylve' };
+export const PAR_CLAN = { brisees: ['orin', 'lyra', 'varda', 'sel', 'nyx'], feu: ['bram', 'ignis', 'cendrillon', 'mordred', 'pyra', 'gorran'], eau: ['marin', 'nerea', 'loupiot', 'oracle', 'coralie', 'tholos'], plante: ['sylvain', 'faune', 'mousse', 'aelia', 'brindille', 'ronce'] };
+export const TITRES = { brisees: 'Héros de la Faille', feu: 'Ami des Terres de Braise', eau: 'Ami des Lagons d’Azur', plante: 'Ami de la Sylve' };
 export const valide = (id) => typeof id === 'string' && Object.hasOwn(QUETES, id);
 
 // l'état d'une quête pour ce joueur : 'libre' (à proposer), 'cours', 'prete' (à rendre), 'faite'
@@ -37,15 +44,23 @@ export const suivi = (p) => (p.pnjQ ||= {});
 export function etat(p, id) {
   const q = QUETES[id], s = p.pnjQ?.[id];
   if (!q) return null;
-  if (!s) return 'libre';
+  if (!s) return verrou(p, id) ? 'verrou' : 'libre';
   if (s.fait) return 'faite';
   if (q.donner) return Object.entries(q.donner).every(([k, v]) => (p.ress[k] || 0) >= v) ? 'prete' : 'cours';
   return (s.n || 0) >= q.n ? 'prete' : 'cours';
+}
+// v87 : les quêtes d'histoire attendent un niveau et la quête d'avant
+export function verrou(p, id) {
+  const q = QUETES[id];
+  if (q.apres && !p.pnjQ?.[q.apres]?.fait) return `Pas encore : il te faut d’abord finir la quête de ${q.apres[0].toUpperCase() + q.apres.slice(1)}.`;
+  if (q.niv && niveauDe(p) < q.niv) return `Reviens au niveau ${q.niv}.`;
+  return null;
 }
 export const progres = (p, id) => (QUETES[id]?.donner ? null : { n: Math.min(QUETES[id].n, p.pnjQ?.[id]?.n || 0), max: QUETES[id].n });
 
 export function accepter(p, id) {
   if (!valide(id)) return { ok: false };
+  const v = verrou(p, id); if (!p.pnjQ?.[id] && v) return { ok: false, raison: v };
   if (etat(p, id) !== 'libre') return { ok: false, raison: 'Tu as déjà cette quête.' };
   suivi(p)[id] = { n: 0 };
   return { ok: true };

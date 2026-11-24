@@ -1,7 +1,7 @@
 // =====================================================================
 //  LES CLANS ÉLÉMENTAIRES — l'apparence du personnage
-//  Pur (client + serveur). Quatre emplacements : tenue, cheveux, chapeau,
-//  aura. Certaines pièces s'achètent (essence, éclats), d'autres se
+//  Pur (client + serveur). Sept emplacements : tenue, cheveux, chapeau,
+//  aura, et (v86) ailes, arme, cape — purement esthétiques. Certaines pièces s'achètent (essence, éclats), d'autres se
 //  gagnent (rang d'arène, boss vaincus, sanctuaires pris, Cauchemar…).
 //  « clan » / « aucun » : l'apparence de base, toujours disponible.
 // =====================================================================
@@ -10,6 +10,10 @@ export const EMPLACEMENTS = {
   cheveux: { nom: 'Cheveux', ico: '💇' },
   chapeau: { nom: 'Coiffe', ico: '🎩' },
   aura: { nom: 'Aura', ico: '✨' },
+  // v86 : purement esthétiques, aucun effet en combat
+  ailes: { nom: 'Ailes', ico: '🪽' },
+  arme: { nom: 'Arme', ico: '🗡️' },
+  cape: { nom: 'Cape', ico: '🧣' },
 };
 const prix = (essence, eclats = 0) => ({ prix: { essence, eclats } });
 const gagne = (cond) => ({ cond });
@@ -69,8 +73,33 @@ export const PIECES = {
   a_seve: { slot: 'aura', nom: 'Spores dorées', ...passe('Sève ancienne') },
   a_eclipse: { slot: 'aura', nom: 'Couronne d’éclipse', ...passe('Éclipse') },
   a_ombre: { slot: 'aura', nom: 'Ombre du Cauchemar', ...gagne({ type: 'cauchemar', n: 3, txt: 'Bats 3 boss du Cauchemar' }) },
+  // ---- v86 : ailes (dans le dos)
+  l_aucune: { slot: 'ailes', nom: 'Aucune', base: true },
+  l_papillon: { slot: 'ailes', nom: 'Ailes de papillon', couleurs: ['#f0a0e0', '#8a5ad8'], ...prix(1500, 10) },
+  l_fee: { slot: 'ailes', nom: 'Ailes de fée', couleurs: ['#d8f8ff', '#80d0f0'], ...prix(2000, 20) },
+  l_ange: { slot: 'ailes', nom: 'Ailes d’ange', couleurs: ['#ffffff', '#c8d0e0'], ...prix(3500, 40) },
+  l_demon: { slot: 'ailes', nom: 'Ailes de démon', couleurs: ['#5a1a2a', '#2a0810'], ...gagne({ type: 'boss', n: 25, txt: 'Bats 25 boss d’expédition' }) },
+  l_dragon: { slot: 'ailes', nom: 'Ailes de dragon', couleurs: ['#2a7a3a', '#c8a030'], ...gagne({ type: 'cauchemar', n: 3, txt: 'Bats 3 boss du Cauchemar' }) },
+  l_phenix: { slot: 'ailes', nom: 'Ailes de phénix', couleurs: ['#ffd060', '#e04a1a'], ...gagne({ type: 'arene', n: 1550, txt: 'Atteins le rang Diamant en arène' }) },
+  // ---- v86 : armes (dans la main)
+  r_aucune: { slot: 'arme', nom: 'Aucune', base: true },
+  r_epee: { slot: 'arme', nom: 'Épée d’acier', couleurs: ['#d8dce8', '#6a4a2a'], ...prix(800) },
+  r_hache: { slot: 'arme', nom: 'Hache de guerre', couleurs: ['#b8bcc8', '#5a3a1a'], ...prix(1200, 10) },
+  r_baton: { slot: 'arme', nom: 'Bâton de mage', couleurs: ['#7a4a22', '#8a60ff'], ...prix(1200, 10) },
+  r_trident: { slot: 'arme', nom: 'Trident', couleurs: ['#40d0e0', '#2a6a8a'], ...prix(1800, 20) },
+  r_arc: { slot: 'arme', nom: 'Arc doré', couleurs: ['#f0c030', '#fff4d0'], ...gagne({ type: 'duels', n: 25, txt: 'Gagne 25 duels' }) },
+  r_faux: { slot: 'arme', nom: 'Faux du Cauchemar', couleurs: ['#c8c0d8', '#3a0a3a'], ...gagne({ type: 'cauchemar', n: 1, txt: 'Bats un boss du Cauchemar' }) },
+  // ---- v86 : capes (dans le dos)
+  k_aucune: { slot: 'cape', nom: 'Aucune', base: true },
+  k_rouge: { slot: 'cape', nom: 'Cape écarlate', couleurs: ['#c8283a', '#8a1424'], ...prix(600) },
+  k_bleue: { slot: 'cape', nom: 'Cape azur', couleurs: ['#2a6ad0', '#163e8a'], ...prix(600) },
+  k_verte: { slot: 'cape', nom: 'Cape de forêt', couleurs: ['#3a9a3a', '#1e5a1e'], ...prix(600) },
+  k_noire: { slot: 'cape', nom: 'Cape de nuit', couleurs: ['#2a2434', '#14101c'], ...prix(900) },
+  k_etoilee: { slot: 'cape', nom: 'Cape étoilée', couleurs: ['#1a1a5a', '#f0e060'], ...prix(2500, 30) },
+  k_royale: { slot: 'cape', nom: 'Cape royale', couleurs: ['#8a1a8a', '#f0c030'], ...gagne({ type: 'arene', n: 1250, txt: 'Atteins le rang Or en arène' }) },
+  k_heros: { slot: 'cape', nom: 'Cape du héros', couleurs: ['#e8e0d0', '#c8283a'], ...gagne({ type: 'victoires', n: 200, txt: 'Gagne 200 combats d’expédition' }) },
 };
-export const DEFAUT = { tenue: 't_clan', cheveux: 'c_clan', chapeau: 'h_classe', aura: 'a_aucune' };
+export const DEFAUT = { tenue: 't_clan', cheveux: 'c_clan', chapeau: 'h_classe', aura: 'a_aucune', ailes: 'l_aucune', arme: 'r_aucune', cape: 'k_aucune' };
 
 // où en est le joueur pour une condition
 export function progression(p, cond) {
@@ -108,9 +137,9 @@ export function portee(p) {
   return a;
 }
 // en texte court, pour le réseau : « t_nuit.c_blond.h_couronne.a_or »
-export const code = (p) => { const a = portee(p); return `${a.tenue}.${a.cheveux}.${a.chapeau}.${a.aura}`; };
+export const code = (p) => { const a = portee(p); return `${a.tenue}.${a.cheveux}.${a.chapeau}.${a.aura}.${a.ailes}.${a.arme}.${a.cape}`; };
 export function lireCode(t) {
-  const [tenue, cheveux, chapeau, aura] = String(t || '').split('.');
+  const [tenue, cheveux, chapeau, aura, ailes, arme, cape] = String(t || '').split('.');
   const ok = (id, k) => (PIECES[id]?.slot === k ? id : DEFAUT[k]);
-  return { tenue: ok(tenue, 'tenue'), cheveux: ok(cheveux, 'cheveux'), chapeau: ok(chapeau, 'chapeau'), aura: ok(aura, 'aura') };
+  return { tenue: ok(tenue, 'tenue'), cheveux: ok(cheveux, 'cheveux'), chapeau: ok(chapeau, 'chapeau'), aura: ok(aura, 'aura'), ailes: ok(ailes, 'ailes'), arme: ok(arme, 'arme'), cape: ok(cape, 'cape') };
 }

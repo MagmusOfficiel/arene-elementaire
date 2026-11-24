@@ -27,7 +27,8 @@ export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 
     ennemis: ennemis.map((m, i) => ({ uid: `e${i}`, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, maudit: !!m.maudit, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: Math.floor(r() * m.intentions.length), deg: palier.deg, ...statuts() })),
     pioche: melanger(deck.map((x) => ({ uid: `c${n++}`, id: x.id, niv: x.niv || 1 })), r), main: [], defausse: [], epuisees: [],
   };
-  c._r = r;
+  c._r = r; c.allie = null;
+  if (c.branche) c.energieMax += 1;   // v84 : la 2e classe (branche d'Ascension) donne 4 énergie au lieu de 3
   // malédictions du Cauchemar
   if (c.mods?.includes('rage')) for (const e of c.ennemis) e.force += 2;
   if (c.mods?.includes('carapace')) for (const e of c.ennemis) e.bloc = Math.round(e.pvMax * 0.15);
@@ -89,6 +90,8 @@ function debutTour(c) {
     const cible = vivants(c).sort((a, b) => a.pv - b.pv)[0];
     if (cible) { attaquer(c, { force: 0, affaibli: 0, pv: 1, bloc: 0 }, cible, j.appel); c.journal.push(`Ton allié invoqué frappe ${cible.nom}.`); verifierFin(c); }
   }
+  // v87 : l'allié invoqué frappe au début de chacun de tes tours
+  if (c.tour > 1 && c.allie?.pv > 0) { const v = vivants(c); if (v.length) { attaquer(c, c.allie, v[Math.floor(c._r() * v.length)], c.allie.deg); verifierFin(c); } }
 }
 // dégâts d'une attaque : force, affaibli (−25 %), trempé (+50 %)
 export function calculerDegats(base, attaquant, cible) {
@@ -124,7 +127,8 @@ function verifierFin(c) {
 export function coutDe(c, i) {
   const k = c.main[i]; if (!k) return 99;
   const carte = CARTES[k.id];
-  return c.classe === 'mage' && !c.arcanes && carte.element !== 'neutre' ? Math.max(0, carte.cout - 1) : carte.cout;
+  const base = c.classe === 'mage' && !c.arcanes && carte.element !== 'neutre' ? Math.max(0, carte.cout - 1) : carte.cout;
+  return Math.max(0, base - (k.remise || 0));   // v84 : réduction de coût (ce tour)
 }
 export const jouable = (c, i) => { const k = c.main[i]; return !!k && !c.fini && coutDe(c, i) <= c.energie; };
 // Visée (Tireur) : la prochaine attaque sera-t-elle doublée ?
@@ -174,18 +178,36 @@ export function jouerCarte(c, i, cible) {
   if (e.force) { j.force += e.force; ev(c, { t: 'statut', a: 'j', k: 'force', n: e.force }); }
   if (e.appel) { j.appel += e.appel; ev(c, { t: 'statut', a: 'j', k: 'appel', n: e.appel }); }
   if (e.energie) { c.energie += e.energie; ev(c, { t: 'energie', n: e.energie }); }
-  (e.epuise ? c.epuisees : c.defausse).push(k);
+  if (e.invoque) { c.allie = { uid: 'allie', ...e.invoque, pvMax: e.invoque.pv, ...statuts() }; ev(c, { t: 'invoque', allie: { ...c.allie } }); }   // v87
+  delete k.remise;
+  if (!k.eph) (e.epuise ? c.epuisees : c.defausse).push(k);   // une copie éphémère disparaît une fois jouée
   if (e.pioche) piocher(c, e.pioche);
+  effetsMain(c, e);
   c.journal.push(`Tu joues ${carte.nom}.`);
   verifierFin(c);
   return true;
 }
 
+// v84 : nouvelles mécaniques de main (communes au combat et au duel : x a .main et ._r)
+//  dupliquer n : ajoute n copies éphémères de cartes de ta main (elles disparaissent une fois jouées ou en fin de tour)
+//  reduction n : les cartes de ta main coûtent n de moins ce tour
+export function effetsMain(x, e) {
+  if (e.dupliquer) for (let i = 0; i < e.dupliquer && x.main.length && x.main.length < 10; i++) {
+    const src = x.main[Math.floor((x._r ? x._r() : Math.random()) * x.main.length)];
+    x.nUid = (x.nUid || 5000) + 1;
+    x.main.push({ uid: `d${x.nUid}`, id: src.id, niv: src.niv, eph: true, remise: src.remise });
+  }
+  if (e.reduction) for (const k of x.main) k.remise = (k.remise || 0) + e.reduction;
+}
+export function defausserMain(x) {
+  for (const k of x.main) { delete k.remise; if (!k.eph) x.defausse.push(k); }
+  x.main = [];
+}
 // fin du tour du joueur : régénération, puis chaque monstre agit, puis nouveau tour
 export function finTour(c) {
   if (c.fini) return;
   const j = c.joueur;
-  c.defausse.push(...c.main); c.main = [];
+  defausserMain(c);
   if (j.regen > 0) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + j.regen); j.regen--; ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); }
   ev(c, { t: 'tourEnnemi' });
   for (const e of vivants(c)) {
@@ -204,7 +226,8 @@ export function finTour(c) {
     if (it.b) { j.brulure += it.b; ev(c, { t: 'statut', a: 'j', k: 'brulure', n: it.b }); }
     if (it.t) { j.trempe += it.t; ev(c, { t: 'statut', a: 'j', k: 'trempe', n: it.t }); }
     if (it.w) { j.affaibli += it.w; ev(c, { t: 'statut', a: 'j', k: 'affaibli', n: it.w }); }
-    if (it.a) for (let k = 0; k < (it.n || 1); k++) attaquer(c, e, j, Math.round(it.a * e.deg));
+    // v87 : l'allié invoqué encaisse les coups à ta place tant qu'il tient debout
+    if (it.a) for (let k = 0; k < (it.n || 1); k++) attaquer(c, e, c.allie?.pv > 0 ? c.allie : j, Math.round(it.a * e.deg));
     e.i++;
     if (c.mods?.includes('vitalite') && e.pv > 0 && e.pv < e.pvMax) { const avant = e.pv; e.pv = Math.min(e.pvMax, e.pv + 3); ev(c, { t: 'soin', a: e.uid, n: e.pv - avant, pv: e.pv }); }
     if (e.trempe > 0) e.trempe--;

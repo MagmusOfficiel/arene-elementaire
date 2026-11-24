@@ -660,3 +660,60 @@ Le bestiaire commence à zéro pour tout le monde (les anciens combats n'étaien
 - Les Clans sont maintenant la page d'accueil (`/`) ; l'ancienne adresse `/clans/` redirige vers `/`.
 - Le compte du site ne garde plus que le pseudo et la liste des personnages des Clans ; les anciennes données des autres jeux sont oubliées au démarrage du serveur.
 - Phaser n'est plus utilisé : la page est bien plus légère.
+
+## Confort (v83)
+
+- **Fête du niveau** : à chaque niveau gagné, grande animation dorée au centre (on clique au travers), avec ce que le niveau débloque (Ascension au 20…).
+- **Niveau maximum 60** (il passera à 80 avec le chapitre 2).
+- **Messages** : ils s'empilent en haut à droite, ne bloquent plus jamais un clic (on clique au travers), et restent dans l'historique 🔔 de la barre du haut (40 derniers).
+- **Decks** : 2 exemplaires d'une même carte au plus, 1 pour une légendaire. Les doublons au-delà deviennent des éclats. Le deck de départ passe à 2 Frappe, 2 Garde, 2 cartes de classe et 6 cartes d'élément ; les anciens decks sont remis aux règles au chargement (le joueur est prévenu).
+- **Terres de Braise et Sylve d'Émeraude** : moins de lave, de mares et de décor qui barrent le passage, chemins plus dégagés (l'Azur ne change pas).
+- **Supprimer un personnage** : bouton 🗑️ dans ☰ → Personnages et compte, avec confirmation ; au-delà du niveau 10, il faut retaper le nom du personnage. Le serveur efface son profil et sa maison (`POST /api/clans/supprimer`, avec le code du personnage).
+- **Apparences exclusives** : au lieu de « verrouillé », la fenêtre dit quand la pièce revient (« ce mois-ci : niveau 30 du passe » ou « revient dans 2 mois »).
+- Tests : `tests/clansconfort.test.mjs`.
+
+## Combat (v84)
+
+- **Nouvelles mécaniques de cartes** (combat et duel) : **piocher**, **dupliquer** (une copie *éphémère* d'une carte de ta main, au hasard : elle disparaît une fois jouée ou en fin de tour, bordure bleue « ✨ copie »), **réduction** (les cartes de ta main coûtent 1 de moins ce tour).
+- **15 nouvelles cartes** : Réflexion, Miroir, Souffle vif, Écho, Grimoire infini (légendaire) ; Brasier vif, Flammes jumelles (Feu) ; Reflux, Courant porteur (Eau) ; Bouture, Germination (Plante) ; Plan de bataille (Combattant), Reflet arcanique (Mage), Carquois plein (Tireur), Estocade vive (Escrimeur).
+- **4 énergie** dès qu'on a choisi sa branche d'Ascension (niveau 20), partout : expéditions, boss, duels, arène.
+- **Familiers en duel et en arène** : même coup de pouce qu'en expédition (ce qui vise « les ennemis » vise l'adversaire). Les talents de classe et de branche y étaient déjà actifs.
+- **Duels sur une terre tierce** : on peut défier un ennemi sur sa propre terre (comme avant) ou sur la terre d'un troisième clan (ex. Feu contre Eau sur la Sylve) ; jamais chez lui ni au Carrefour.
+- **Défaite en duel** : le perdant est étourdi 10 s (il ne peut plus bouger, on ne peut pas le défier), puis renvoyé devant sa maison.
+- Tests : `tests/clansmecaniques.test.mjs`.
+
+## Interface (v85)
+
+- **Création du héros en 3 étapes** (Clan → Classe → Nom), avec un aperçu du personnage qui suit les choix (sprite, PV, énergie, talent). Plus de fenêtre de confirmation du navigateur : un récapitulatif et un bouton « Entrer dans le monde ». Sur téléphone, cartes compactes.
+- **Parcelle refaite** : jauge de réserve (heures produites / stockage), bouton Récolter qui pulse quand la réserve est pleine, bonus en pastilles, bâtiments avec niveaux en pastilles, comparaison « maintenant → niveau suivant », coûts en rouge si on n'a pas assez, bouton grisé tant qu'on ne peut pas payer.
+- **Decks conseillés** (bouton 📋 dans la fenêtre du deck) : pour chaque clan et chaque classe, 3 styles (Assaut, Rempart, Maîtrise ; un « ⭐ Conseillé » pour débuter), 14 cartes chacun avec assez d'attaques et de défenses, la composition complète (🔒 = pas encore possédée) et « Utiliser ce deck » (les cartes manquantes sont remplacées par les meilleures qu'on a). Code : `shared/clans/decksConseilles.js`, action `deckConseille`.
+- **Titres stylés** : sur la carte, le titre devient un ruban à l'allure de son rang (bronze, argent, or, légende) et de son thème ; le titre de branche Berserker est rouge sang avec des gouttes qui coulent, l'Archimage a des runes, l'Artificier des étincelles… Même style dans les fiches. Code : `shared/clans/titresStyle.js`.
+- Tests : `tests/clansinterface.test.mjs`.
+
+## Cosmétiques : ailes, armes, capes (v86)
+
+- Trois nouveaux emplacements dans 👕 Apparence, **purement esthétiques** (aucun bonus, aucun effet en combat ni en PvP) :
+  - **Ailes** : papillon, fée, ange (à acheter) ; démon (25 boss), dragon (3 boss du Cauchemar), phénix (rang Diamant en arène). Elles battent en marchant.
+  - **Armes** (dans la main) : épée, hache de guerre, bâton de mage, trident (à acheter) ; arc doré (25 duels), faux du Cauchemar (1 boss du Cauchemar).
+  - **Capes** : écarlate, azur, forêt, nuit, étoilée (à acheter) ; royale (rang Or en arène), du héros (200 combats). Une cape choisie remplace la cape de classe de l'Escrimeur.
+- Le personnage est maintenant dessiné dans des cases de 24 px (le corps garde ses 16 px au milieu) pour laisser la place aux ailes et à l'arme.
+- Le code d'apparence passe à 7 parties (`tenue.cheveux.coiffe.aura.ailes.arme.cape`) ; les anciens codes à 4 parties restent lus (sans ailes, arme ni cape).
+
+## Chapitre 2 : les Terres Brisées (v87)
+
+- **Une nouvelle région neutre au sud de la carte** (la carte passe à 3200 × 2880) : dalles, cristaux, roche noire et gouffres violets infranchissables. On y entre par la **Porte de la Faille**, au bout de la route du Carrefour, à partir du **niveau 30** (refusé par le client et par le serveur). Aucun clan ne la possède : pas de sanctuaire, pas de duel de territoire.
+- **Le Portail de la Faille** ouvre une expédition à 3 paliers + Cauchemar (niveau 30 requis, en groupe aussi pour chaque membre) contre des **monstres fusionnés** (trois éléments à la fois) : 7 normaux, 2 rares, 2 élites, 2 boss (Le Cœur de la Faille, L'Archonte du vide) et un titan du Cauchemar, **Le Néant originel**. Nettement plus durs que dans les trois terres.
+- **Deux nouvelles ressources** : les Fragments de faille (le matériau de la région) et l'**Éclat du vide** (sa ressource rare).
+- **Les invocations** : 4 nouvelles cartes forgées à l'atelier avec des éclats du vide — Loup spectral, Golem de pierre (épiques), Esprit de la faille, Dragonnet élémentaire (légendaires), jouables par tous les clans. Une invocation pose un **allié** à côté du héros : il frappe un ennemi au début de chacun de tes tours et **encaisse les coups à ta place** tant qu'il tient debout. Ses PV et ses dégâts montent avec le niveau de la carte. Ça marche aussi en duel (l'allié protège son maître).
+- **L'histoire** : 5 habitants veillent sur la Faille (Orin le veilleur à la porte, Lyra l'archiviste, Varda la forgeronne du vide, Sel l'ermite, Nyx l'oracle). Leurs 5 quêtes se suivent et racontent l'origine des trois clans ; elles s'ouvrent aux **niveaux 30, 40 et 50**, et la dernière demande d'abattre le Néant originel dans le Cauchemar. Les finir toutes donne le titre « **Héros de la Faille** ».
+- **Niveau maximum : 80** (au lieu de 60).
+- Correctif : l'écran de combat ne plante plus quand la région n'a pas de boss mondial.
+- Tests : `tests/clanschapitre2.test.mjs`.
+
+## Niveaux rééquilibrés (v88)
+
+- Le niveau vient maintenant de l'**XP** : 1 XP par combat gagné, 4 XP par boss vaincu (avant : 1 niveau pour 6 victoires et **2 niveaux par boss**, ce qui faisait monter beaucoup trop vite).
+- **La courbe ralentit** : chaque niveau coûte un peu plus que le précédent. Repères : niveau 10 = 40 XP, 20 = 112, 30 = 214, 50 = 508, 80 = 1174.
+- Le niveau reste recalculé à chaque connexion depuis les victoires et les boss (rien à migrer). Les joueurs actuels redescendent (ex. 100 victoires + 25 boss : 67 → 28), mais gardent tout ce qu'ils ont déjà débloqué ou acheté (branche d'Ascension, montures, décorations).
+- Au survol du niveau dans la barre du haut : l'XP actuelle et l'XP qu'il faut pour le niveau suivant.
+- La liste « Revenir à un personnage » n'affiche plus de niveau au-delà du maximum (un vieux « niv. 100 » d'avant la v83 traînait dans certains comptes), et le serveur plafonne ce chiffre.

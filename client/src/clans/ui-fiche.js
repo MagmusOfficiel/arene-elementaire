@@ -9,6 +9,7 @@ import { BRANCHES, ELEMENTS, CLASSES } from '../../../shared/clans/cartes.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import * as F from '../../../shared/clans/familiers.js';
 import * as GR from '../../../shared/clans/grimoire.js';
+import * as TS from '../../../shared/clans/titresStyle.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { rangDe } from '../../../shared/clans/arene.js';
 import { sfx } from '../sfx.js';
@@ -19,8 +20,8 @@ import { feuillePerso } from './monde.js';
 import { vignetteFamilier } from './familiersArt.js';
 
 function portrait(clan, classe, app, z = 5) {
-  const c = document.createElement('canvas'); c.width = 16 * z; c.height = 26 * z; c.className = 'portraitFiche';
-  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(feuillePerso(clan, classe, app), 0, 0, 16, 26, 0, 0, 16 * z, 26 * z);
+  const c = document.createElement('canvas'); c.width = 24 * z; c.height = 26 * z; c.className = 'portraitFiche';
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(feuillePerso(clan, classe, app), 0, 0, 24, 26, 0, 0, 24 * z, 26 * z);
   return c;
 }
 const rangTxt = (elo) => { const r = rangDe(elo); return `${r.ico} ${r.nom}`; };
@@ -32,7 +33,7 @@ export function fenetreFiche(f, moi = false) {
   const titre = HF.nomTitre(f.titre);
   ouvrir(`<div class="fiche ${f.clan}">
       <div class="ficheHaut"><span data-portrait></span>
-        <div><h2 id="ficheNom">${esc(f.nom)}${moi ? ' <button class="lien" id="btPseudo" title="Changer de pseudo (ton compte et ta progression ne changent pas)">✏️</button>' : ''}</h2>${titre ? `<p class="titreFiche">« ${esc(titre)} »</p>` : ''}
+        <div><h2 id="ficheNom">${esc(f.nom)}${moi ? ' <button class="lien" id="btPseudo" title="Changer de pseudo (ton compte et ta progression ne changent pas)">✏️</button>' : ''}</h2>${titre ? `<p class="titreFi">${TS.titreHTML(f.titre, titre, esc)}</p>` : ''}
           <p><span class="badge ${f.clan}">${el.ico} ${el.clan}</span> ${cl ? `${cl.ico} ${cl.nom}` : ''}${BRANCHES[f.branche] ? ` · ${BRANCHES[f.branche].ico} ${esc(BRANCHES[f.branche].nom)}` : ''} · niv. ${f.niv}${f.statut && f.statut !== 'libre' ? ` · <i>${{ expedition: 'en expédition', duel: 'en duel', arene: 'dans l’arène', combat: 'contre le boss mondial' }[f.statut] || ''}</i>` : ''}</p>
           ${f.fam ? `<p class="famFiche"><span data-fam="${esc(f.fam)}"></span> ${esc(F.FAMILIERS[f.fam]?.nom || '')}</p>` : ''}</div></div>
       <div class="ficheStats">
@@ -54,7 +55,7 @@ export function fenetreFiche(f, moi = false) {
           ${moi && n ? `<select data-hf="${id}"><option value="">Afficher un titre…</option>${h.titres.slice(0, n).map((t, i) => `<option value="${id}:${i + 1}" ${p.titre === `${id}:${i + 1}` ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>`;
       }).join('') || '<p>Pas encore de haut fait.</p>'}</div>
       ${moi && p.branche ? `<p class="cout">${p.titre === `br:${p.branche}` ? '' : `<button class="lien" id="btTitreBranche">Afficher le titre « ${esc(BRANCHES[p.branche].titre)} »</button>`}</p>` : ''}
-      ${moi ? ['feu', 'eau', 'plante'].filter((c) => QP.amiDe(p, c) && p.titre !== `vil:${c}`).map((c) => `<p class="cout"><button class="lien" data-titrevil="${c}">Afficher le titre « ${esc(QP.TITRES[c])} »</button></p>`).join('') : ''}
+      ${moi ? ['feu', 'eau', 'plante', 'brisees'].filter((c) => QP.amiDe(p, c) && p.titre !== `vil:${c}`).map((c) => `<p class="cout"><button class="lien" data-titrevil="${c}">Afficher le titre « ${esc(QP.TITRES[c])} »</button></p>`).join('') : ''}
       ${moi ? Object.keys(GR.TITRES).filter((n) => GR.aTitre(p, n) && p.titre !== `gri:${n}`).map((n) => `<p class="cout"><button class="lien" data-titre="gri:${n}">Afficher le titre « ${esc(GR.TITRES[n])} »</button></p>`).join('') : ''}
       ${moi && p.titre ? '<p class="cout"><button class="lien" id="btSansTitre">Ne plus afficher de titre</button></p>' : ''}
     </div>`, () => {

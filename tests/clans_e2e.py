@@ -61,7 +61,7 @@ def page(b, nom, mobile=False):
 
 def creer(pg, nom, clan, classe):
     pg.goto(URL); pg.wait_for_selector('#ecranClan:not(.cache)', timeout=30000)
-    pg.fill('#nomJoueur', nom); pg.click(f'.clanCarte.{clan}'); pg.click(f'.classeCarte[data-c="{classe}"]')
+    pg.click(f'.clanCarte.{clan}'); pg.click(f'.classeCarte[data-c="{classe}"]'); pg.fill('#nomJoueur', nom); pg.click('#btCreer')
     pg.wait_for_selector('#ecranMonde:not(.cache)', timeout=60000); pg.wait_for_timeout(600)
 
 def etat(pg, js): return pg.evaluate(f'(() => {{ const c = window.__clans, p = c.p; return {js}; }})()')
@@ -278,8 +278,8 @@ def scenario(b):
     verifier(True, 'il choisit son titre')
     fermer(A)
     B.bring_to_front(); B.wait_for_timeout(1500)
-    B.locator('#listeClans [data-fiche]', has_text='Testeur').first.click(); B.wait_for_selector('.titreFiche', timeout=8000)
-    verifier('Testeur' in B.inner_text('#fenetreCorps') and '«' in B.inner_text('.titreFiche'), 'un autre joueur voit sa fiche et son titre')
+    B.locator('#listeClans [data-fiche]', has_text='Testeur').first.click(); B.wait_for_selector('.titreFi .titreBadge', timeout=8000)
+    verifier('Testeur' in B.inner_text('#fenetreCorps') and len(B.inner_text('.titreFi .titreBadge')) > 3, 'un autre joueur voit sa fiche et son titre')
     fermer(B)
 
     etape('Expédition en groupe')

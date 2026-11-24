@@ -9,7 +9,7 @@ import { decor, ambiance, creerFx, PALETTES } from './scene.js';
 import { sfx } from '../sfx.js';
 import { banniere, defausserMain, dessinerSprite, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler } from './ui-combat.js';
 import { $, ICO_RESS, carteHTML, centre, esc, nf, p, pause, room, statutsHTML, toast } from './ui-commun.js';
-import { fermer, monde, ouvrir } from './ui-monde.js';
+import { etourdir, fermer, monde, ouvrir } from './ui-monde.js';
 import { finArene } from './ui-social.js';
 
 export let vueDu = null, minuterieDu = null, fxDu = null, ambDu = null, volDu = null, journalVu = 0;
@@ -41,13 +41,15 @@ export function afficherDuel(v) {
     if (avant) animerDuel(avant, v);
     majJauge($('duHeros').querySelector('.jauge'), m.pv, m.pvMax, m.bloc);
     majJauge(advDu().querySelector('.jauge'), a.pv, a.pvMax, a.bloc);
-    $('duStatuts').innerHTML = statutsHTML(m); advDu().querySelector('.statuts').innerHTML = statutsHTML(a);
+    // v87 : l'invocation de chacun, sous ses statuts
+    const inv = (x) => (x.allie ? `<span class="invDuel" title="Encaisse les coups et frappe à chaque tour">${x.allie.ico} ${esc(x.allie.nom)} ${x.allie.pv}/${x.allie.pvMax} · ⚔ ${x.allie.deg}</span>` : '');
+    $('duStatuts').innerHTML = statutsHTML(m) + inv(m); advDu().querySelector('.statuts').innerHTML = statutsHTML(a) + inv(a);
   };
   montrer();
-  $('duEnergieTxt').textContent = v.aMoi ? `${m.energie}/3` : '–';
+  $('duEnergieTxt').textContent = v.aMoi ? `${m.energie}/${m.energieMax || 3}` : '–';
   $('duEnergie').classList.toggle('vide', !v.aMoi || m.energie === 0);
   const n = m.main.length, nouveauTour = v.aMoi && (!avant || !avant.aMoi || avant.tour !== v.tour);
-  $('duMain').innerHTML = m.main.map((k, i) => { const rot = (i - (n - 1) / 2) * 5, dy = Math.abs(i - (n - 1) / 2) * 7; let h = carteHTML(k.id, k.niv); if (k.cout < CARTES[k.id].cout) h = h.replace(`<span class="cc">${CARTES[k.id].cout}</span>`, `<span class="cc reduit">${k.cout}</span>`); return h.replace('class="carte', `style="transform: rotate(${rot}deg) translateY(${dy}px)" data-i="${i}" class="carte ${v.aMoi && k.cout <= m.energie ? '' : 'injouable'}`); }).join('');
+  $('duMain').innerHTML = m.main.map((k, i) => { const rot = (i - (n - 1) / 2) * 5, dy = Math.abs(i - (n - 1) / 2) * 7; let h = carteHTML(k.id, k.niv); if (k.cout < CARTES[k.id].cout) h = h.replace(`<span class="cc">${CARTES[k.id].cout}</span>`, `<span class="cc reduit">${k.cout}</span>`); return h.replace('class="carte', `style="transform: rotate(${rot}deg) translateY(${dy}px)" data-i="${i}" class="carte ${k.eph ? 'eph' : ''} ${v.aMoi && k.cout <= m.energie ? '' : 'injouable'}`); }).join('');
   $('duMain').querySelectorAll('.carte').forEach((d) => d.onclick = () => jouerDuelCarte(+d.dataset.i, d));
   if (nouveauTour) { distribuer($('duMain'), $('duEnergie'), premier ? 500 : 0); if (!premier) banniere('duBanniere', 'À toi de jouer !', '', 950); }
   else if (avant && avant.aMoi && !v.aMoi) banniere('duBanniere', `Tour de ${esc(a.nom)}`, 'rouge', 950);
@@ -95,6 +97,7 @@ $('btDuelAbandon').onclick = () => { if (confirm('Abandonner le duel ? Ton adver
 addEventListener('keydown', (e) => { if (!$('duel').classList.contains('cache') && (e.key === 'e' || e.key === 'E') && vueDu?.aMoi) $('btDuelFin').click(); });
 export function fermerDuel() { stopAuraDu?.(); setStopAuraDu(null); clearInterval(minuterieDu); $('duel').classList.add('cache'); vueDu = null; ambDu?.arreter(); ambDu = null; fxDu?.vider(); $('duBanniere').replaceChildren(); $('duel').querySelector('.rayons')?.remove(); }
 export async function finDuel(r) {
+  const t0 = Date.now();
   // la fin, mise en scène : derniers coups, bannière, rayons, puis le bilan
   const sc = $('duel');
   if (!sc.classList.contains('cache')) {
@@ -108,6 +111,7 @@ export async function finDuel(r) {
     await pause(1700);
   }
   fermerDuel();
+  if (r.issue === 'defaite' && r.raison !== 'depart') etourdir(Math.max(1, 10 - (Date.now() - t0) / 1000));   // v84
   const titre = { victoire: '🏆 Victoire !', defaite: '💀 Défaite', nul: '🤝 Égalité' }[r.issue];
   const raison = r.raison === 'abandon' ? (r.issue === 'victoire' ? `${esc(r.adv)} a abandonné.` : 'Tu as abandonné.') : r.raison === 'depart' ? `${esc(r.adv)} a pris la fuite.` : '';
   if (r.arene) return finArene(r, titre, raison);

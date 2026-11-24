@@ -11,7 +11,7 @@
 // =====================================================================
 import colyseus from 'colyseus';
 import { noterErreur } from './journal.js';
-import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison } from '../../shared/clans/geo.js';
+import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison, posMaison, dansFaille, NIV_FAILLE } from '../../shared/clans/geo.js';
 import { nouveauDuel, jouer as jouerDuel, finTour as finTourDuel, vue as vueDuel, deckValide, PV_DUEL } from '../../shared/clans/duel.js';
 import { BUTIN_DUEL } from '../../shared/clans/profil.js';
 import { BOSS_MONDIAUX, MONDIAL, POINTS, NOMS_CLANS, PALIER_MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial } from '../../shared/clans/mondial.js';
@@ -65,7 +65,9 @@ export class ClansRoom extends Room {
         hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0), statut: k.statut || 'libre' });
     });
     sur('pos', (c, m, j) => {
+      if ((j.etourdi || 0) > Date.now()) return;   // v84 : étourdi après une défaite en duel
       const x = Math.max(0, Math.min(MONDE.l, num(m.x, j.x))), y = Math.max(0, Math.min(MONDE.h, num(m.y, j.y)));
+      if (dansFaille(x, y) && !dansFaille(j.x, j.y) && (j.niv || 1) < NIV_FAILLE) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v87
       if (Math.hypot(x - j.x, y - j.y) < 200) { j.x = x; j.y = y; }
       // un saut trop grand est refusé : on ramène le joueur là où le serveur le voit (sinon il resterait « coincé » ailleurs)
       else if (Date.now() - (j.recale || 0) > 1500) { j.recale = Date.now(); c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); }
@@ -169,7 +171,10 @@ export class ClansRoom extends Room {
       if (!cible || !cl || !cible.p || !j.p) return refus('Ce joueur est parti.');
       if (j.duel || cible.duel) return refus('Un duel est déjà en cours.');
       if (cible.clan === j.clan) return refus('On ne défie pas quelqu’un de son propre clan.');
-      if (territoireDe(cible.x, cible.y) !== j.clan) return refus('Tu ne peux défier un ennemi que sur le territoire de ton clan.');
+      // v84 : sur ta terre, ou sur la terre d'un troisième clan (ex. Feu contre Eau sur la Sylve) ; jamais au Carrefour ni chez lui
+      const ici = territoireDe(cible.x, cible.y);
+      if (!(ici === j.clan || (ici && ici !== cible.clan))) return refus('Tu peux défier un ennemi sur ta terre, ou sur la terre d’un troisième clan, mais pas chez lui ni au Carrefour.');
+      if ((cible.etourdi || 0) > Date.now()) return refus(`${cible.nom} est étourdi.`);
       if (Math.hypot(cible.x - j.x, cible.y - j.y) > 110) return refus('Approche-toi d’abord.');
       if (cible.statut === 'expedition') return refus(`${cible.nom} est en expédition : impossible de le défier maintenant.`);
       if (cible.manche || j.manche) return refus('Un combat contre le boss mondial est en cours.');
@@ -215,6 +220,7 @@ export class ClansRoom extends Room {
       if (!g || g.chef !== c.sessionId || g.parti) return;
       const terr = String(m.terr || ''), palier = Math.floor(Number(m.palier)) || 1;
       if (g.membres.length < 2) return refus('Invite au moins un compagnon d’abord.');
+      if (terr === 'brisees') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_FAILLE) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_FAILLE}.`); }   // v87
       for (const sid of g.membres) { const k = this.joueurs.get(sid); if (!k?.p || k.p.expedition || k.duel || k.manche) return refus(`${k?.nom || 'Un membre'} n’est pas prêt.`); if (palier > (k.p.paliers[terr] || 1)) return refus(`${k.nom} n’a pas encore débloqué ce palier.`); }
       const graine = Math.floor(Math.random() * 2 ** 31);
       for (const sid of g.membres) {
@@ -395,7 +401,7 @@ export class ClansRoom extends Room {
 
   lancerDuel(ca, a, cb, b, arene = null) {
     this.file = this.file.filter((f) => f.sid !== ca.sessionId && f.sid !== cb.sessionId);
-    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, branche: a.branche, pvMax: a.pvMax, deck: a.deck, app: a.app }, { nom: b.nom, clan: b.clan, classe: b.classe, branche: b.branche, pvMax: b.pvMax, deck: b.deck, app: b.app }, (Math.random() * 1e9) >>> 0);
+    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, branche: a.branche, pvMax: a.pvMax, deck: a.deck, app: a.app, familier: a.fam }, { nom: b.nom, clan: b.clan, classe: b.classe, branche: b.branche, pvMax: b.pvMax, deck: b.deck, app: b.app, familier: b.fam }, (Math.random() * 1e9) >>> 0);
     const x = { d, decks: [a.deck, b.deck], ids: [ca.sessionId, cb.sessionId], clients: [ca, cb], noms: [a.nom, b.nom], essence: [a.essence || 0, b.essence || 0], tourVu: 0, limite: 0, arene, bot: arene?.bot ?? null };
     a.duel = b.duel = true; a.statut = b.statut = arene ? 'arene' : 'duel';
     this.duels.set(ca.sessionId, x); this.duels.set(cb.sessionId, x);
@@ -424,6 +430,17 @@ export class ClansRoom extends Room {
       }, 700 + Math.random() * 700);
     }
   }
+  // v84 : le perdant d'un duel est étourdi 10 s, puis renvoyé devant sa maison
+  etourdir(c, j) {
+    j.etourdi = Date.now() + 10000;
+    setTimeout(() => {
+      j.etourdi = 0;
+      if (!this.joueurs.has(c.sessionId) || !j.p) return;
+      const m = posMaison(j.p.clan, cleMaison(j.p));
+      j.x = m.x; j.y = m.y + 40;
+      c.send('recale', { x: j.x, y: j.y, retour: true });
+    }, 10000);
+  }
   terminerDuel(x, gagnant, raison) {
     if (x.fin) return; x.fin = true; x.minuteur?.clear();
     // statistiques : seulement les duels joués jusqu'au bout (ni abandon ni fuite)
@@ -439,6 +456,7 @@ export class ClansRoom extends Room {
         j.duel = false; j.statut = 'libre'; j.protege = Date.now() + 120000;
         if (j.p) { j.p.ress.essence = Math.max(0, j.p.ress.essence + (issue === 'victoire' ? butin : issue === 'defaite' ? -butin : 0)); if (issue === 'victoire') { j.p.duels.gagnes++; if (raison !== 'depart') Q.evenement(j.p, 'duel'); } else if (issue === 'defaite') j.p.duels.perdus++; j.sale = true; this.identite(j); this.pousserProfil(c, j); }
       }
+      if (j && issue === 'defaite' && raison !== 'depart') this.etourdir(c, j);
       c.send('duelResultat', { issue, butin: issue === 'victoire' ? butin : issue === 'defaite' ? -butin : 0, adv: x.noms[1 - q], raison, vue: vueDuel(x.d, q) });
     });
     this.broadcast('chat', { systeme: true, t: gagnant === null ? `Le duel entre ${x.noms[0]} et ${x.noms[1]} se termine sur une égalité.` : `🏆 ${x.noms[gagnant]} a vaincu ${x.noms[1 - gagnant]} en duel${raison === 'abandon' ? ' (abandon)' : raison === 'depart' ? ' (fuite)' : ''} !` });

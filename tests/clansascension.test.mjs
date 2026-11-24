@@ -8,7 +8,7 @@ import * as D from '../shared/clans/duel.js';
 import { BRANCHES, CARTES, NIV_ASCENSION, branchesDe, decrire } from '../shared/clans/cartes.js';
 import { ACTIONS } from '../server/src/clansProfils.js';
 
-const profil = (classe = 'mage') => { const p = P.nouveauProfil('feu', 'Asc', 0, classe); p.stats.victoires = (NIV_ASCENSION - 1) * 6; return p; };
+const profil = (classe = 'mage') => { const p = P.nouveauProfil('feu', 'Asc', 0, classe); p.stats.victoires = P.xpPourNiveau(NIV_ASCENSION); return p; };
 
 test('8 branches, 2 par classe, 6 sorts chacune avec un texte', () => {
   assert.equal(Object.keys(BRANCHES).length, 8);
@@ -23,7 +23,7 @@ test('8 branches, 2 par classe, 6 sorts chacune avec un texte', () => {
 test('niveau 20 requis, épreuve rejouée par le serveur, puis choix de la branche de sa classe', () => {
   const p = profil('mage'); p.stats.victoires = 0;
   assert.equal(ACTIONS.ascensionDebut(p).ok, false);
-  p.stats.victoires = (NIV_ASCENSION - 1) * 6;
+  p.stats.victoires = P.xpPourNiveau(NIV_ASCENSION);
   assert.equal(AS.etat(p), 'epreuve');
   const r = ACTIONS.ascensionDebut(p); assert.ok(r.ok);
   assert.equal(ACTIONS.ascensionChoisir(p, { b: 'archimage' }).ok, false, 'pas avant d’avoir réussi');

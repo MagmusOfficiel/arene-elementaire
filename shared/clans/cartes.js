@@ -14,6 +14,8 @@ export const ELEMENTS = {
   eau: { nom: 'Eau', clan: "Clan de l'Eau", couleur: '#2a8ae0', fonce: '#0a2a5a', ico: '💧', materiau: 'perles', nomMat: 'Perles' },
   plante: { nom: 'Plante', clan: 'Clan de la Plante', couleur: '#3aa84a', fonce: '#0e3a14', ico: '🌿', materiau: 'seve', nomMat: 'Sève' },
   neutre: { nom: 'Neutre', couleur: '#9a8a7a', fonce: '#2a2420', ico: '✦' },
+  // v87 : les Terres Brisées (pas un clan : une région, son matériau et sa ressource rare)
+  brisees: { nom: 'Faille', couleur: '#8a60e0', fonce: '#1a0e2a', ico: '🌀', materiau: 'fragments', nomMat: 'Fragments de faille' },
 };
 export const CLANS = ['feu', 'eau', 'plante'];
 // les ressources rares : une par territoire, ramassée sur les filons ou sur les monstres rares
@@ -21,6 +23,7 @@ export const RARES = {
   feu: { id: 'cristal', nom: 'Cristal de lave', ico: '💎' },
   eau: { id: 'perle_noire', nom: 'Perle noire', ico: '⚫' },
   plante: { id: 'graine_or', nom: "Graine d'or", ico: '🌰' },
+  brisees: { id: 'eclat_vide', nom: 'Éclat du vide', ico: '🔷' },
 };
 export const RECETTES = { epique: { rare: 6, essence: 300 }, legendaire: { rare: 15, essence: 800 } };
 // les classes : PV en plus ou en moins, un talent (géré par combat.js) et leurs propres cartes
@@ -156,6 +159,27 @@ export const CARTES = Object.fromEntries([
   ES('danse_lames', 'Danse des lames', 'epique', 2, 'attaque', '🌀', { degats: 3, fois: 5 }),
   ES('coup_grace', 'Coup de grâce', 'epique', 2, 'attaque', '💀', { degats: 20, epuise: true }),
   ES('maitre_armes', 'Maître d’armes', 'legendaire', 1, 'pouvoir', '👑', { force: 2, energie: 2, pioche: 2, epuise: true }),
+  // ---- v84 : piocher, dupliquer, réduire les coûts
+  c('reflexion', 'Réflexion', 'neutre', 'commune', 1, 'pouvoir', '🤔', { pioche: 2 }),
+  c('miroir', 'Miroir', 'neutre', 'rare', 1, 'pouvoir', '🪞', { dupliquer: 1 }),
+  c('souffle_vif', 'Souffle vif', 'neutre', 'rare', 1, 'pouvoir', '🌬️', { reduction: 1, pioche: 1, epuise: true }),
+  c('echo', 'Écho', 'neutre', 'epique', 2, 'pouvoir', '🔁', { dupliquer: 2, epuise: true }),
+  c('grimoire_infini', 'Grimoire infini', 'neutre', 'legendaire', 2, 'pouvoir', '📖', { reduction: 1, pioche: 2, dupliquer: 1, epuise: true }),
+  c('brasier_vif', 'Brasier vif', 'feu', 'rare', 1, 'attaque', '🔥', { degats: 5, brulure: 1, pioche: 1 }),
+  c('flammes_jumelles', 'Flammes jumelles', 'feu', 'epique', 1, 'pouvoir', '♊', { dupliquer: 1, force: 1 }),
+  c('reflux', 'Reflux', 'eau', 'epique', 1, 'pouvoir', '🌊', { reduction: 1, bouclier: 4 }),
+  c('courant', 'Courant porteur', 'eau', 'commune', 1, 'defense', '💧', { bouclier: 4, pioche: 1 }),
+  c('bouture', 'Bouture', 'plante', 'rare', 1, 'pouvoir', '🌿', { dupliquer: 1, regen: 1 }),
+  c('germination', 'Germination', 'plante', 'commune', 1, 'defense', '🌱', { bouclier: 4, pioche: 1 }),
+  CO('plan_bataille', 'Plan de bataille', 'rare', 1, 'pouvoir', '🗺️', { reduction: 1, pioche: 1, epuise: true }),
+  MA('reflet', 'Reflet arcanique', 'epique', 1, 'pouvoir', '🔮', { dupliquer: 2 }),
+  TI('carquois', 'Carquois plein', 'rare', 1, 'pouvoir', '🏹', { pioche: 3, epuise: true }),
+  ES('estocade_vive', 'Estocade vive', 'commune', 0, 'attaque', '🤺', { degats: 3, pioche: 1 }),
+  // ---- v87 : les invocations (Chapitre 2) — on les forge avec des éclats du vide des Terres Brisées
+  c('loup_spectral', 'Loup spectral', 'neutre', 'epique', 1, 'pouvoir', '🐺', { invoque: { nom: 'Loup spectral', img: 'loup_spectral', ico: '🐺', pv: 12, deg: 5 } }, null, 'brisees'),
+  c('golem_pierre', 'Golem de pierre', 'neutre', 'epique', 2, 'pouvoir', '🗿', { invoque: { nom: 'Golem de pierre', img: 'golem_pierre', ico: '🗿', pv: 30, deg: 3 }, bouclier: 4 }, null, 'brisees'),
+  c('esprit_faille', 'Esprit de la faille', 'neutre', 'legendaire', 2, 'pouvoir', '🌀', { invoque: { nom: 'Esprit de la faille', img: 'esprit_faille', ico: '🌀', pv: 22, deg: 7 }, pioche: 1 }, null, 'brisees'),
+  c('dragonnet', 'Dragonnet élémentaire', 'neutre', 'legendaire', 3, 'pouvoir', '🐉', { invoque: { nom: 'Dragonnet', img: 'dragonnet', ico: '🐉', pv: 26, deg: 9 }, brulure: 2, tous: true }, null, 'brisees'),
   // ---- les cartes de branche (v69) : seulement à l'autel, seulement pour sa branche
   GA('gd_egide', 'Égide', 'rare', 1, 'defense', '🔰', { bouclier: 10, epines: 2 }),
   GA('gd_represailles', 'Représailles', 'rare', 1, 'attaque', '💢', { bouclierEnDegats: true, bouclier: 4 }),
@@ -212,6 +236,7 @@ const CROISSANTS = ['degats', 'bouclier', 'soin', 'brulure', 'epines', 'regen', 
 export const NIV_MAX = 3;
 export function effetsDe(id, niv = 1) {
   const e = { ...CARTES[id].effets };
+  if (e.invoque) e.invoque = { ...e.invoque, pv: Math.round(e.invoque.pv * (1 + 0.3 * (niv - 1))), deg: Math.round(e.invoque.deg * (1 + 0.3 * (niv - 1))) };   // v87
   for (const k of CROISSANTS) if (e[k]) e[k] = Math.round(e[k] * (1 + 0.3 * (niv - 1)));
   if (niv >= 3 && e.force) e.force += 1;
   return e;
@@ -237,6 +262,9 @@ export function decrire(id, niv = 1) {
   if (e.appel) t.push(`Appel ${e.appel}.`);
   if (e.energie) t.push(`+${e.energie} énergie.`);
   if (e.pioche) t.push(`Pioche ${e.pioche} carte${e.pioche > 1 ? 's' : ''}.`);
+  if (e.invoque) t.push(`Invoque ${e.invoque.ico} ${e.invoque.nom} (${e.invoque.pv} PV) : il frappe un ennemi pour ${e.invoque.deg} au début de chacun de tes tours, et encaisse les coups à ta place tant qu’il tient debout.`);
+  if (e.dupliquer) t.push(`Copie ${e.dupliquer > 1 ? `${e.dupliquer} cartes` : 'une carte'} de ta main au hasard (copie éphémère).`);
+  if (e.reduction) t.push(`Les cartes de ta main coûtent ${e.reduction} de moins ce tour.`);
   if (e.epuise) t.push('Épuisée.');
   return t.join(' ');
 }
@@ -255,5 +283,6 @@ export const DECK_DEPART = {
   eau: ['frappe', 'frappe', 'frappe', 'frappe', 'garde', 'garde', 'garde', 'garde', 'vague', 'vague', 'jet', 'maree'],
   plante: ['frappe', 'frappe', 'frappe', 'frappe', 'garde', 'garde', 'garde', 'garde', 'ronce', 'ronce', 'liane', 'seve'],
 };
-// le deck de départ : 3 Frappe, 3 Garde, 2 cartes de la classe, 4 cartes de l'élément
-export const deckDepart = (clan, classe) => ['frappe', 'frappe', 'frappe', 'garde', 'garde', 'garde', ...(CLASSES[classe]?.depart || []), ...DECK_DEPART[clan].slice(8)];
+// le deck de départ (12 cartes) : 2 Frappe, 2 Garde, 2 cartes de la classe, 6 cartes de l'élément (v83 : 2 exemplaires au plus)
+const ELEM_DEPART = { feu: ['etincelle', 'etincelle', 'tison', 'tison', 'flamme', 'cendres'], eau: ['vague', 'vague', 'jet', 'jet', 'maree', 'maree'], plante: ['ronce', 'ronce', 'liane', 'liane', 'seve', 'seve'] };
+export const deckDepart = (clan, classe) => ['frappe', 'frappe', 'garde', 'garde', ...(CLASSES[classe]?.depart || []), ...ELEM_DEPART[clan]];

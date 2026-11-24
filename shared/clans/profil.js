@@ -7,7 +7,9 @@
 import { BRANCHES, CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
 import { alea } from './combat.js';
 
-export const DECK_MIN = 10, DECK_MAX = 25, COPIES_MAX = 4;
+export const DECK_MIN = 10, DECK_MAX = 25, COPIES_MAX = 2;
+// v83 : 2 exemplaires d'une même carte au plus dans un deck, 1 seul pour une légendaire
+export const copiesMax = (id) => (CARTES[id]?.rarete === 'legendaire' ? 1 : COPIES_MAX);
 export const PRIX_TIRAGE = 100, PRIX_TIRAGE_10 = 900;
 
 export function nouveauProfil(clan, nom = 'Joueur', maintenant = Date.now(), classe = 'combattant') {
@@ -17,12 +19,12 @@ export function nouveauProfil(clan, nom = 'Joueur', maintenant = Date.now(), cla
   for (const id of deck) collection[id] = { n: (collection[id]?.n || 0) + 1, niv: 1 };
   return {
     v: 2, clan, classe, nom: String(nom).slice(0, 16) || 'Joueur', creeLe: maintenant,
-    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0 },
+    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0, fragments: 0, eclat_vide: 0 },
     duels: { gagnes: 0, perdus: 0 },
     collection, deck,
     parcelle: { maison: 1, autel: 1, atelier: 1, recolte: maintenant },
     tirages: { total: 0, depuisLegendaire: 0 },
-    paliers: { feu: 1, eau: 1, plante: 1 },   // le palier max débloqué dans chaque territoire
+    paliers: { feu: 1, eau: 1, plante: 1, brisees: 1 },   // le palier max débloqué dans chaque territoire
     stats: { combats: 0, victoires: 0, boss: 0, expeditions: 0 },
     expedition: null,
   };
@@ -32,7 +34,7 @@ export const pvMax = (p) => 60 + (p.parcelle.maison - 1) * 6 + (CLASSES[p.classe
 export function choisirClasse(p, classe) {
   if (p.classe || !CLASSES[classe]) return false;
   p.classe = classe; p.v = 2;
-  for (const id of CLASSES[classe].depart) { const c = (p.collection[id] ||= { n: 0, niv: 1 }); if (c.n < COPIES_MAX) c.n++; if (p.deck.length < DECK_MAX) p.deck.push(id); }
+  for (const id of CLASSES[classe].depart) { const c = (p.collection[id] ||= { n: 0, niv: 1 }); if (c.n < copiesMax(id)) c.n++; if (p.deck.length < DECK_MAX) p.deck.push(id); }
   const conv = convertirAutresClasses(p); if (conv.n) p.avisClasse = conv;
   return true;
 }
@@ -55,7 +57,7 @@ function tirerCarte(r, clan, rarete, classe, branche) {
   for (const c of pool) { x -= poids(c); if (x <= 0) return c.id; }
   return pool[pool.length - 1].id;
 }
-// n = 1 ou 10. Les doublons au-delà de 3 exemplaires deviennent des éclats.
+// n = 1 ou 10. Les doublons au-delà de 2 exemplaires (1 pour une légendaire) deviennent des éclats.
 export function tirer(p, n = 1, graine = Date.now()) {
   const prix = n === 10 ? PRIX_TIRAGE_10 : PRIX_TIRAGE * n;
   if (p.ress.essence < prix) return { ok: false, raison: "Pas assez d'essence." };
@@ -68,7 +70,7 @@ export function tirer(p, n = 1, graine = Date.now()) {
     const c = (p.collection[id] ||= { n: 0, niv: 1 });
     const nouveau = c.n === 0;
     let eclats = 0;
-    if (c.n >= COPIES_MAX) { eclats = RARETES[rar].eclats; p.ress.eclats += eclats; } else c.n++;
+    if (c.n >= copiesMax(id)) { eclats = RARETES[rar].eclats; p.ress.eclats += eclats; } else c.n++;
     res.push({ id, nouveau, eclats });
   }
   return { ok: true, cartes: res };
@@ -102,7 +104,7 @@ export function coutFabrication(id, remise = 0) {
 export function fabriquer(p, id, remise = 0) {
   const cout = coutFabrication(id, remise); if (!cout) return { ok: false };
   const c = (p.collection[id] ||= { n: 0, niv: 1 });
-  if (c.n >= COPIES_MAX) return { ok: false, raison: `${COPIES_MAX} exemplaires au plus.` };
+  if (c.n >= copiesMax(id)) return { ok: false, raison: `${copiesMax(id)} exemplaire${copiesMax(id) > 1 ? 's' : ''} au plus.` };
   for (const [k, v] of Object.entries(cout)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };
   for (const [k, v] of Object.entries(cout)) p.ress[k] -= v;
   c.n++;
@@ -112,9 +114,24 @@ export function fabriquer(p, id, remise = 0) {
 export const BUTIN_DUEL = (essencePerdant) => Math.min(300, Math.floor(Math.max(0, essencePerdant) * 0.15));
 // un profil plus ancien : les champs ajoutés depuis
 export function completer(p) {
-  for (const k of ['cristal', 'perle_noire', 'graine_or']) p.ress[k] ??= 0;
+  for (const k of ['cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide']) p.ress[k] ??= 0;
   p.duels ??= { gagnes: 0, perdus: 0 };
+  if (p.paliers) p.paliers.brisees ??= 1;   // v87
   p.parcours ??= (p.stats?.combats || 0) > 0 ? 6 : 0;   // v79 : les anciens joueurs ont déjà fait leurs premiers pas
+  // v83 : decks remis aux nouvelles limites (2 par carte, 1 par légendaire), puis complétés si besoin
+  delete p.avisDeck;
+  const avant = p.deck.length;
+  p.deck = nettoyerDeck(p, p.deck);
+  for (const id of [...deckDepart(p.clan, p.classe || 'combattant'), ...Object.keys(p.collection)]) {
+    if (p.deck.length >= DECK_MIN) break;
+    if (!CARTES[id] || !pourClasse(id, p.classe, p.branche)) continue;
+    const c = (p.collection[id] ||= { n: 0, niv: 1 }), k = p.deck.filter((x) => x === id).length;
+    if (k >= copiesMax(id)) continue;
+    if (k >= c.n) c.n++;
+    p.deck.push(id);
+  }
+  if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = nettoyerDeck(p, d.cartes);
+  if (p.deck.length < avant) p.avisDeck = avant - p.deck.length;
   delete p.avisClasse;
   const conv = convertirAutresClasses(p);
   if (conv.n) p.avisClasse = conv;   // le client prévient le joueur une fois (effacé au chargement suivant)
@@ -141,7 +158,7 @@ export function convertirAutresClasses(p) {
   for (const id of deckDepart(p.clan, p.classe)) {
     if (p.deck.length >= DECK_MIN) break;
     const c = (p.collection[id] ||= { n: 0, niv: 1 });
-    if (p.deck.filter((x) => x === id).length >= c.n) { if (c.n < COPIES_MAX) c.n++; else continue; }
+    if (p.deck.filter((x) => x === id).length >= Math.min(c.n, copiesMax(id))) { if (c.n < copiesMax(id)) c.n++; else continue; }
     p.deck.push(id);
   }
   if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = d.cartes.filter((id) => pourClasse(id, p.classe, p.branche));
@@ -153,7 +170,7 @@ export function ajouterAuDeck(p, id) {
   if (!pourClasse(id, p.classe, p.branche)) return { ok: false, raison: CARTES[id].branche ? `Cette carte est réservée à la branche ${BRANCHES[CARTES[id].branche].nom}.` : `Cette carte est réservée à la classe ${CLASSES[CARTES[id].classe].nom}.` };
   const possede = p.collection[id]?.n || 0, dedans = p.deck.filter((x) => x === id).length;
   if (dedans >= possede) return { ok: false, raison: 'Tu n’as pas d’autre exemplaire de cette carte.' };
-  if (dedans >= COPIES_MAX) return { ok: false, raison: `${COPIES_MAX} exemplaires au plus.` };
+  if (dedans >= copiesMax(id)) return { ok: false, raison: CARTES[id].rarete === 'legendaire' ? 'Une seule légendaire de chaque sorte par deck.' : `${COPIES_MAX} exemplaires au plus dans un deck.` };
   if (p.deck.length >= DECK_MAX) return { ok: false, raison: `${DECK_MAX} cartes au plus dans un deck.` };
   p.deck.push(id); return { ok: true };
 }
@@ -176,7 +193,7 @@ export function emplacements(p) {
 // un deck enregistré peut ne plus être valable (cartes perdues…) : on garde ce qui l'est
 export function nettoyerDeck(p, cartes) {
   const deck = [], compte = {};
-  for (const id of Array.isArray(cartes) ? cartes : []) { if (!CARTES[id] || !p.collection[id] || !pourClasse(id, p.classe, p.branche) || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(COPIES_MAX, p.collection[id].n)) deck.push(id); }
+  for (const id of Array.isArray(cartes) ? cartes : []) { if (!CARTES[id] || !p.collection[id] || !pourClasse(id, p.classe, p.branche) || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(copiesMax(id), p.collection[id].n)) deck.push(id); }
   return deck;
 }
 export function choisirDeck(p, i) {
@@ -239,7 +256,14 @@ export function profilValide(p) {
 }
 
 // niveau de compte (affiché à côté du nom)
-export const niveau = (p) => 1 + Math.floor((p?.stats?.victoires || 0) / 6) + (p?.stats?.boss || 0) * 2;
+// niveau maximum : 60 (v83), 80 depuis le chapitre 2 (v87)
+export const NIVEAU_MAX = 80;   // v87 : chapitre 2
+// v87 : rééquilibrage — de l'XP (1 par combat gagné, 4 par boss), et une courbe qui ralentit :
+// passer du niveau n au niveau n+1 coûte de plus en plus. Niveau 20 ≈ 111 XP, 30 ≈ 213, 50 ≈ 507, 80 ≈ 1173.
+export const XP_BOSS = 4;
+export const xpDe = (p) => (p?.stats?.victoires || 0) + (p?.stats?.boss || 0) * XP_BOSS;
+export const xpPourNiveau = (n) => { const k = Math.max(0, n - 1); return Math.ceil(3 * k + 0.15 * k * k); };
+export const niveau = (p) => { const x = xpDe(p); let n = 1; while (n < NIVEAU_MAX && x >= xpPourNiveau(n + 1)) n++; return n; };
 
 // ---------- migration : un ancien profil gardé dans le navigateur ----------
 // On l'accepte une seule fois, en le nettoyant (valeurs bornées, cartes connues).
@@ -252,11 +276,11 @@ export function assainir(x) {
   p.collection = {};
   for (const [id, c] of Object.entries(x.collection || {})) if (CARTES[id]) p.collection[id] = { n: Math.max(1, num(c?.n, 40)), niv: Math.max(1, Math.min(NIV_MAX, num(c?.niv, NIV_MAX))) };
   const deck = [], compte = {};
-  for (const id of Array.isArray(x.deck) ? x.deck : []) { if (!p.collection[id] || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(COPIES_MAX, p.collection[id].n)) deck.push(id); }
-  if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: COPIES_MAX, niv: 1 }; }
+  for (const id of Array.isArray(x.deck) ? x.deck : []) { if (!p.collection[id] || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(copiesMax(id), p.collection[id].n)) deck.push(id); }
+  if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: copiesMax(id), niv: 1 }; }
   for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(5, num(x.parcelle?.[k], 5)));
   p.parcelle.recolte = Math.min(Date.now(), +x.parcelle?.recolte || Date.now());
-  for (const k of CLANS) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
+  for (const k of [...CLANS, 'brisees']) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
   for (const k of Object.keys(p.stats)) p.stats[k] = num(x.stats?.[k], 1e6);
   p.tirages = { total: num(x.tirages?.total, 1e6), depuisLegendaire: Math.min(59, num(x.tirages?.depuisLegendaire, 59)) };
   p.duels = { gagnes: num(x.duels?.gagnes, 1e6), perdus: num(x.duels?.perdus, 1e6) };

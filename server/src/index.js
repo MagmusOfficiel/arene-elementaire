@@ -13,7 +13,8 @@ import { noterMesure, resumeMesures } from './mesures.js';
 import { equilibrage, remettreEquilibrage } from './stats.js';
 import { CARTES as CARTES_CLANS } from '../../shared/clans/cartes.js';
 import { MONSTRES as MONSTRES_CLANS, BOSS_CAUCHEMAR } from '../../shared/clans/monstres.js';
-import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance } from './stats.js';
+import { lireCompte, ecrireCompte, creerCompte, codeValide, persistance, supprimerProfilClans } from './stats.js';
+import crypto from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 2567);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,7 @@ app.use((req, res, next) => {
 app.use('/api/compte', express.json({ limit: '100kb' }));
 app.use('/api/erreurs', express.json({ limit: '8kb' }));
 app.use('/api/mesures', express.json({ limit: '4kb' }));
+app.use('/api/clans/supprimer', express.json({ limit: '1kb' }));
 
 // Journal des erreurs (serveur + navigateurs)
 process.on('uncaughtException', (e) => noterErreur('serveur', e));
@@ -80,7 +82,7 @@ app.post('/api/clans/equilibrage/reset', (req, res) => {
 // le compte ne garde que la liste des personnages des Clans (et le pseudo)
 const contenuCompte = (b) => (b && typeof b === 'object' ? { pseudo: String(b.pseudo || '').slice(0, 16),
   clans: typeof b.clans === 'string' && b.clans.length <= 30000 ? b.clans : undefined,
-  clansPersos: Array.isArray(b.clansPersos) ? b.clansPersos.slice(0, 6).filter((x) => x && typeof x.jeton === 'string' && x.jeton.length <= 80).map((x) => ({ jeton: x.jeton, nom: String(x.nom || '').slice(0, 16), clan: String(x.clan || '').slice(0, 8), classe: String(x.classe || '').slice(0, 12), niv: +x.niv || 1, branche: String(x.branche || '').slice(0, 12) })) : undefined } : {});   // clans : le profil des Clans Élémentaires   // enquete : la partie des Ombres de Baker Street
+  clansPersos: Array.isArray(b.clansPersos) ? b.clansPersos.slice(0, 6).filter((x) => x && typeof x.jeton === 'string' && x.jeton.length <= 80).map((x) => ({ jeton: x.jeton, nom: String(x.nom || '').slice(0, 16), clan: String(x.clan || '').slice(0, 8), classe: String(x.classe || '').slice(0, 12), niv: Math.max(1, Math.min(80, Math.floor(+x.niv) || 1)),   /* v87 : jamais au-delà du niveau max */ branche: String(x.branche || '').slice(0, 12) })) : undefined } : {});   // clans : le profil des Clans Élémentaires   // enquete : la partie des Ombres de Baker Street
 const anti = new Map();   // limite simple : 1 création toutes les 20 s par adresse
 app.post('/api/compte', async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress, t = anti.get(ip) || 0;
@@ -100,6 +102,16 @@ app.put('/api/compte/:code', async (req, res) => {
     if (!(await lireCompte(code))) return res.status(404).json({ erreur: 'Compte introuvable' });
     res.json({ ok: true, maj: (await ecrireCompte(code, contenuCompte(req.body))).maj });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+// v83 : supprimer un personnage des Clans (il faut son code secret)
+const antiSup = new Map();
+app.post('/api/clans/supprimer', async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+  if (Date.now() - (antiSup.get(ip) || 0) < 5000) return res.status(429).json({ erreur: 'Patiente quelques secondes.' });
+  antiSup.set(ip, Date.now()); if (antiSup.size > 5000) antiSup.clear();
+  const jeton = String(req.body?.jeton || '');
+  const cle = crypto.createHash('sha256').update(jeton).digest('base64url').slice(0, 16);
+  try { res.json({ ok: await supprimerProfilClans(jeton, cle) }); } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 app.get('/health', (_req, res) => res.send('ok'));
 app.get('/api/version', (_req, res) => res.json({ version: VERSION_JEU, sauvegarde: persistance }));

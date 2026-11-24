@@ -16,7 +16,7 @@ test('acheter, monter, descendre, changer de monture', () => {
   assert.equal(ACTIONS.montureAcheter(p, { id: 'poney' }).ok, false, 'pas deux fois');
   assert.match(ACTIONS.montureAcheter(p, { id: 'dragon' }).raison, /niveau 15/);
   assert.match(ACTIONS.montureAcheter(p, { id: 'raie' }).raison, /niveau 8/);
-  p.stats.victoires = 6 * 20;
+  p.stats.victoires = P.xpPourNiveau(21);
   assert.ok(ACTIONS.montureAcheter(p, { id: 'dragon' }).ok);
   assert.equal(MT.vitesse(MT.actif(p)), 1.6);
   assert.ok(ACTIONS.montureChoisir(p, { id: 'poney' }).ok); assert.equal(MT.actif(p), 'poney');

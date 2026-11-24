@@ -39,6 +39,14 @@ export const LOTS = [
 ];
 const numSaison = (id) => { const [a, m] = id.split('-').map(Number); return a * 12 + m - 1; };
 export const lotDe = (id) => LOTS[((numSaison(id) - (2026 * 12 + 10)) % LOTS.length + LOTS.length) % LOTS.length];   // novembre 2026 : Aube
+// v83 : quand une pièce exclusive revient-elle ? { maintenant, niv, dansMois }
+export function quandPiece(piece, t = Date.now()) {
+  const k = LOTS.findIndex((l) => l.pieces.includes(piece)); if (k < 0) return null;
+  const niv = [20, 10, 30][LOTS[k].pieces.indexOf(piece)];
+  const ici = ((numSaison(saisonDe(t).id) - (2026 * 12 + 10)) % LOTS.length + LOTS.length) % LOTS.length;
+  const dans = (k - ici + LOTS.length) % LOTS.length;
+  return { maintenant: dans === 0, niv, dansMois: dans };
+}
 
 // la récompense de chaque niveau (1 à 30) pour une saison
 export function recompense(niv, saison) {

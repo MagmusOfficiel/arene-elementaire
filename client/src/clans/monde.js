@@ -6,7 +6,7 @@
 //    des petits sprites dessinés en code, triés par profondeur (y) ;
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
-import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, SOLIDES } from '../../../shared/clans/geo.js';
+import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, NIV_FAILLE, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
 import { dessinerMonture, selleDe, decalageFlot } from './montureArt.js';
@@ -14,6 +14,7 @@ import { dessinerDeco } from './decoArt.js';
 import { lire as lireDeco } from '../../../shared/clans/deco.js';
 import { PNJ, PNJ_PAR_ID, posPnj, DIT_ETRANGER } from '../../../shared/clans/pnj.js';
 import { vitesse as vitesseMonture } from '../../../shared/clans/montures.js';
+import { styleTitre } from '../../../shared/clans/titresStyle.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import { marchandDe, PORTEE as PORTEE_MARCHAND } from '../../../shared/clans/marchand.js';
 import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
@@ -37,10 +38,13 @@ const PAL = Object.fromEntries(Object.entries({
   lave: ['#d8401a', '#ff7a1a', '#ffc640', '#a82a10'], sable: ['#e4cc94', '#d8bc84', '#eedaa8', '#c4a670'],
   hautfond: ['#48b4b8', '#56c2c2', '#6ad0cc', '#3aa0a8'], eau: ['#2a64b4', '#2e70c0', '#3a80cc', '#24569e'],
   mare: ['#245470', '#2a5e7c', '#326a88', '#1e4660'],
+  // v87 : les Terres Brisées
+  roche_noire: ['#2a2434', '#322a3e', '#3c3448', '#1e1a26'], cristal_sol: ['#2e2a44', '#38325a', '#463c6e', '#221e34'],
+  dalle: ['#4a4458', '#544e64', '#605870', '#34303e'], abime: ['#0a0612', '#120a1e', '#1a0e2a', '#06030a'],
 }).map(([k, v]) => [k, v.map(hex)]));
 const PLACE = { feu: ['#4a403e', '#564a46', '#62544e', '#2e2624'], eau: ['#d4c098', '#c8b48a', '#dccaa6', '#a8946c'], plante: ['#8a7856', '#7e6c4c', '#968462', '#5e5038'] };
 for (const k in PLACE) PLACE[k] = PLACE[k].map(hex);
-const LIQUIDE = new Set(['eau', 'mare', 'lave']);
+const LIQUIDE = new Set(['eau', 'mare', 'lave', 'abime']);
 
 // la couleur d'un pixel du sol
 function pixelSol(s, x, y, tx, ty) {
@@ -69,6 +73,10 @@ function pixelSol(s, x, y, tx, ty) {
     case 'sable': return h > 0.98 ? hex('#fff0c8') : h < 0.015 ? hex('#a88a5a') : p[i];
     case 'hautfond': return H(x >> 2, (y >> 2) + 3) > 0.86 ? PAL.sable[0] : ((x + (y >> 2) * 5) % 14 < 3 && y % 7 === 0) ? hex('#b8f0ec') : p[i];
     case 'eau': return ((x + (y >> 3) * 7) % 16 < 4 && y % 8 === 0) ? hex('#8ac0f0') : p[i < 3 ? i : 1];
+    case 'roche_noire': return h > 0.992 ? hex('#a080ff') : (H(x >> 3, y) > 0.97 ? p[3] : p[i]);
+    case 'cristal_sol': return H(x >> 1, y >> 1) > 0.985 ? hex(H(tx, ty) > 0.5 ? '#c8a0ff' : '#80e0ff') : p[i];
+    case 'dalle': { const row = Math.floor(y / 8), off = (row & 1) * 6, bx = Math.floor((x + off) / 12); if (y % 8 === 0 || (x + off) % 12 === 0) return p[3]; return H(bx, row) > 0.93 ? hex('#7a6aa0') : p[Math.floor(H(bx, row) * 3)]; }
+    case 'abime': { const v = Math.sin(x * 0.05 + y * 0.03) + Math.sin(y * 0.07); return H(x, y) > 0.996 ? hex('#ffffff') : v > 1.3 ? hex('#3a1a5a') : p[i]; }
     case 'mare': { if (H(tx, ty) > 0.8) { const dx = (x & 15) - 8, dy = (y & 15) - 8; if (dx * dx + dy * dy < 14) return dx * dx + dy * dy < 3 ? hex('#e8a0c0') : hex('#4a9a3a'); } return p[i < 3 ? i : 1]; }
   }
   return [255, 0, 255];
@@ -103,7 +111,7 @@ async function peindreSol(obs, progres) {
         if (liq) {
           const bord = (vois[0] !== s && lx < 2) || (vois[1] !== s && lx > 13) || (vois[2] !== s && ly < 2) || (vois[3] !== s && ly > 13);
           const bord2 = (vois[0] !== s && lx < 4) || (vois[1] !== s && lx > 11) || (vois[2] !== s && ly < 4) || (vois[3] !== s && ly > 11);
-          if (bord) col = s === 'lave' ? hex('#2a1810') : ((x + y) & 1 ? hex('#e8f6ff') : hex('#b8e0f4'));
+          if (bord) col = s === 'abime' ? ((x + y) & 1 ? hex('#a070ff') : hex('#5a30a0')) : s === 'lave' ? hex('#2a1810') : ((x + y) & 1 ? hex('#e8f6ff') : hex('#b8e0f4'));
           else if (bord2 && s === 'lave') col = hex('#ff9a2a');
           else if (bord2 && (x * 7 + y * 3) % 5 === 0) col = hex('#cfeeff');
         } else if ((vois[3] && LIQUIDE.has(vois[3]) && ly > 13) || (vois[2] && LIQUIDE.has(vois[2]) && ly < 1)) k = 0.75;
@@ -262,20 +270,61 @@ const COIFFES = {
   h_couronne: (P) => { P('#f0c030', 4, 2, 8, 2); P('#f0c030', 4, 0, 1, 2); P('#f0c030', 7, 0, 2, 2); P('#f0c030', 11, 0, 1, 2); P('#fff0a0', 4, 2, 8, 1); P('#e83a3a', 7, 3, 2, 1); P('#3a8ae8', 5, 3, 1, 1); P('#3ae86a', 10, 3, 1, 1); },
   h_masque: (P, dir) => { if (dir === 'haut') { P('#3a0a3a', 4, 8, 8, 1); return; } const x0 = dir === 'bas' ? 4 : 6; P('#e8e0d8', x0, 6, dir === 'bas' ? 8 : 6, 5); P('#3a0a3a', x0, 10, dir === 'bas' ? 8 : 6, 1); if (dir === 'bas') { P('#1a0418', 5, 8, 2, 1); P('#1a0418', 9, 8, 2, 1); P('#ff2a3a', 6, 8, 1, 1); P('#ff2a3a', 9, 8, 1, 1); } else { P('#1a0418', 9, 8, 2, 1); P('#ff2a3a', 10, 8, 1, 1); } P('#8a1a5a', 3, 3, 10, 2); P('#8a1a5a', 7, 1, 2, 2); },
 };
+// ---------- v86 : ailes, armes, capes (purement esthétiques) ----------
+// ailes : dessinées derrière le corps (devant pour la vue de dos) ; b = battement (0, 1, -1)
+function ailes(P, id, dir, [c1, c2], b) {
+  const plume = id === 'l_ange' || id === 'l_phenix', membrane = id === 'l_demon' || id === 'l_dragon';
+  // une aile : des colonnes de plus en plus courtes vers l'extérieur (sens -1 : vers la gauche, 1 : vers la droite)
+  const aile = (x, sens, y0) => {
+    const col = (k, dy, h, c) => P(c, x + sens * k, y0 + dy, 1, h);
+    if (membrane) { col(0, 0, 9, c2); col(1, -1, 8, c1); col(2, -2, 7, c1); col(3, -3, 7, c2); col(4, -2, 6, c1); col(5, -1, 5, c2); col(6, 0, 1, c2); col(2, 5, 1, c2); col(4, 4, 1, c2); }
+    else if (plume) { col(0, 0, 9, c1); col(1, -1, 9, c1); col(2, -2, 8, c1); col(3, -2, 7, c2); col(4, -1, 6, c1); col(5, 0, 4, c2); col(6, 1, 2, c1); }
+    else { col(0, 1, 7, c1); col(1, -1, 5, c1); col(2, -2, 5, c1); col(3, -2, 4, c2); col(4, -1, 2, c1); col(1, 5, 3, c2); col(2, 5, 4, c2); col(3, 6, 2, c1); }
+  };
+  if (dir === 'bas') { aile(3, -1, 10 + b); aile(12, 1, 10 + b); }
+  else if (dir === 'haut') { aile(6, -1, 10 + b); aile(9, 1, 10 + b); P(c2, 6, 12, 4, 2); }
+  else aile(6, -1, 10 + b);
+}
+function cape(P, dir, [c1, c2]) {
+  if (dir === 'bas') { P(c2, 3, 12, 1, 9); P(c2, 12, 12, 1, 9); P(c1, 4, 11, 8, 1); }
+  else if (dir === 'haut') { P(c1, 4, 12, 8, 10); P(c2, 4, 21, 8, 1); P(c2, 4, 12, 1, 10); P(c2, 5, 11, 6, 1); }
+  else { P(c1, 3, 12, 4, 10); P(c2, 3, 21, 4, 1); }
+}
+const ARMES = {
+  r_epee: (P, x, y, [l, m]) => { P(l, x, y - 9, 1, 9); P('#ffffff', x, y - 9, 1, 1); P(m, x - 1, y, 3, 1); P(m, x, y + 1, 1, 2); },
+  r_hache: (P, x, y, [l, m]) => { P(m, x, y - 9, 1, 12); P(l, x + 1, y - 9, 2, 4); P(l, x - 2, y - 9, 2, 3); P('#ffffff', x + 2, y - 9, 1, 1); },
+  r_baton: (P, x, y, [m, g]) => { P(m, x, y - 10, 1, 13); P(g, x - 1, y - 12, 3, 2); P('#ffffff', x, y - 12, 1, 1); },
+  r_trident: (P, x, y, [g, m]) => { P(m, x, y - 9, 1, 12); P(g, x - 1, y - 10, 3, 1); P(g, x - 1, y - 12, 1, 2); P(g, x + 1, y - 12, 1, 2); P(g, x, y - 13, 1, 3); },
+  r_arc: (P, x, y, [o, f]) => { P(o, x, y - 9, 1, 1); P(o, x + 1, y - 8, 1, 7); P(o, x, y - 1, 1, 1); P(f, x, y - 8, 1, 7); },
+  r_faux: (P, x, y, [l, m]) => { P(m, x, y - 10, 1, 13); P(l, x - 4, y - 10, 4, 1); P(l, x - 5, y - 9, 2, 1); P(l, x - 5, y - 8, 1, 1); },
+};
+function arme(P, id, dir, cs, f) {
+  const a = ARMES[id]; if (!a) return;
+  if (dir === 'bas') a(P, 13, 17 + (f === 2 ? 1 : 0), cs);
+  else if (dir === 'haut') a(P, 3, 17, cs);
+  else a(P, 9, 17, cs);
+}
 export function feuillePerso(clan, classe, app = '') {
   const cle = `${clan}|${classe}|${app}`; if (CACHE_PERSO.has(cle)) return CACHE_PERSO.get(cle);
   const ap = lireCode(app), pt = PIECES[ap.tenue], pc = PIECES[ap.cheveux], coiffe = ap.chapeau === 'h_classe' ? null : COIFFES[ap.chapeau];
+  const pa = PIECES[ap.ailes]?.couleurs ? ap.ailes : null, pk = PIECES[ap.cape]?.couleurs ? ap.cape : null, pr = PIECES[ap.arme]?.couleurs ? ap.arme : null;
   const [ten0, ten20, chev0] = TENUE[clan] || TENUE.feu;
   const [ten, ten2] = pt?.couleurs || [ten0, ten20], chev = pc?.couleur || chev0;
-  const c = document.createElement('canvas'); c.width = 48; c.height = 104; const g = c.getContext('2d');
+  // v86 : des cases de 24 px (le corps fait 16 px au milieu) pour laisser la place aux ailes, à la cape et à l'arme
+  const c = document.createElement('canvas'); c.width = 72; c.height = 104; const g = c.getContext('2d');
   ['bas', 'haut', 'droite', 'gauche'].forEach((dir, row) => [0, 1, 2].forEach((f) => {
-    const s = sprite(16, 26, (P) => {
+    const s = sprite(24, 26, (P0) => {
+      const P = (col, x, y, w = 1, h = 1) => P0(col, x + 4, y, w, h);
       const pas = f === 0 ? 0 : f === 1 ? 1 : -1, cote = dir === 'droite' || dir === 'gauche';
       // jambes
       if (!cote) { P('#3a2e2a', 5, 19, 2, f === 1 ? 3 : 4); P('#3a2e2a', 9, 19, 2, f === 2 ? 3 : 4); P('#2a1c16', 5, f === 1 ? 22 : 23, 2, 2); P('#2a1c16', 9, f === 2 ? 22 : 23, 2, 2); }
       else { P('#3a2e2a', 6 + pas, 19, 2, 4); P('#3a2e2a', 8 - pas, 19, 2, 4); P('#2a1c16', 6 + pas, 23, 3, 1); P('#2a1c16', 8 - pas, 23, 3, 1); }
+      // v86 : ailes et cape dans le dos (derrière le corps, sauf vue de dos)
+      if (pa && dir !== 'haut') ailes(P, pa, dir, PIECES[pa].couleurs, f === 1 ? -1 : f === 2 ? 1 : 0);
+      if (pk && dir !== 'haut') cape(P, dir, PIECES[pk].couleurs);
+      if (pr && dir === 'haut') arme(P, pr, dir, PIECES[pr].couleurs, f);
       // cape de l'escrimeur (derrière)
-      if (classe === 'escrimeur' && dir !== 'bas') P('#a8243a', cote ? 3 : 4, 12, cote ? 4 : 8, 9);
+      if (!pk && classe === 'escrimeur' && dir !== 'bas') P('#a8243a', cote ? 3 : 4, 12, cote ? 4 : 8, 9);
       // carquois du tireur
       if (classe === 'tireur' && dir !== 'bas') { P('#7a4a22', cote ? 4 : 10, 10, 2, 7); P('#e8e0c8', cote ? 4 : 10, 9, 2, 1); }
       // corps
@@ -290,9 +339,12 @@ export function feuillePerso(clan, classe, app = '') {
       if (coiffe) coiffe(P, dir, [ten, ten2]);
       else if (classe === 'mage') { P('#6a3aa8', 3, 4, 10, 2); P('#6a3aa8', 5, 2, 6, 2); P('#6a3aa8', 7, 0, 3, 2); P('#f0d060', 6, 5, 4, 1); }
       if (!coiffe && classe === 'tireur') { P('#4a7a3a', 3, 3, 10, 3); P('#4a7a3a', 3, 6, 1, 5); P('#4a7a3a', 12, 6, 1, 5); P('#3a6a2a', 4, 3, 8, 1); }
+      if (pk && dir === 'haut') cape(P, dir, PIECES[pk].couleurs);
+      if (pa && dir === 'haut') ailes(P, pa, dir, PIECES[pa].couleurs, f === 1 ? -1 : f === 2 ? 1 : 0);
+      if (pr && dir !== 'haut') arme(P, pr, dir, PIECES[pr].couleurs, f);
       if (classe === 'escrimeur') { if (!coiffe) { P('#2a2a4a', 3, 3, 10, 2); P('#2a2a4a', 5, 1, 6, 2); P('#f0f0f0', 11, 0, 2, 3); } if (dir === 'bas') P('#a8243a', 4, 12, 2, 2); }
     });
-    g.save(); if (dir === 'gauche') { g.translate(f * 16 + 16, row * 26); g.scale(-1, 1); g.drawImage(s, 0, 0); } else g.drawImage(s, f * 16, row * 26); g.restore();
+    g.save(); if (dir === 'gauche') { g.translate(f * 24 + 24, row * 26); g.scale(-1, 1); g.drawImage(s, 0, 0); } else g.drawImage(s, f * 24, row * 26); g.restore();
   }));
   CACHE_PERSO.set(cle, c); return c;
 }
@@ -339,7 +391,7 @@ export function creerMonde(canvas, rappels) {
   let fond = null, mini = null, joueur = { x: 0, y: 0, dir: 'bas', marche: false }, cam = { x: 0, y: 0 }, z = 3, temps = 0, dernier = 0, but = null, actif = false;
   const autres = new Map();   // id -> { nom, clan, classe, x, y, tx, ty, dir, statut, niv }
   const touches = new Set();
-  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '', monTitre = '', maCle = '', maMonture = '', maDeco = '', maBranche = '';
+  let monApp = '', miniRect = null, monClan = 'feu', monNom = '', maClasse = 'combattant', filons = [], mondial = null, maParcelle = 111, sanct = {}, projets = null, monFam = '', monTitre = '', monTitreC = '', maCle = '', maMonture = '', maDeco = '', maBranche = '';
   let marchand = marchandDe();   // recalculé chaque seconde (sa place se déduit de l'heure)
   setInterval(() => { const m = marchandDe(); if (m.slot !== marchand.slot && m.present) rappels.marchandBouge?.(m); marchand = m; }, 1000);
   const suiveurs = new Map();   // les familiers qui suivent chaque joueur : clé → { x, y, gauche, bouge }
@@ -355,6 +407,8 @@ export function creerMonde(canvas, rappels) {
     const moy = mesures.reduce((a, b) => a + b) / mesures.length; mesures.length = 0;
     if (moy > 0.024 && dpr() > 1) { leger = true; try { localStorage.setItem('clansLeger', '1'); } catch { /* rien */ } redim(); }
   }
+  // v84 : un duel se lance sur ta terre, ou sur la terre d'un troisième clan
+  const duelPossible = (a) => { const t = territoireDe(a.x, a.y); return t === monClan || (!!t && t !== a.clan); };
   let joy = { x: 0, y: 0 }, cible = null;   // joystick tactile (vecteur −1..1) ; flèche du guide (point du monde)
   const tactile = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
@@ -371,7 +425,7 @@ export function creerMonde(canvas, rappels) {
   // les maisons posées par les joueurs (v72) bloquent le passage comme les autres
   let maisonsPosees = [];
   const dansMaison = (x, y) => maisonsPosees.some((m) => Math.abs(x - m.x) < 29 && y > m.y - 27 && y < m.y + 11);
-  const bloque = (x, y) => !praticable(x, y, obs) || dansMaison(x, y);
+  const bloque = (x, y) => !praticable(x, y, obs) || dansMaison(x, y) || (dansFaille(x, y) && !dansFaille(joueur.x, joueur.y) && (rappels.niveau?.() || 1) < NIV_FAILLE && (rappels.faille?.(), true));
   function lieuProche() {
     let best = null, d0 = Infinity;
     for (const p of LIEUX) { const d = Math.hypot(joueur.x - p.x, joueur.y - p.y); if (d < p.r + 30 && d < d0) { d0 = d; best = p; } }
@@ -381,7 +435,7 @@ export function creerMonde(canvas, rappels) {
     if (marchand.present && Math.hypot(joueur.x - marchand.x, joueur.y - marchand.y) < PORTEE_MARCHAND) best = { id: 'marchand', nom: 'le marchand ambulant', action: 'marchand', x: marchand.x, y: marchand.y };
     for (const f of filons) if (Math.hypot(joueur.x - f.x, joueur.y - f.y) < 36) best = { ...f, nom: 'un filon rare', action: 'filon' };
     for (const h of pnjIci(Date.now() / 1000)) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 30) best = { id: h.n.id, nom: h.n.nom, action: 'pnj', x: h.x, y: h.y };
-    for (const [id, a] of autres) if (a.clan !== monClan && territoireDe(a.x, a.y) === monClan && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
+    for (const [id, a] of autres) if (a.clan !== monClan && duelPossible(a) && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
     // près du boss mondial, on l'affronte (prioritaire : pas de duel par erreur)
     if (mondial && Math.hypot(joueur.x - mondial.x, joueur.y - mondial.y) < 90) best = { ...mondial, action: 'mondial' };
     return best;
@@ -528,8 +582,8 @@ export function creerMonde(canvas, rappels) {
     for (const [id, nom, clan, x, y, dir, statut, niv, classe, parcelle, app, fam, titre, maison, mont, deco, branche] of liste) {
       if (id === monId) continue; vus.add(id);
       const a = autres.get(id);
-      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre), maison: maison || nom, mont, deco, branche });
-      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre), maison: maison || nom, mont, deco, branche });
+      if (!a) autres.set(id, { id, nom, clan, classe, x, y, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre), titreC: titre, maison: maison || nom, mont, deco, branche });
+      else Object.assign(a, { nom, clan, classe, tx: x, ty: y, dir, statut, niv, parcelle, app, fam, titre: HF.nomTitre(titre), titreC: titre, maison: maison || nom, mont, deco, branche });
     }
     for (const id of [...autres.keys()]) if (!vus.has(id)) { autres.delete(id); suiveurs.delete(id); }
   }
@@ -547,9 +601,9 @@ export function creerMonde(canvas, rappels) {
       // à cheval : le cavalier est assis (image de repos), la monture cache ses jambes
       const gauche = p.dir === 'gauche' || (p.dir !== 'droite' && p.versGauche), pose = p.marche ? Math.floor(t * 8) % 2 : 0;
       const dy = selleDe(p.mont) - decalageFlot(p.mont, t) + (p.marche && pose ? 1 : 0);
-      ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), 0, (LIGNE_DIR[gauche ? 'gauche' : 'droite'] ?? 0) * 26, 16, 26, R(p.x) - 8, R(p.y) - 24 - dy, 16, 26);
+      ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), 0, (LIGNE_DIR[gauche ? 'gauche' : 'droite'] ?? 0) * 26, 24, 26, R(p.x) - 12, R(p.y) - 24 - dy, 24, 26);
       dessinerMonture(ctx, p.mont, p.x, p.y, gauche, pose, t);
-    } else ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), f * 16, row * 26, 16, 26, R(p.x) - 8, R(p.y) - 24, 16, 26);
+    } else ctx.drawImage(feuillePerso(p.clan, p.classe, p.app || ''), f * 24, row * 26, 24, 26, R(p.x) - 12, R(p.y) - 24, 24, 26);
     if (ap && ap.aura !== 'a_aucune' && ap.aura !== 'a_ombre') dessinerAura(ctx, p.x, p.y, ap.aura, t);
   }
   function dessinerLiquides(t0x, t0y, t1x, t1y) {
@@ -707,7 +761,7 @@ export function creerMonde(canvas, rappels) {
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
     const gens = [...autres.values()].map((a) => { a.x += (a.tx - a.x) * Math.min(1, dt * 10); a.y += (a.ty - a.y) * Math.min(1, dt * 10); return { ...a, dir: ['bas', 'haut', 'gauche', 'droite'][a.dir] || a.dir, marche: Math.hypot(a.tx - a.x, a.ty - a.y) > 1 }; });
-    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, titre: monTitre, mont: maMonture, moi: true, id: 'moi' });
+    gens.push({ ...joueur, clan: monClan, classe: maClasse, nom: monNom, app: monApp, fam: monFam, titre: monTitre, titreC: monTitreC, mont: maMonture, moi: true, id: 'moi' });
     const habitants = pnjIci(Date.now() / 1000).filter((h) => h.x > x0 - 40 && h.x < x1 + 40 && h.y > y0 - 10 && h.y < y1 + 40);
     for (const h of habitants) objets.push({ y: h.y, f: () => dessinerPerso({ x: h.x, y: h.y, dir: h.dir, marche: h.marche, clan: h.n.clan, classe: h.n.classe, app: h.n.app }, temps + h.x * 0.01) });
     for (const p of gens) if (p.fam && p.statut !== 'expedition') {
@@ -744,7 +798,23 @@ export function creerMonde(canvas, rappels) {
     // les étiquettes ne se chevauchent plus (v61) : on les range par importance, chacune cherche une
     // place libre un peu plus haut, et les moins importantes disparaissent s'il n'y a pas de place
     const etiq = [];
-    const etiquette = (txt, x, y, coul = '#f0e6d0', barre = null, gras = false, prio = 2, sous = null) => etiq.push({ txt, x, y, coul, barre, gras, prio, sous });
+    const etiquette = (txt, x, y, coul = '#f0e6d0', barre = null, gras = false, prio = 2, sous = null, sousSt = null) => etiq.push({ txt, x, y, coul, barre, gras, prio, sousSt, sous });
+    // v85 : le titre en ruban, à l'allure de son rang et de son thème (sang, arcanes, acier…)
+    function rubanTitre(txt, st, x, y) {
+      const police = `800 ${R(10 * s)}px ${POLICE}`, ico = st?.ico || ['', ''];
+      const lab = st ? `${ico[0]} ${txt} ${ico[1]}` : `« ${txt} »`, w = largeur(lab, police) + 14 * s, hh = 13 * s, x0 = R(x - w / 2), y0 = R(y - hh / 2);
+      ctx.font = police;
+      if (!st) { ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillText(lab, x + s, y + s); ctx.fillStyle = '#ffd870'; ctx.fillText(lab, x, y); return; }
+      const g = ctx.createLinearGradient(0, y0, 0, y0 + hh); g.addColorStop(0, st.fond[0]); g.addColorStop(1, st.fond[1]);
+      if (st.lueur && !leger) { ctx.shadowColor = st.lueur; ctx.shadowBlur = 8 * s * (0.75 + 0.25 * Math.sin(temps * 3)); }
+      ctx.fillStyle = g; ctx.fillRect(x0, y0, R(w), R(hh)); ctx.shadowBlur = 0;
+      ctx.fillStyle = st.bord; ctx.fillRect(x0, y0, R(w), R(s)); ctx.fillRect(x0, y0 + R(hh) - R(s), R(w), R(s));
+      // les pointes du ruban
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 - 5 * s, y0 + hh / 2); ctx.lineTo(x0, y0 + hh); ctx.moveTo(x0 + w, y0); ctx.lineTo(x0 + w + 5 * s, y0 + hh / 2); ctx.lineTo(x0 + w, y0 + hh); ctx.fill();
+      if (st.deco === 'sang') { ctx.fillStyle = '#c01a10'; for (const [fx, l] of [[0.18, 5], [0.46, 8], [0.77, 4]]) { const dx = x0 + w * fx, lg = (l + 2 * Math.sin(temps * 1.5 + fx * 9)) * s; ctx.fillRect(R(dx), y0 + R(hh), R(1.5 * s), R(lg)); ctx.fillRect(R(dx - 0.5 * s), y0 + R(hh) + R(lg), R(2.5 * s), R(2 * s)); } }
+      if (st.deco === 'etincelles' || st.deco === 'runes' || st.deco === 'esprits') { ctx.fillStyle = st.lueur; for (let k = 0; k < 3; k++) { const a = temps * 2 + k * 2.1; ctx.fillRect(R(x + Math.cos(a) * (w / 2 + 3 * s)), R(y + Math.sin(a * 1.3) * hh * 0.8), R(1.5 * s), R(1.5 * s)); } }
+      ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillText(lab, x + s * 0.6, y + s * 0.6); ctx.fillStyle = st.txt; ctx.fillText(lab, x, y);
+    }
     function poserEtiquettes() {
       const poses = [], h = 15 * s, chevauche = (a) => poses.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -759,7 +829,7 @@ export function creerMonde(canvas, rappels) {
         ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(R(e.x - w / 2), R(y - h / 2), R(w), R(h));
         if (e.barre) { ctx.fillStyle = e.barre; ctx.fillRect(R(e.x - w / 2), R(y - h / 2), R(2 * s), R(h)); }
         ctx.fillStyle = e.coul; ctx.fillText(e.txt, e.x, y + s);
-        if (e.sous) { ctx.font = `italic 700 ${R(10.5 * s)}px ${POLICE}`; ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillText(e.sous, e.x + s, y - h + 2 * s); ctx.fillStyle = '#ffd870'; ctx.fillText(e.sous, e.x, y - h + s); }
+        if (e.sous) rubanTitre(e.sous, e.sousSt, e.x, y - h + s);
       }
     }
     for (const p of LIEUX) if (p.x > x0 - 60 && p.x < x1 + 60 && p.y > y0 && p.y < y1 + 40) etiquette(p.nom, ex(p.x), ey(p.y + 18), '#ffe8b0');
@@ -769,6 +839,8 @@ export function creerMonde(canvas, rappels) {
       if (st.conteste) etiquette('⚔ Contesté !', ex(d.x), ey(d.y + 30), '#ffb0a0', '#e8402a', true, 3);
       else if (st.capt) etiquette(`Capture ${st.capt.p} %`, ex(d.x), ey(d.y + 30), '#fff4c8', COUL[st.capt.clan], true);
     }
+    if (CENTRE_FAILLE[0] > x0 - 100 && CENTRE_FAILLE[0] < x1 + 100 && CENTRE_FAILLE[1] > y0 - 40 && CENTRE_FAILLE[1] < y1 + 40) etiquette('🌀 Les Terres Brisées', ex(CENTRE_FAILLE[0]), ey(CENTRE_FAILLE[1] + 40), '#e0c8ff', '#8a60e0', true, 0);
+    if (1608 > x0 - 100 && 1608 < x1 + 100 && FAILLE_Y > y0 - 40 && FAILLE_Y < y1 + 60) etiquette(`Porte de la Faille · niveau ${NIV_FAILLE}`, ex(1608), ey(FAILLE_Y + 10), '#e0c8ff', '#8a60e0', true, 1);
     for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) etiquette(`Village · ${NOMS_TERR[k]}`, ex(vx), ey(vy + 64), '#f8ecd0', COUL[k], true, 0);
     if (marchand.present && marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 && marchand.y < y1 + 50) {
       const min = Math.max(1, Math.ceil((marchand.part - Date.now()) / 60000));
@@ -784,7 +856,7 @@ export function creerMonde(canvas, rappels) {
     for (const h of habitants) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 150) etiquette(h.n.nom, ex(h.x), ey(h.y - 30), '#d8ecff', COUL[h.n.clan], false, 1, h.n.role);
     for (const p of gens) {
       const txt = `${p.nom}${p.niv ? ` · ${p.niv}` : ''}${p.statut === 'expedition' ? ' ⚔' : p.statut === 'duel' ? ' ⚔⚔' : ''}`;
-      etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi, p.moi ? 6 : 5, p.titre ? `« ${p.titre} »` : null);
+      etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi, p.moi ? 6 : 5, p.titre ? p.titre : null, p.titre ? styleTitre(p.titreC) : null);
     }
     poserEtiquettes();
     // au-dessus des habitants : « ! » une quête à prendre, « ? » doré une quête à rendre (v76)
@@ -817,7 +889,7 @@ export function creerMonde(canvas, rappels) {
     const l = rappels.libre() && lieuProche();
     if (l) {
       const E = tactile ? '✋ ' : 'E : ';
-      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — il est sur ton territoire` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : l.action === 'marchand' ? 'E : voir les échanges du marchand ambulant' : l.action === 'pnj' ? `E : parler à ${l.nom}` : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
+      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — ${territoireDe(joueur.x, joueur.y) === monClan ? 'il est sur ton territoire' : 'terre neutre pour vous deux'}` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : l.action === 'marchand' ? 'E : voir les échanges du marchand ambulant' : l.action === 'pnj' ? `E : parler à ${l.nom}` : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
       const txt2 = txt.replace(/^E : /, E);
       ctx.font = `800 ${R(14 * s)}px ${POLICE}`; ctx.textAlign = 'center';
       const w = ctx.measureText(txt2).width + 30 * s, h = 34 * s, y = canvas.height * (tactile ? 0.66 : 0.78);
@@ -875,5 +947,5 @@ export function creerMonde(canvas, rappels) {
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t) => { monTitre = t || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

@@ -14,7 +14,7 @@ import * as AP from '../../../shared/clans/apparence.js';
 import { feuillePerso } from './monde.js';
 import { decor, ambiance, creerFx, PALETTES } from './scene.js';
 import { sfx } from '../sfx.js';
-import { $, ICO_RESS, ILLUS_MONSTRES, carteChoisie, carteHTML, centre, combat, esc, nf, p, pause, room, setCarteChoisie, setCombat, statutsHTML, toast } from './ui-commun.js';
+import { $, ICO_RESS, ILLUS, ILLUS_MONSTRES, carteChoisie, carteHTML, centre, combat, esc, nf, p, pause, room, setCarteChoisie, setCombat, statutsHTML, toast } from './ui-commun.js';
 import { bilanExpedition, fenetreExpedition } from './ui-fenetres.js';
 import { fermer, monde, ouvrir } from './ui-monde.js';
 import { act } from './ui-reseau.js';
@@ -29,7 +29,7 @@ export function nombre(el, txt, cls, dy = 0) {
 export function banniere(id, html, cls = '', duree = 1150) { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; $(id).replaceChildren(d); if (duree) setTimeout(() => d.remove(), duree); return d; }
 export function secouer(sc, fort) { const c = fort ? 'grosseSecousse' : 'secousse'; sc.classList.remove('secousse', 'grosseSecousse'); void sc.offsetWidth; sc.classList.add(c); setTimeout(() => sc.classList.remove(c), 520); }
 export function flash(sc, couleur) { const f = document.createElement('div'); f.className = 'flash'; f.style.background = couleur; sc.append(f); setTimeout(() => f.remove(), 380); }
-export function dessinerSprite(canvas, clan, classe, dir, app = '') { const g = canvas.getContext('2d'); g.clearRect(0, 0, 16, 26); g.drawImage(feuillePerso(clan, classe || 'combattant', app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 16, 26, 0, 0, 16, 26); }
+export function dessinerSprite(canvas, clan, classe, dir, app = '') { const g = canvas.getContext('2d'); g.clearRect(0, 0, 24, 26); g.drawImage(feuillePerso(clan, classe || 'combattant', app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 24, 26, 0, 0, 24, 26); }
 export const PAL_AURA = { a_braises: 'feu', a_bulles: 'eau', a_lucioles: 'plante', a_or: 'or' };
 export function lancerAuras(fx, liste) {
   const id = setInterval(() => {
@@ -52,6 +52,15 @@ export function regler(sc) {
   sc.style.setProperty('--e', `${Math.round(Math.max(60, Math.min(165, portrait ? Math.min(h * 0.3, (innerWidth - 40) / 3.3) : Math.min(h * 0.5, innerWidth * 0.12))))}px`);
 }
 addEventListener('resize', () => { for (const id of ['combat', 'duel']) if (!$(id).classList.contains('cache')) regler($(id)); });
+// v87 : l'allié invoqué, à côté du héros
+function majAllie(a) {
+  const el = $('cbAllie'); el.classList.toggle('cache', !(a?.pv > 0));
+  if (!(a?.pv > 0)) { delete el.querySelector('.jauge').dataset.pv; return; }
+  const po = el.querySelector('.portrait'), illus = a.img && ILLUS.has(a.img);   // v87 : le portrait tiré de l'illustration de la carte
+  po.classList.toggle('illus', !!illus); po.style.backgroundImage = illus ? `url(${import.meta.env.BASE_URL}clans/cartes/${a.img}.webp)` : ''; po.textContent = illus ? '' : a.ico; el.querySelector('.nomA').textContent = `${a.nom} · ⚔ ${a.deg}`;
+  el.title = `${a.nom} : frappe pour ${a.deg} au début de chacun de tes tours et encaisse les coups à ta place.`;
+  majJauge(el.querySelector('.jauge'), a.pv, a.pvMax, a.bloc);
+}
 export function majJauge(j, pv, pvMax, bloc) {
   if (!j) return;
   pv = Math.max(0, pv);
@@ -100,7 +109,7 @@ export function lancerCombat(def, type) {
   decor($('cbDecor'), terr);
   ambCb?.arreter(); ambCb = ambiance($('cbAmbiance'), terr);
   fxCb ||= creerFx($('cbFx'));
-  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr].nom}`, ascension: '🌟 Épreuve d’ascension' }[type] || 'Combat';
+  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr]?.nom || 'Boss mondial'}`, ascension: '🌟 Épreuve d’ascension' }[type] || 'Combat';
   $('cbInfo').innerHTML = type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
   sc.classList.toggle('cauchemar', !!PALIERS[p.expedition?.palier - 1]?.cauchemar && type !== 'mondial');
   dessinerSprite($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p));
@@ -146,6 +155,7 @@ function majMenace(c) {
   for (const e of c.ennemis) if (e.pv > 0) for (const it of C.decrireIntention(c, e)) if (it.type === 'attaque') { const [d, n] = it.txt.split('×').map(Number); if (!Number.isNaN(d)) total += d * (n || 1); }
   const el = $('cbMenace'); if (!el) return;
   if (!total || c.fini) { el.className = 'menace'; el.textContent = ''; return; }
+  if (c.allie?.pv > 0) { el.className = 'menace vu bloquee'; el.innerHTML = `${c.allie.ico} ${c.allie.nom} encaisse : <b>−${total}</b>`; el.title = 'Ton invocation prend les coups à ta place tant qu’elle tient debout.'; return; }   // v87
   const perte = Math.max(0, total - c.joueur.bloc);
   el.className = `menace vu ${perte ? (perte >= c.joueur.pv ? 'mortelle' : '') : 'bloquee'}`;
   el.innerHTML = perte ? `${perte >= c.joueur.pv ? '☠ ' : ''}Au prochain tour : <b>−${perte} PV</b>${c.joueur.bloc ? ` <small>(${total} − 🛡${c.joueur.bloc})</small>` : ''}` : `🛡 Tu bloques tout (${total})`;
@@ -164,6 +174,7 @@ export function dessinerCombat(donner = false, entree = false) {
   }).join('');
   const j = c.joueur;
   majJauge($('cbHeros').querySelector('.jauge'), j.pv, j.pvMax, j.bloc);
+  majAllie(c.allie);
   $('cbStatuts').innerHTML = statutsHTML(j);
   majMenace(c); $('cbTour').textContent = c.fini ? '' : `Tour ${c.tour}`;
   $('cbReliques').innerHTML = (c.reliques || []).map((id) => `<i title="${esc(RQ.RELIQUES[id].nom)} : ${esc(RQ.RELIQUES[id].desc)}">${RQ.RELIQUES[id].ico}</i>`).join('');
@@ -177,7 +188,7 @@ export function dessinerCombat(donner = false, entree = false) {
     $('cbTalent').classList.toggle('pret', (p.classe === 'tireur' && C.viseeProchaine(c)) || (p.classe === 'escrimeur' && c.attaquesTour > 0));
   }
   const n = c.main.length;
-  $('cbMain').innerHTML = c.main.map((k, i) => { const rot = (i - (n - 1) / 2) * 5, dy = Math.abs(i - (n - 1) / 2) * 7; const cout = C.coutDe(c, i); let h = carteHTML(k.id, k.niv); if (cout < CARTES[k.id].cout) h = h.replace(`<span class="cc">${CARTES[k.id].cout}</span>`, `<span class="cc reduit">${cout}</span>`); return h.replace('class="carte', `style="transform: rotate(${rot}deg) translateY(${dy}px)" data-i="${i}" class="carte ${C.jouable(c, i) ? '' : 'injouable'} ${carteChoisie === i ? 'choisie' : ''}`); }).join('');
+  $('cbMain').innerHTML = c.main.map((k, i) => { const rot = (i - (n - 1) / 2) * 5, dy = Math.abs(i - (n - 1) / 2) * 7; const cout = C.coutDe(c, i); let h = carteHTML(k.id, k.niv); if (cout < CARTES[k.id].cout) h = h.replace(`<span class="cc">${CARTES[k.id].cout}</span>`, `<span class="cc reduit">${cout}</span>`); return h.replace('class="carte', `style="transform: rotate(${rot}deg) translateY(${dy}px)" data-i="${i}" class="carte ${k.eph ? 'eph' : ''} ${C.jouable(c, i) ? '' : 'injouable'} ${carteChoisie === i ? 'choisie' : ''}`); }).join('');
   $('cbPioche').querySelector('b').textContent = c.pioche.length; $('cbDefausse').querySelector('b').textContent = c.defausse.length;
   $('cbEpuisees').textContent = c.epuisees.length ? `🔥 ${c.epuisees.length}` : '';
   $('btFinTour').classList.toggle('invite', !c.fini && !c.main.some((_, i) => C.jouable(c, i)));
@@ -251,10 +262,10 @@ export function choisirCarte(i) {
   jouer(i, vivants[0]?.uid);
 }
 export const elEnnemi = (uid) => document.querySelector(`#cbEnnemis [data-e="${uid}"]`);
-export const corpsDe = (a) => (a === 'j' ? $('cbHeros').querySelector('.combattant') : elEnnemi(a)?.querySelector('.portrait'));
-export const blocDe = (a) => (a === 'j' ? $('cbHeros') : elEnnemi(a));
+export const corpsDe = (a) => (a === 'j' ? $('cbHeros').querySelector('.combattant') : a === 'allie' ? $('cbAllie').querySelector('.portrait') : elEnnemi(a)?.querySelector('.portrait'));
+export const blocDe = (a) => (a === 'j' ? $('cbHeros') : a === 'allie' ? $('cbAllie') : elEnnemi(a));
 export const jaugeDe = (a) => blocDe(a)?.querySelector('.jauge');
-export const pvMaxDe = (a) => (a === 'j' ? combat.joueur.pvMax : combat.ennemis.find((e) => e.uid === a)?.pvMax || 1);
+export const pvMaxDe = (a) => (a === 'j' ? combat.joueur.pvMax : a === 'allie' ? combat.allie?.pvMax || 1 : combat.ennemis.find((e) => e.uid === a)?.pvMax || 1);
 export async function jouerEvenements(evs) {
   const sc = $('combat'), fx = fxCb;
   let element = 'neutre', coupsCarte = 0;
@@ -262,6 +273,7 @@ export async function jouerEvenements(evs) {
     const z = e.a ? corpsDe(e.a) : null;
     switch (e.t) {
       case 'carte': element = CARTES[e.id]?.element || 'neutre'; coupsCarte = 0; break;
+      case 'invoque': majAllie(e.allie); rejouerAnim($('cbAllie'), 'entreeG'); sfx.bouclier?.(); await pauseCb(320); break;   // v87
       case 'coup': {
         if (!z) break;
         const c = centre(z), pal = e.de === 'j' ? PALETTES[element] : PALETTES.mal;
@@ -277,6 +289,7 @@ export async function jouerEvenements(evs) {
         if (e.deg > 0) nombre(z, `−${e.deg}`, `deg${e.deg >= 15 || e.double ? ' gros' : ''}`);
         if (e.bloque > 0) nombre(z, `🛡 ${e.bloque}`, 'bloque', 34);
         majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), e.bloc);
+        if (e.a === 'allie' && e.pv <= 0) setTimeout(() => $('cbAllie').classList.add('cache'), 450);   // v87 : l'invocation tombe
         if (e.a === 'j') { secouer(sc, e.deg >= 10); if (e.deg) flash(sc, 'rgba(220,30,20,.32)'); sfx.hurt(); } else { sfx.coup(); if (e.deg >= 15) secouer(sc, false); const el2 = elEnnemi(e.a); if (el2) el2.classList.toggle('blesse', e.pv > 0 && e.pv / pvMaxDe(e.a) < 0.35); if (e.deg >= 15) await pauseCb(70); }
         await pauseCb(e.de === 'j' ? 210 : 300); break;
       }

@@ -6,7 +6,7 @@ import * as MY from '../../../shared/clans/mystere.js';
 import * as QP from '../../../shared/clans/quetesPnj.js';
 import { PNJ_PAR_ID } from '../../../shared/clans/pnj.js';
 import * as RQ from '../../../shared/clans/reliques.js';
-import { CARTES, ELEMENTS, CLASSES, RARES, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
+import { BRANCHES, CARTES, ELEMENTS, CLASSES, RARES, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES, PALIERS, MALEDICTIONS, BOSS_CAUCHEMAR } from '../../../shared/clans/monstres.js';
 import * as P from '../../../shared/clans/profil.js';
 import * as X from '../../../shared/clans/expedition.js';
@@ -25,6 +25,7 @@ import { room } from './ui-commun.js';
 import { propsSanct } from './ui-social.js';
 import { bonusProjet } from './ui-projets.js';
 import * as PS from '../../../shared/clans/passe.js';
+import * as DCS from '../../../shared/clans/decksConseilles.js';
 import { saisonDe } from '../../../shared/clans/arene.js';
 import { annonceFamilier, placerVignettes } from './ui-familiers.js';
 import * as PJ from '../../../shared/clans/projets.js';
@@ -34,16 +35,23 @@ export function fenetreParcelle() {
   guide.vu('parcelle');
   statut('parcelle');
   const el = ELEMENTS[p.clan], pr = P.production(p), plein = pr.heures >= P.stockageHeures(p);
-  ouvrir(`<h2>🏠 Ta parcelle</h2><p class="sous-titre sousTitre">Dans les ${esc(TERRITOIRES[p.clan].nom)}. Ta parcelle produit même quand tu n'es pas là, jusqu'à ${P.stockageHeures(p)} h de réserve.</p>
-    <p class="cout">🏡 ${p.maisonPos ? 'Ta maison est à l’endroit que tu as choisi.' : 'Ta maison est dans le village.'} <button class="lien" id="btDeplacerMaison">${p.maisonPos ? 'La déménager (1 000 essence)' : 'La poser où tu veux sur ta terre (gratuit la 1re fois)'}</button> · <button class="lien" id="btDecorer">🎨 La décorer</button></p>
-    <div class="parcelleScene ${p.clan}">${DECOR_PARCELLE[p.clan].map((e, i) => `<span style="font-size:${[70, 96, 48, 56][i]}px">${e}</span>`).join('')}</div>
-    ${bonusProjet('production') ? `<p class="cout">${PJ.PROJETS[p.clan].ico} ${PJ.PROJETS[p.clan].nom} de ton clan : <b>+${Math.round(bonusProjet('production') * 100)} %</b> à chaque récolte cette semaine.</p>` : ''}
-    ${(() => { const n = T.tenus(propsSanct(), p.clan); return `<p class="cout">🏳️ Sanctuaires tenus par ton clan : <b>${n} / ${T.SANCTUAIRES.length}</b>${n ? ` → <b>+${Math.round(T.bonusProduction(n) * 100)} %</b> à chaque récolte` : ' — prends-en pour récolter plus'}.</p>`; })()}
-    <div class="recolte"><div>Production en attente (${pr.heures.toFixed(1)} h${plein ? ', <b>réserve pleine</b>' : ''}) : <b>${nf(pr.essence)} ${ICO_RESS.essence}</b> et <b>${nf(pr[el.materiau])} ${ICO_RESS[el.materiau]}</b></div><button class="bouton" id="btRecolter" ${pr.essence + pr[el.materiau] < 1 ? 'disabled' : ''}>Récolter</button></div>
+  // v85 : parcelle refaite — jauge de réserve dans la scène, bonus en pastilles, bâtiments avec niveaux et coûts lisibles
+  const st = P.stockageHeures(p), pct = Math.min(100, (pr.heures / st) * 100), nSanct = T.tenus(propsSanct(), p.clan), bp = bonusProjet('production');
+  const coutLisible = (c) => Object.entries(c).map(([k, v]) => `<span class="${(p.ress[k] || 0) >= v ? '' : 'manque'}">${nf(v)} ${ICO_RESS[k] || k}</span>`).join(' ');
+  ouvrir(`<h2>🏠 Ta parcelle <small class="parcLieu">${esc(TERRITOIRES[p.clan].nom)}</small></h2>
+    <div class="parcActions"><span>🏡 ${p.maisonPos ? 'Maison posée sur ta terre' : 'Maison au village'}</span><button class="lien" id="btDeplacerMaison">${p.maisonPos ? 'Déménager (1 000 ✨)' : 'La poser où tu veux (gratuit la 1re fois)'}</button><button class="lien" id="btDecorer">🎨 Décorer</button></div>
+    <div class="parcelleScene ${p.clan}">${DECOR_PARCELLE[p.clan].map((e, i) => `<span style="font-size:${[70, 96, 48, 56][i]}px">${e}</span>`).join('')}
+
+    </div>
+    <div class="parcReserve"><div class="parcJauge ${plein ? 'pleine' : ''}"><i style="width:${pct}%"></i></div>
+        <div class="parcProd"><span>⏳ ${pr.heures.toFixed(1)} h / ${st} h${plein ? ' · <b>réserve pleine</b>' : ''}</span><span><b>${nf(pr.essence)}</b> ${ICO_RESS.essence} · <b>${nf(pr[el.materiau])}</b> ${ICO_RESS[el.materiau]}</span></div>
+        <button class="bouton ${plein ? 'pulse' : ''}" id="btRecolter" ${pr.essence + pr[el.materiau] < 1 ? 'disabled' : ''}>🧺 Récolter</button></div>
+    <div class="parcBonus">${bp ? `<span>${PJ.PROJETS[p.clan].ico} Projet du clan <b>+${Math.round(bp * 100)} %</b></span>` : ''}<span title="Sanctuaires tenus par ton clan">🏳️ ${nSanct} / ${T.SANCTUAIRES.length} sanctuaires${nSanct ? ` <b>+${Math.round(T.bonusProduction(nSanct) * 100)} %</b>` : ' — prends-en pour récolter plus'}</span><span>Produit même quand tu n’es pas là</span></div>
     <div class="batiments">${Object.entries(P.BATIMENTS).map(([k, b]) => {
-      const n = p.parcelle[k], max = n >= P.NIV_BAT_MAX, cout = P.coutBatiment(p, k);
-      return `<div class="batiment"><h3>${b.ico} ${b.nom}</h3><div class="niv">Niveau ${n} / ${P.NIV_BAT_MAX}</div><p>${b.desc(n, p.clan)}</p>
-        ${max ? '<p class="cout">Niveau maximum.</p>' : `<p class="cout">Niveau ${n + 1} : ${b.desc(n + 1, p.clan)}<br>Coût : ${coutHTML(cout)}</p><button class="bouton" data-b="${k}">Améliorer</button>`}</div>`;
+      const n = p.parcelle[k], max = n >= P.NIV_BAT_MAX, cout = P.coutBatiment(p, k), ok = cout && Object.entries(cout).every(([r, v]) => (p.ress[r] || 0) >= v);
+      return `<div class="batiment"><div class="batTete"><span class="batIco">${b.ico}</span><div><h3>${b.nom}</h3><div class="pips">${Array.from({ length: P.NIV_BAT_MAX }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div></div></div>
+        <p class="batMaint">${b.desc(n, p.clan)}</p>
+        ${max ? '<p class="batMax">★ Niveau maximum</p>' : `<p class="batSuiv"><small>Niveau ${n + 1}</small>${b.desc(n + 1, p.clan)}</p><div class="batCout">${coutLisible(cout)}</div><button class="bouton" data-b="${k}" ${ok ? '' : 'disabled title="Ressources insuffisantes"'}>⬆️ Améliorer</button>`}</div>`;
     }).join('')}</div>`, () => {
     $('btDecorer').onclick = () => import('./ui-deco.js').then((m) => m.fenetreDeco());
     $('btDeplacerMaison').onclick = () => { fermer(); import('./ui-maison.js').then((m) => m.commencerPlacement()); };
@@ -69,7 +77,7 @@ function statsDeck() {
 function raisonAjout(id) {
   const c = p.collection[id], k = p.deck.filter((x) => x === id).length;
   if (p.deck.length >= P.DECK_MAX) return `Ton deck est plein (${P.DECK_MAX} cartes) : retire une carte d'abord.`;
-  if (k >= P.COPIES_MAX) return `Déjà ${P.COPIES_MAX} exemplaires dans le deck (le maximum).`;
+  if (k >= P.copiesMax(id)) return P.copiesMax(id) === 1 ? 'Une seule légendaire de chaque sorte par deck.' : `Déjà ${P.COPIES_MAX} exemplaires dans le deck (le maximum).`;
   if (k >= c.n) return `Tous tes exemplaires (×${c.n}) sont déjà dans le deck. Tire-en d'autres à l'autel.`;
   return '';
 }
@@ -110,9 +118,10 @@ export function fenetreDeck() {
       return `<div class="carteCol ${k ? 'enDeck' : ''}">${carteHTML(id, c.niv, `<span class="cnb" title="Exemplaires possédés">×${c.n}</span>${k ? `<span class="ruban">Deck ×${k}</span>` : ''}${ok ? '<span class="amPossible" title="Tu peux l’améliorer">⬆</span>' : ''}`)}
         <div class="actions"><button data-a="${id}" ${raison ? `disabled title="${esc(raison)}"` : 'title="Ajouter un exemplaire au deck"'}>+ Deck</button><button data-u="${id}" class="${ok ? 'pret' : ''}" ${cout ? '' : 'disabled title="Niveau maximum atteint"'}>${cout ? '⬆ Améliorer' : `${etoiles(c.niv)} max`}</button></div></div>`;
     }).join('') || '<p>Aucune carte de ce type. Va faire des tirages !</p>'}</div>
-    <div class="colDeck"><h3>Ton deck</h3><div class="listeDeck">${lignes || '<p>Ton deck est vide.</p>'}</div></div></div>`, () => {
+    <div class="colDeck"><h3>Ton deck <button class="lien" id="btConseils" title="Des decks tout prêts pour ton clan et ta classe">📋 Decks conseillés</button></h3><div class="listeDeck">${lignes || '<p>Ton deck est vide.</p>'}</div></div></div>`, () => {
     $('fenetreCorps').dataset.vue = 'deck';
     brancherSelecteur(fenetreDeck);
+    $('btConseils').onclick = () => fenetreConseils();
     $('fenetreCorps').querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtreDeck = b.dataset.f; fenetreDeck(); });
     $('fenetreCorps').querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => { const r = await faire('deckAjouter', { id: b.dataset.a }); if (!r.ok) return r.raison && toast(esc(r.raison)); fenetreDeck(); });
     brancherApercu($('fenetreCorps'));
@@ -180,7 +189,7 @@ function panneauAmelioration(id, juste = false) {
 }
 export function fenetreTirages(resultat = null) {
   statut('tirage');
-  ouvrir(`<h2>🔮 L'Autel des tirages</h2><p class="sousTitre">Chaque tirage invoque un sort. Les sorts de ton élément sortent plus souvent. Au-delà de ${P.COPIES_MAX} exemplaires, un doublon devient des éclats ${ICO_RESS.eclats}.</p>
+  ouvrir(`<h2>🔮 L'Autel des tirages</h2><p class="sousTitre">Chaque tirage invoque un sort. Les sorts de ton élément sortent plus souvent. Au-delà de ${P.COPIES_MAX} exemplaires (1 pour une légendaire), un doublon devient des éclats ${ICO_RESS.eclats}.</p>
     <div class="banniere"><span class="orbe">🔮</span><p>Tu as <b>${nf(p.ress.essence)} ${ICO_RESS.essence}</b> · ${p.tirages.total} tirages faits · légendaire garantie dans <b>${60 - p.tirages.depuisLegendaire}</b> tirages</p>
       <button class="bouton" id="bt1" ${p.ress.essence < P.PRIX_TIRAGE ? 'disabled' : ''}>Tirer ×1 — ${P.PRIX_TIRAGE} ${ICO_RESS.essence}</button>
       <button class="bouton" id="bt10" ${p.ress.essence < P.PRIX_TIRAGE_10 ? 'disabled' : ''}>Tirer ×10 — ${P.PRIX_TIRAGE_10} ${ICO_RESS.essence} <small>(une épique au moins)</small></button>
@@ -287,11 +296,11 @@ export function bilanExpedition(r) {
 }
 export let ongletApp = 'tenue', apercuStop = null;
 export function vignette(app, dir = 'bas', z = 3) {
-  const c = document.createElement('canvas'); c.width = 16 * z; c.height = 26 * z; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
-  g.drawImage(feuillePerso(p.clan, p.classe, app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 16, 26, 0, 0, 16 * z, 26 * z);
+  const c = document.createElement('canvas'); c.width = 24 * z; c.height = 26 * z; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.drawImage(feuillePerso(p.clan, p.classe, app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 24, 26, 0, 0, 24 * z, 26 * z);
   return c;
 }
-export const codeAvec = (id) => { const a = { ...AP.portee(p), [AP.PIECES[id].slot]: id }; return `${a.tenue}.${a.cheveux}.${a.chapeau}.${a.aura}`; };
+export const codeAvec = (id) => { const a = { ...AP.portee(p), [AP.PIECES[id].slot]: id }; return `${a.tenue}.${a.cheveux}.${a.chapeau}.${a.aura}.${a.ailes}.${a.arme}.${a.cape}`; };
 export function fenetreApparence() {
   apercuStop?.();
   const porte = AP.portee(p), pieces = Object.entries(AP.PIECES).filter(([id, x]) => x.slot === ongletApp && (!x.passe || AP.possede(p, id) || PS.lotDe(saisonDe().id).pieces.includes(id)));
@@ -302,12 +311,12 @@ export function fenetreApparence() {
           const a = AP.possede(p, id), sur = porte[x.slot] === id, pr = x.cond ? AP.progression(p, x.cond) : null;
           const etat = sur ? '<span class="porte">✓ Portée</span>' : a ? `<button class="bouton" data-porter="${id}">Porter</button>`
             : x.prix ? `<button class="bouton" data-acheter="${id}" ${p.ress.essence < x.prix.essence || (p.ress.eclats || 0) < x.prix.eclats ? 'disabled' : ''}>${x.prix.essence || x.prix.eclats ? `${x.prix.essence ? `${nf(x.prix.essence)} ${ICO_RESS.essence}` : ''}${x.prix.eclats ? ` ${x.prix.eclats} ${ICO_RESS.eclats}` : ''}` : 'Gratuit'}</button>`
-            : x.passe ? `<span class="verrou">🎟️ Passe de saison (lot « ${esc(x.passe)} »)</span>`
+            : x.passe ? (() => { const q = PS.quandPiece(id); return `<span class="verrou">🎟️ ${q?.maintenant ? `Ce mois-ci : niveau ${q.niv} du passe de saison` : `Exclusive du passe « ${esc(x.passe)} » : revient dans ${q?.dansMois || '?'} mois (niveau ${q?.niv || '?'})`}</span>`; })()
             : `<span class="verrou" title="${esc(x.cond.txt)}">🔒 ${esc(x.cond.txt)}<i><b style="width:${Math.min(100, (pr.v / x.cond.n) * 100)}%"></b></i><em>${nf(Math.min(pr.v, x.cond.n))} / ${nf(x.cond.n)}</em></span>`;
           return `<div class="piece ${sur ? 'sur' : ''} ${a ? '' : 'pas'} ${x.cond ? 'gagnee' : ''}" data-id="${id}"><div class="vig"></div><b>${esc(x.nom)}</b>${x.cond ? '<small>🏅 à gagner</small>' : x.passe ? '<small>🎟️ exclusive</small>' : ''}${etat}</div>`;
         }).join('')}</div></div></div>`, () => {
     $('fenetreCorps').querySelectorAll('[data-o]').forEach((b) => b.onclick = () => { ongletApp = b.dataset.o; fenetreApparence(); });
-    $('fenetreCorps').querySelectorAll('.piece').forEach((d) => { d.querySelector('.vig').append(vignette(codeAvec(d.dataset.id), ongletApp === 'chapeau' ? 'droite' : 'bas')); d.onmouseenter = () => { essai = codeAvec(d.dataset.id); }; d.onmouseleave = () => { essai = null; }; });
+    $('fenetreCorps').querySelectorAll('.piece').forEach((d) => { d.querySelector('.vig').append(vignette(codeAvec(d.dataset.id), ongletApp === 'chapeau' ? 'droite' : ongletApp === 'ailes' || ongletApp === 'cape' ? 'haut' : 'bas')); d.onmouseenter = () => { essai = codeAvec(d.dataset.id); }; d.onmouseleave = () => { essai = null; }; });
     $('fenetreCorps').querySelectorAll('[data-porter]').forEach((b) => b.onclick = async () => { const r = await faire('apparencePorter', { id: b.dataset.porter }); if (!r.ok) return r.raison && toast(esc(r.raison)); sfx.orb(); fenetreApparence(); });
     $('fenetreCorps').querySelectorAll('[data-acheter]').forEach((b) => b.onclick = async () => { const x = AP.PIECES[b.dataset.acheter]; if (x.prix.essence > 0 && !confirm(`Acheter « ${x.nom} » ?`)) return; const r = await faire('apparenceAcheter', { id: b.dataset.acheter }); if (!r.ok) return r.raison && toast(esc(r.raison)); sfx.fanfare(); toast(`🎨 ${esc(x.nom)} : c'est à toi !`); fenetreApparence(); });
     // l'aperçu : le personnage qui tourne sur lui-même, avec son aura ; survoler une pièce l'essaie
@@ -317,7 +326,7 @@ export function fenetreApparence() {
       if (!vivant || !cv.isConnected) return;
       const t = (n - t0) / 1000, code = essai || AP.code(p), dir = ['bas', 'droite', 'haut', 'gauche'][Math.floor(t / 1.2) % 4];
       g.clearRect(0, 0, 200, 260); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(100, 236, 54, 10, 0, 0, 6.3); g.fill();
-      g.drawImage(feuillePerso(p.clan, p.classe, code), (Math.floor(t * 4) % 2 ? 1 : 0) * 16, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 16, 26, 36, 32, 128, 208);
+      g.drawImage(feuillePerso(p.clan, p.classe, code), (Math.floor(t * 4) % 2 ? 1 : 0) * 24, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 24, 26, 4, 32, 192, 208);
       g.save(); g.translate(100, 238); g.scale(8, 8); dessinerAura(g, 0, 0, AP.lireCode(code).aura, t, 1); g.restore();
       requestAnimationFrame(boucle);
     };
@@ -360,3 +369,24 @@ export function fenetreQuetes() {
 }
 $('btQuetes').onclick = () => fenetreQuetes();
 addEventListener('keydown', (e) => { if ((e.key === 'j' || e.key === 'J') && e.target.tagName !== 'INPUT' && dansMonde && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache')) fenetreQuetes(); });
+
+// ---------- v85 : les decks conseillés ----------
+export function fenetreConseils() {
+  const l = DCS.conseilles(p.clan, p.classe, p.branche || null), a = (id) => p.collection[id]?.n || 0;
+  ouvrir(`<h2>📋 Decks conseillés</h2><p class="sousTitre">Pour le ${esc(ELEMENTS[p.clan].clan)} et la classe ${esc(CLASSES[p.classe]?.nom || '')}${p.branche ? ` (${esc(BRANCHES[p.branche]?.nom || '')})` : ''}. « Utiliser » remplace ton deck actif : les cartes que tu n’as pas encore sont remplacées par tes meilleures cartes pour ce style.</p>
+    <div class="conseils">${l.map((d) => {
+      const vus = {}, possedees = d.cartes.filter((id) => { vus[id] = (vus[id] || 0) + 1; return vus[id] <= a(id); }).length;
+      const uniques = [...new Set(d.cartes)];
+      return `<div class="conseil ${d.conseille ? 'top' : ''}"><div class="consTete"><span class="consIco">${d.ico}</span><div><h3>${esc(d.nom)} ${d.conseille ? '<span class="ruban">⭐ Conseillé</span>' : ''}</h3><small>${'●'.repeat(d.diff)}${'○'.repeat(3 - d.diff)} difficulté · ${possedees} / ${d.cartes.length} cartes possédées</small></div></div>
+        <p>${esc(d.desc)}</p>
+        <div class="consListe">${uniques.map((id) => { const n = d.cartes.filter((x) => x === id).length, ok = a(id) >= n; return `<span class="consCarte r-${CARTES[id].rarete} ${ok ? '' : 'manque'}" data-apercu="${id}" title="${ok ? 'Tu l’as' : 'Pas encore (ou pas assez d’exemplaires)'}"><i>${CARTES[id].cout}</i>${CARTES[id].ico} ${esc(CARTES[id].nom)}${n > 1 ? ` <em>×${n}</em>` : ''}${ok ? '' : ' 🔒'}</span>`; }).join('')}</div>
+        <button class="bouton" data-style="${d.style}">Utiliser ce deck</button></div>`;
+    }).join('')}</div>`, () => {
+    brancherApercu($("fenetreCorps"));
+    $('fenetreCorps').querySelectorAll('[data-style]').forEach((b) => b.onclick = async () => {
+      const r = await faire('deckConseille', { style: b.dataset.style }); if (!r.ok) return toast(esc(r.raison || 'Impossible.'));
+      sfx.melange(); toast(`📋 Deck « ${esc(DCS.STYLES[b.dataset.style].nom)} » appliqué (${r.res.n} cartes)${r.res.manque ? ` : ${r.res.manque} carte${r.res.manque > 1 ? 's' : ''} remplacée${r.res.manque > 1 ? 's' : ''} en attendant de les tirer` : ''}.`);
+      fenetreDeck();
+    });
+  });
+}

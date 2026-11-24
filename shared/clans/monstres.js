@@ -9,6 +9,8 @@ export const TERRITOIRES = {
   feu: { nom: 'Terres de Braise', element: 'feu', ico: '🌋' },
   eau: { nom: "Lagons d'Azur", element: 'eau', ico: '🏝️' },
   plante: { nom: "Sylve d'Émeraude", element: 'plante', ico: '🌲' },
+  // v87 (Chapitre 2) : la région neutre du sud, ouverte au niveau 30
+  brisees: { nom: 'Terres Brisées', element: 'brisees', ico: '🌀', niv: 30 },
 };
 
 const m = (id, nom, ico, pv, intentions, rang = 'normal') => ({ id, nom, ico, pv, intentions, rang });
@@ -73,6 +75,26 @@ export const MONSTRES = {
       boss: m('colosse_racines', 'Colosse des racines', '🪵', 86, [{ d: 12, e: 2 }, { a: 5, n: 3 }, { s: 6, w: 1 }, { a: 14 }, { f: 1, g: 6 }], 'boss'),
     },
   },
+  // v87 : les monstres « fusionnés » nés de la Faille — nettement plus forts que ceux des trois terres
+  brisees: {
+    normaux: [
+      m('golem_vapeur', 'Golem de vapeur', '♨️', 40, [{ a: 9, t: 1 }, { d: 10 }, { a: 6, n: 1, b: 1 }]),
+      m('liane_ardente', 'Liane ardente', '🌶️', 34, [{ a: 7, b: 2 }, { e: 2, d: 6 }, { a: 11 }]),
+      m('spectre_brume', 'Spectre de brume', '🌫️', 30, [{ w: 2, a: 6 }, { a: 5, n: 2, t: 1 }, { g: 6 }]),
+      m('chimere_faille', 'Chimère de la faille', '🦁', 44, [{ a: 12 }, { f: 2 }, { a: 5, n: 3 }]),
+      m('eclat_vivant', 'Éclat vivant', '🔷', 26, [{ d: 8, e: 2 }, { a: 8 }, { s: 8 }]),
+      m('rodeur_abime', 'Rôdeur de l’abîme', '👁️', 36, [{ a: 10, w: 1 }, { a: 4, n: 3 }, { d: 8 }]),
+      m('tisseuse_vide', 'Tisseuse du vide', '🕸️', 32, [{ w: 2, t: 1 }, { a: 7, n: 2 }, { g: 6, s: 4 }]),
+    ],
+    rare: m('prisme', 'Prisme errant', '💠', 62, [{ a: 6, n: 3 }, { d: 14, e: 2 }, { s: 10, f: 1 }], 'rare'),
+    elite: m('colosse_fusion', 'Colosse fusionné', '🗿', 88, [{ a: 16 }, { d: 16, f: 1 }, { a: 7, n: 2, b: 2 }, { g: 10 }], 'elite'),
+    boss: m('coeur_faille', 'Le Cœur de la Faille', '🌀', 120, [{ a: 7, n: 2, b: 1, t: 1 }, { g: 10, s: 8 }, { a: 18 }, { w: 2, a: 10 }, { f: 2, d: 14 }, { a: 6, n: 4 }], 'boss'),
+    autres: {
+      rare: m('sentinelle_brisee', 'Sentinelle brisée', '🤖', 60, [{ d: 12 }, { a: 14 }, { a: 5, n: 2, w: 1 }], 'rare'),
+      elite: m('hydre_fusion', 'Hydre des trois éléments', '🐲', 92, [{ a: 6, n: 3 }, { b: 2, t: 2, a: 8 }, { s: 12 }, { a: 18 }], 'elite'),
+      boss: m('archonte_vide', 'L’Archonte du vide', '👑', 140, [{ g: 12 }, { a: 8, n: 3 }, { w: 3, a: 11 }, { a: 20 }, { s: 12, f: 2 }, { b: 3, t: 2, a: 10 }], 'boss'),
+    },
+  },
 };
 // la salle de ce type pour cette expédition : la version d'origine ou l'autre (v80), selon la graine
 export const variante = (terr, type, graine) => { const M = MONSTRES[terr]; return M.autres?.[type] && ((graine >>> 0) + type.length) % 2 ? M.autres[type] : M[type]; };
@@ -100,5 +122,6 @@ export const MALEDICTIONS = {
 export const BOSS_CAUCHEMAR = {
   feu: m('titan_magma', 'Titan primordial', '🌋', 100, [{ a: 12 }, { d: 12, f: 2 }, { a: 5, n: 3 }, { w: 2, a: 7 }, { b: 4, a: 9 }, { a: 16 }], 'boss'),
   eau: m('leviathan_abyssal', 'Léviathan des abysses', '🐋', 102, [{ a: 6, n: 2 }, { t: 2, d: 10 }, { a: 13 }, { f: 1, d: 10 }, { a: 4, n: 3 }, { t: 1, a: 15 }], 'boss'),
+  brisees: m('neant_originel', 'Le Néant originel', '🕳️', 200, [{ a: 14 }, { g: 16, w: 2 }, { a: 7, n: 4 }, { s: 16, f: 2 }, { b: 4, t: 3, a: 12 }, { a: 28 }], 'boss'),
   plante: m('ancien_sylvain', 'Ancien sylvain', '🌳', 124, [{ a: 12, e: 3 }, { d: 14, f: 1 }, { a: 7, n: 3 }, { w: 2, a: 10 }, { a: 19 }, { e: 3, d: 10, f: 1 }], 'boss'),
 };

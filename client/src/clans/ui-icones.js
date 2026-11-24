@@ -9,6 +9,7 @@
 export const NOMS_RESS = {
   essence: 'Essence', eclats: 'Éclats', braises: 'Braises (Feu)', perles: 'Perles (Eau)', seve: 'Sève (Plante)',
   cristal: 'Cristal de lave (rare, Feu)', perle_noire: 'Perle noire (rare, Eau)', graine_or: 'Graine d’or (rare, Plante)',
+  fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (rare, Terres Brisées)',
 };
 const SYMBOLES = `
 <symbol id="ir-essence" viewBox="0 0 24 24">
@@ -64,6 +65,18 @@ const SYMBOLES = `
   <path d="M12 8.6V5.2" stroke="#2e8a3a" stroke-width="1.4" stroke-linecap="round"/>
   <path d="M12 5.6c-.6-2.2-2.6-3-4.6-2.4.5 2 2.3 2.9 4.6 2.4zM12 5c.8-1.9 2.6-2.6 4.4-1.8-.7 1.8-2.4 2.4-4.4 1.8z" fill="#5ac84a" stroke="#1e6a26" stroke-width=".7"/>
   <ellipse cx="9.8" cy="12.2" rx="1.2" ry="1.8" fill="#fffbe0" opacity=".85" transform="rotate(20 9.8 12.2)"/>
+</symbol>
+<symbol id="ir-fragments" viewBox="0 0 24 24">
+  <path d="M5 15l4-9 4 3-2 8z" fill="#6a4ab0" stroke="#24123e" stroke-width="1.1"/>
+  <path d="M13 9l5-3 1 8-6 4z" fill="#8a60e0" stroke="#24123e" stroke-width="1.1"/>
+  <path d="M9 6l4 3" stroke="#d8c0ff" stroke-width="1" opacity=".9"/>
+  <circle cx="16" cy="9" r="1" fill="#f0e0ff"/>
+</symbol>
+<symbol id="ir-eclat_vide" viewBox="0 0 24 24">
+  <defs><linearGradient id="ir-g-vide" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c8f0ff"/><stop offset=".5" stop-color="#6a8aff"/><stop offset="1" stop-color="#3a1a8a"/></linearGradient></defs>
+  <path d="M12 2.5l6 9.5-6 9.5-6-9.5z" fill="url(#ir-g-vide)" stroke="#1a0e3a" stroke-width="1.1"/>
+  <path d="M12 2.5v19M6 12h12" stroke="#e8f4ff" stroke-width=".7" opacity=".6"/>
+  <path d="M19.5 3.5l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z" fill="#d0c0ff"/>
 </symbol>`;
 // le sprite, posé une seule fois dans la page
 if (typeof document !== 'undefined' && !document.getElementById('spriteRess')) {

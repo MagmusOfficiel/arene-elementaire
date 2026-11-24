@@ -9,7 +9,7 @@ import { actif as actifFamilier } from './familiers.js';
 import { MONSTRES, PALIERS, TERRITOIRES, MALEDICTIONS, BOSS_CAUCHEMAR, variante } from './monstres.js';
 import { ELEMENTS, RARES } from './cartes.js';
 import { alea } from './combat.js';
-import { pvMax, deckCombat } from './profil.js';
+import { pvMax, deckCombat, niveau } from './profil.js';
 import * as RQ from './reliques.js';
 import * as MY from './mystere.js';
 import { vaincre } from './grimoire.js';
@@ -57,6 +57,7 @@ export const salle = (carte, id) => (id === 'boss' ? carte.boss : carte.etages[+
 
 export function commencerExpedition(p, territoire, palier = 1, graine = Date.now()) {
   if (!TERRITOIRES[territoire]) return { ok: false };
+  if (TERRITOIRES[territoire].niv && niveau(p) < TERRITOIRES[territoire].niv) return { ok: false, raison: `Il faut être niveau ${TERRITOIRES[territoire].niv} pour les ${TERRITOIRES[territoire].nom}.` };   // v87
   if (palier > (p.paliers[territoire] || 1)) return { ok: false, raison: 'Palier pas encore débloqué.' };
   p.expedition = { territoire, palier, graine, carte: genererCarte(graine), position: null, pv: pvMax(p), pvMax: pvMax(p), butin: { essence: 0, mat: 0 }, salles: 0, fini: null, reliques: [], choixRelique: null };
   const fam = actifFamilier(p); if (fam) p.expedition.familier = fam;   // fixé pour toute l'expédition

@@ -28,6 +28,7 @@ import * as QP from '../../shared/clans/quetesPnj.js';
 import * as DC from '../../shared/clans/deco.js';
 import * as PC from '../../shared/clans/parcours.js';
 import * as GR from '../../shared/clans/grimoire.js';
+import * as DC2 from '../../shared/clans/decksConseilles.js';
 import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
@@ -91,6 +92,7 @@ export const ACTIONS = {
   deckRetirer(p, m) { if (!carte(m.id)) return { ok: false }; return P.retirerDuDeck(p, m.id); },
   // plusieurs decks (v64) : passer à un autre emplacement, ou le renommer
   deckChoisir(p, m) { return P.choisirDeck(p, m.i); },
+  deckConseille(p, m) { const r = DC2.appliquer(p, String(m.style || '')); return r.ok ? { ok: true, res: r } : r; },   // v85
   deckRenommer(p, m) { return P.renommerDeck(p, m.i, m.nom); },
   recolter(p, m, ctx) {
     const g = P.recolter(p, Date.now()), b = T.bonusProduction(ctx?.sanctuaires || 0) + PJ.bonusDe(ctx?.projets, p.clan, 'production');
@@ -103,7 +105,7 @@ export const ACTIONS = {
   construire(p, m) { if (typeof m.bat !== 'string' || !Object.hasOwn(P.BATIMENTS, m.bat)) return { ok: false }; const r = P.construire(p, m.bat); return r.ok ? { ok: true, res: r } : r; },
   expeCommencer(p, m, ctx) {
     if (p.expedition) return { ok: false, raison: 'Une expédition est déjà en cours.' };
-    const r = ['feu', 'eau', 'plante'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
+    const r = ['feu', 'eau', 'plante', 'brisees'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
     if (r?.ok) { const b = PJ.bonusDe(ctx?.projets, p.clan, 'butin'); if (b) p.expedition.bonusButin = b; }
     return r?.ok ? { ok: true } : (r || { ok: false });
   },
@@ -116,12 +118,12 @@ export const ACTIONS = {
   // le client envoie ses coups ; on rejoue le combat et on garde CE résultat
   expeCombat(p, m, ctx) {
     const x = p.expedition; if (!x?.combatEnCours) return { ok: false, raison: 'Aucun combat en cours.' };
-    const type = X.salle(x.carte, x.combatEnCours).type, terr = x.territoire, def = X.combatDe(p, x.combatEnCours);
+    const type = X.salle(x.carte, x.combatEnCours).type, terr = x.territoire, palier = x.palier, def = X.combatDe(p, x.combatEnCours);
     const c = rejouer(def, m.coups, { journal: true });
     if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
     noterCombat({ classe: p.classe, clan: p.clan, terr, palier: x.palier, type, deck: def.deck, c, pvAvant: x.pv });
     const r = X.apresCombat(p, c);
-    if (c.fini === 'victoire') Q.evenement(p, 'victoire', 1, { terr, type });
+    if (c.fini === 'victoire') Q.evenement(p, 'victoire', 1, { terr, type, cauchemar: palier >= 4 });
     let familier = null;
     if (type === 'boss' && c.fini === 'victoire') { ctx.points?.('bossExpe'); familier = F.butinBoss(p, terr, def.palier?.n || 1, alea(graine())); }
     return { ok: true, res: { ...r, issue: c.fini, familier } };

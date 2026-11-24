@@ -64,7 +64,7 @@ export function recompenses(p) {
     l.push({ cle: `b-${t}-1`, livre: 'bestiaire', terr: t, ico: TERRITOIRES[t].ico, txt: `${TERRITOIRES[t].nom} : vaincre ${moitie} monstres différents`, v: Math.min(v, moitie), max: moitie, rec: { essence: 250 } });
     l.push({ cle: `b-${t}-2`, livre: 'bestiaire', terr: t, ico: TERRITOIRES[t].ico, txt: `${TERRITOIRES[t].nom} : vaincre tous les monstres`, v, max: ms.length, rec: { eclats: 30, rare: 6 } });
   }
-  l.push({ cle: 'b-titans', livre: 'bestiaire', ico: '💀', txt: 'Vaincre les trois titans du Cauchemar', v: TITANS.filter((m) => vu(p, m.id)).length, max: TITANS.length, rec: { eclats: 80, rare: 6 } });
+  l.push({ cle: 'b-titans', livre: 'bestiaire', ico: '💀', txt: 'Vaincre tous les titans du Cauchemar', v: TITANS.filter((m) => vu(p, m.id)).length, max: TITANS.length, rec: { eclats: 80, rare: 6 } });
   l.push({ cle: 'b-tout', livre: 'bestiaire', ico: '📕', txt: 'Compléter tout le bestiaire', v: TOUS_MONSTRES.filter((m) => vu(p, m.id)).length, max: TOUS_MONSTRES.length, rec: { eclats: 120, titre: 'gri:bestiaire' } });
   for (const x of l) { x.fait = x.v >= x.max; x.recu = recu.has(x.cle); }
   return l;

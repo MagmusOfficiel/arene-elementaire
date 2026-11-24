@@ -154,8 +154,18 @@ export async function lireProfilClans(jeton) {
   if (persistance === 'base') { const brut = await redis(['GET', `${DB_CLE}:clans:${jeton}`]); return brut ? JSON.parse(brut) : null; }
   return data.clansProfils?.[jeton]?.p || null;
 }
+// v83 : suppression d'un personnage (son code suffit : c'est la clé secrète du personnage)
+const supprimes = new Set();
+export async function supprimerProfilClans(jeton, cleMaison) {
+  if (!jetonValide(jeton)) return false;
+  supprimes.add(jeton);   // une salle qui l'aurait encore en mémoire ne le réécrira pas
+  if (data.clansMaisons?.[cleMaison]) { delete data.clansMaisons[cleMaison]; dirty = true; }
+  if (persistance === 'base') { await redis(['DEL', `${DB_CLE}:clans:${jeton}`]); return true; }
+  if (data.clansProfils?.[jeton]) { delete data.clansProfils[jeton]; dirty = true; }
+  return true;
+}
 export async function ecrireProfilClans(jeton, p) {
-  if (!jetonValide(jeton) || !p) return;
+  if (!jetonValide(jeton) || !p || supprimes.has(jeton)) return;
   if (persistance === 'base') { await redis(['SET', `${DB_CLE}:clans:${jeton}`, JSON.stringify(p)]); return; }
   data.clansProfils ||= {}; data.clansProfils[jeton] = { p, maj: Date.now() }; dirty = true;
   const k = Object.keys(data.clansProfils);

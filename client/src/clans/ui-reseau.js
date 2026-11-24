@@ -23,6 +23,7 @@ import { suivreAscension } from './ui-ascension.js';
 import { suivreMontures } from './ui-montures.js';
 import { noterPerso } from './ui-compte.js';
 import { majPastilleG } from './ui-grimoire.js';
+import { feteNiveau } from './ui-notifs.js';
 import * as GR from '../../../shared/clans/grimoire.js';
 import * as HF from '../../../shared/clans/hautsfaits.js';
 import { afficherClassement, alerteSanctuaire, classArene, enFile, fenetreArene, majBandeauArene, sanctEtat, setClassArene, setEnFile, setSanctEtat, vueFenetre } from './ui-social.js';
@@ -36,19 +37,22 @@ export function lireStockage() {
   return {};
 }
 export let minuteur = null;
-let avisClasseVu = false;
+let avisClasseVu = false, avisDeckVu = false;
 export function recevoirProfil(m) {
   if (!m) return;
   // v68 : les cartes d'une autre classe ont été changées en éclats
   if (m.p?.avisClasse?.n && !avisClasseVu) { avisClasseVu = true; const a = m.p.avisClasse; setTimeout(() => toast(`🎴 Chaque classe ne joue plus que ses propres cartes de classe : tes ${a.n} carte${a.n > 1 ? 's' : ''} d’autres classes ${a.n > 1 ? 'ont été changées' : 'a été changée'} en ${nf(a.eclats)} éclats.`), 1500); }
-  const avant = p ? Q.etat(p) : null, gagneesAvant = p ? piecesGagnees() : null, grAvant = p ? GR.aReclamer(p) : null;
+  // v83 : decks remis à 2 exemplaires par carte (1 par légendaire)
+  if (m.p?.avisDeck && !avisDeckVu) { avisDeckVu = true; setTimeout(() => toast(`🃏 Nouvelle règle : 2 exemplaires d'une même carte au plus par deck (1 pour une légendaire). ${m.p.avisDeck} carte${m.p.avisDeck > 1 ? 's ont' : ' a'} été retirée${m.p.avisDeck > 1 ? 's' : ''} de ton deck.`), 1500); }
+  const avant = p ? Q.etat(p) : null, gagneesAvant = p ? piecesGagnees() : null, grAvant = p ? GR.aReclamer(p) : null, nivAvant = p && m.p && p.nom === m.p.nom && p.clan === m.p.clan ? P.niveau(p) : null;
   if (m.p) noterPerso(m.jeton, m.p, P.niveau(m.p));
   if (m.p) { setP(P.completer(m.p)); try { localStorage.setItem(CLE, JSON.stringify({ p: m.p, sig: m.sig, jeton: m.jeton })); } catch { /* plein */ } }
   else try { localStorage.setItem(CLE, JSON.stringify({ jeton: m.jeton, sig: 'aucun', p: null })); } catch { /* plein */ }
   clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 2000);
-  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p))); monde.majNom(p.nom, cleMaison(p)); monde.majMonture(MT.actif(p)); monde.majDeco(DC.code(p), p.branche); if (dansMonde) monde.majMaParcelle(p.parcelle); }
+  if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p)), HF.titreDe(p)); monde.majNom(p.nom, cleMaison(p)); monde.majMonture(MT.actif(p)); monde.majDeco(DC.code(p), p.branche); if (dansMonde) monde.majMaParcelle(p.parcelle); }
   if (p && avant) annoncerQuetes(avant);
   if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); suivreMontures(); }
+  if (p && nivAvant != null && m.p && P.niveau(p) > nivAvant && dansMonde) feteNiveau(P.niveau(p));
   if (p) { const n = GR.aReclamer(p); if (grAvant != null && n > grAvant) { sfx.niveau(); toast('📚 Le Grimoire a une récompense pour toi ! (menu ☰ → Grimoire)'); } majPastilleG(); }
   if (p && gagneesAvant) for (const id of piecesGagnees()) if (!gagneesAvant.has(id)) { sfx.fanfare(); toast(`🎨 Nouvelle apparence débloquée : <b>${esc(AP.PIECES[id].nom)}</b> ! (bouton 👕)`); }
 }
@@ -114,7 +118,7 @@ export function brancher(room) {
     room.onMessage('filons', (l) => monde.majFilons(l));
     room.onMessage('ramasse', (m) => { sfx.orb(); const r = RARES[m.terr]; toast(`+${m.n} ${ICO_RESS[r.id]} ${r.nom}`); });
     room.onMessage('info', (m) => toast(esc(m.t)));
-    room.onMessage('recale', (m) => { const j = monde.joueur; if (j) { j.x = m.x; j.y = m.y; } });
+    room.onMessage('recale', (m) => { const j = monde.joueur; if (j) { j.x = m.x; j.y = m.y; } if (m.retour) toast('🏠 Te voilà de retour devant ta maison. Reprends des forces !'); });
     room.onMessage('duel', afficherDuel);
     room.onMessage('duelResultat', finDuel);
     room.onMessage('mondial', majMondial);
