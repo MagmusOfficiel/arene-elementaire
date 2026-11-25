@@ -11,6 +11,9 @@ const q = new URLSearchParams(location.search);
 const surCG = import.meta.env.VITE_CRAZYGAMES === '1' || q.has('crazygames') || /crazygames|1001juegos/.test(location.hostname) || /crazygames/.test(document.referrer);
 let sdk = null, enJeu = false, enChargement = false;
 const reglages = { disableChat: false, muteAudio: false };
+// v110 : multijoueur — l'ami qui nous a invité (paramètre du lien), et ceux qui veulent savoir quand on rejoint
+let amiInvite = null, instantane = false, pseudoCG = null, salleActuelle = '';
+const rejoindre = [];
 const ecouteurs = [];
 
 function appliquer(s) {
@@ -32,6 +35,21 @@ export const cg = {
   chargementFin() { if (!enChargement) return; enChargement = false; sur((s) => s.game.loadingStop()); },
   jeuDebut() { cg.chargementFin(); if (enJeu) return; enJeu = true; sur((s) => s.game.gameplayStart()); },
   jeuFin() { if (!enJeu) return; enJeu = false; sur((s) => s.game.gameplayStop()); },
+  // ---- v110 : multijoueur ----
+  get instantane() { return instantane; },
+  get pseudo() { return pseudoCG; },
+  prendreAmi() { const a = amiInvite; amiInvite = null; return a; },   // l'ami du lien (une seule fois)
+  onRejoindre(f) { rejoindre.push(f); },                                  // un lien cliqué alors que le jeu est déjà ouvert
+  // le « salon » du joueur = son groupe d'expédition ; joignable s'il reste de la place
+  salle({ id, ami, joignable }) {
+    const cle = `${id}|${ami}|${joignable}`; if (cle === salleActuelle) return; salleActuelle = cle;
+    sur((s) => {
+      s.game.updateRoom?.({ roomId: id, isJoinable: !!joignable, inviteParams: { ami } });
+      if (joignable) s.game.showInviteButton?.({ ami }); else s.game.hideInviteButton?.();
+    });
+  },
+  quitterSalle() { salleActuelle = ''; sur((s) => { s.game.hideInviteButton?.(); s.game.leftRoom?.(); }); },
+  lien(ami) { let l = null; sur((s) => { l = s.game.inviteLink({ ami }); }); return l; },
 };
 
 export const pret = !surCG ? Promise.resolve() : new Promise((ok) => {
@@ -44,6 +62,12 @@ export const pret = !surCG ? Promise.resolve() : new Promise((ok) => {
       if (sdk.environment !== 'disabled') {
         appliquer({ ...sdk.game.settings, ...(q.get('disableChat') === 'true' ? { disableChat: true } : {}), ...(q.get('muteAudio') === 'true' ? { muteAudio: true } : {}) });
         sdk.game.addSettingsChangeListener(appliquer);
+        // v110 : arrivé par le lien d'un ami ? (et le cas où on clique un lien alors que le jeu est déjà ouvert)
+        try { amiInvite = sdk.game.getInviteParam?.('ami') || sdk.game.inviteParams?.ami || null; } catch { amiInvite = null; }
+        instantane = !!sdk.game.isInstantMultiplayer;
+        try { sdk.game.addJoinRoomListener?.((x) => { const a = x?.ami || x?.inviteParams?.ami; if (a) { amiInvite = a; for (const f of rejoindre) f(); } }); } catch { /* pas de rejoindre en cours de partie */ }
+        // le pseudo CrazyGames (il doit apparaître dans le jeu : on le propose comme nom de héros)
+        try { const u = await sdk.user?.getUser?.(); pseudoCG = u?.username || null; } catch { pseudoCG = null; }
         langueSuggeree(sdk.user?.systemInfo?.locale || navigator.language);   // v107 : la langue du joueur selon CrazyGames
       }
     } catch { sdk = null; }

@@ -42,6 +42,7 @@ const CLANS = ['feu', 'eau', 'plante'], CLASSES = ['combattant', 'mage', 'tireur
 export const DEPARTS = Object.fromEntries(Object.entries(CENTRES).map(([k, [x, y]]) => [k, [x, y + 64]]));   // sous l’ouvrage du projet de clan
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
 const codeParcelle = (pc) => { const v = (k) => Math.max(1, Math.min(5, num(pc?.[k], 1) | 0)); return v('maison') * 100 + v('autel') * 10 + v('atelier'); };
+const pubAmi = (jeton) => crypto.createHash('sha256').update(`ami:${jeton}`).digest('base64url').slice(0, 12);   // v110
 const empreinte = (jeton) => crypto.createHash('sha256').update(String(jeton)).digest('base64url').slice(0, 16);
 // v93 : l'identifiant public d'un personnage (pour les amis) — ne révèle pas le jeton
 const pidDe = (jeton) => (jeton ? crypto.createHash('sha256').update(`ami:${jeton}`).digest('base64url').slice(0, 12) : '');
@@ -230,6 +231,35 @@ export class ClansRoom extends Room {
       if (g.membres.length >= X.TAILLE_GROUPE) return refus(`Un groupe compte ${X.TAILLE_GROUPE} joueurs au plus.`);
       g.invites.add(sid); cl.send('groupeInvitation', { gid: g.id, de: j.nom, clan: j.clan });
       c.send('info', { t: `Invitation envoyée à ${cible.nom}.` }); this.envoyerGroupe(g);
+    });
+    // ---------- v110 : CrazyGames — inviter un ami par un lien (le « salon » = le groupe d'expédition) ----------
+    // pub : un identifiant public du joueur, tiré de son jeton (le jeton lui-même ne sort jamais)
+    sur('lienAmi', (c, m, j) => { if (j.jeton) c.send('lienAmi', { pub: pubAmi(j.jeton) }); });
+    // « Multijoueur instantané » : un groupe d'un seul joueur, prêt à accueillir ses amis
+    sur('groupeCreer', (c, m, j) => {
+      if (!j.p || j.groupe || j.p.expedition) return;
+      const g = { id: `g${++this.nGroupe}`, chef: c.sessionId, membres: [c.sessionId], invites: new Set() }; this.groupes.set(g.id, g); j.groupe = g.id; this.envoyerGroupe(g);
+    });
+    // arrivé par le lien d'un ami : on entre directement dans son groupe (on l'a choisi en cliquant le lien)
+    sur('groupeLien', (c, m, j) => {
+      const pub = String(m.ami || '').slice(0, 20), refus = (t) => c.send('info', { t });
+      if (!pub || !j.p) return;
+      let hsid = null, hote = null;
+      for (const [sid, k] of this.joueurs) if (k.p && k.jeton && pubAmi(k.jeton) === pub) { hsid = sid; hote = k; break; }
+      if (!hote) return refus('Ton ami n’est pas connecté en ce moment : tu pourras rejoindre son groupe quand il reviendra.');
+      if (hsid === c.sessionId) return;
+      if (j.groupe) { const g0 = this.groupes.get(j.groupe); if (g0?.membres.includes(hsid)) return; return refus('Tu es déjà dans un groupe.'); }
+      if (j.p.expedition) return refus('Termine d’abord ton expédition en cours.');
+      let g = hote.groupe && this.groupes.get(hote.groupe);
+      if (!g) {
+        if (hote.p.expedition) return refus(`${hote.nom} est en expédition : tu pourras le rejoindre à son retour.`);
+        g = { id: `g${++this.nGroupe}`, chef: hsid, membres: [hsid], invites: new Set() }; this.groupes.set(g.id, g); hote.groupe = g.id;
+      }
+      if (g.parti) return refus(`Le groupe de ${hote.nom} est déjà parti en expédition : rejoins-le à son retour.`);
+      if (g.membres.length >= X.TAILLE_GROUPE) return refus(`Le groupe de ${hote.nom} est complet (${X.TAILLE_GROUPE} joueurs).`);
+      g.membres.push(c.sessionId); j.groupe = g.id; this.envoyerGroupe(g);
+      cliDe(hsid)?.send('info', { t: `🔗 ${j.nom} t’a rejoint grâce à ton lien d’invitation !` });
+      c.send('groupeLienOk', { de: hote.nom, sid: hsid });
     });
     sur('groupeRepondre', (c, m, j) => {
       const g = this.groupes.get(String(m.gid || '')); if (!g || !g.invites.has(c.sessionId)) return;
@@ -546,7 +576,8 @@ export class ClansRoom extends Room {
   // ---------- expéditions en groupe (v78) ----------
   sidDe(k) { for (const [sid, x] of this.joueurs) if (x === k) return sid; return null; }
   envoyerGroupe(g, extra = {}) {
-    const vue = { id: g.id, parti: !!g.parti, terr: g.terr || null, palier: g.palier || null, chef: g.chef,
+    const chefJ = this.joueurs.get(g.chef);
+    const vue = { id: g.id, parti: !!g.parti, terr: g.terr || null, palier: g.palier || null, chef: g.chef, pubChef: chefJ?.jeton ? pubAmi(chefJ.jeton) : null, taille: X.TAILLE_GROUPE,
       membres: g.membres.map((sid) => { const k = this.joueurs.get(sid), x = k?.p?.expedition; return { sid, nom: k?.nom || '?', clan: k?.clan, classe: k?.classe, pv: x?.pv ?? null, pvMax: x?.pvMax ?? null, etat: !x ? (g.parti ? 'fini' : 'pret') : x.aTerre ? 'aTerre' : x.combatEnCours ? 'combat' : (x.choixRelique || x.mystere) ? 'choix' : 'pret', position: x?.position || null }; }), ...extra };
     for (const sid of g.membres) this.clients.find((k) => k.sessionId === sid)?.send('groupe', { ...vue, moi: sid });
   }

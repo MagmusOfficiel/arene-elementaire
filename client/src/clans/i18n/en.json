@@ -2576,5 +2576,19 @@
 "meilleur rang": "best rank",
 "boss vaincus": "bosses defeated",
 "hauts faits": "achievements",
-"les 6 premières donnent le titre « {0} »": "the first 6 give the title “{0}”"
+"les 6 premières donnent le titre « {0} »": "the first 6 give the title “{0}”",
+"🔗 Inviter un ami (lien)": "🔗 Invite a friend (link)",
+"Un ami ailleurs ?": "A friend elsewhere?",
+"Le lien d’invitation n’est pas disponible pour le moment.": "The invite link isn't available right now.",
+"🔗 Lien copié ! Envoie-le à un ami : il arrivera directement dans ton groupe.": "🔗 Link copied! Send it to a friend: they'll land right in your group.",
+"🔗 Ton lien d’invitation : {0}": "🔗 Your invite link: {0}",
+"🔗 Tu as rejoint le groupe de {0} ! Retrouve-le et partez en expédition ensemble.": "🔗 You joined {0}'s group! Find them and head out on an expedition together.",
+"🔗 Tu as rejoint le groupe de": "🔗 You joined the group of",
+"! Retrouve-le et partez en expédition ensemble.": "! Find them and head out on an expedition together.",
+"🔗 {0} t’a rejoint grâce à ton lien d’invitation !": "🔗 {0} joined you through your invite link!",
+"Ton ami n’est pas connecté en ce moment : tu pourras rejoindre son groupe quand il reviendra.": "Your friend isn't online right now: you'll be able to join their group when they're back.",
+"Tu es déjà dans un groupe.": "You're already in a group.",
+"{0} est en expédition : tu pourras le rejoindre à son retour.": "{0} is on an expedition: you can join them when they're back.",
+"Le groupe de {0} est déjà parti en expédition : rejoins-le à son retour.": "{0}'s group has already left on an expedition: join them when they're back.",
+"Le groupe de {0} est complet ({1} joueurs).": "{0}'s group is full ({1} players)."
 }

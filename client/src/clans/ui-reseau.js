@@ -130,6 +130,7 @@ export function brancher(room) {
     room.onMessage('sanctuaires', (l) => { setSanctEtat(l); monde.majSanctuaires(l); });
     room.onMessage('projets', (v) => majProjets(v));
     import('./ui-groupe.js').then((G) => import('./ui-fenetres.js').then((Fe) => G.brancherMessagesGroupe(room, Fe)));
+    import('./ui-invitation.js').then((I) => I.brancherInvitations(room));   // v110 : CrazyGames, inviter un ami
     room.onMessage('fiche', (f) => fenetreFiche(f));
     room.onMessage('alerte', alerteSanctuaire);
     room.onMessage('areneFile', (m) => { setEnFile(m.en ? m.depuis : null); majBandeauArene(); if (vueFenetre() === 'arene') fenetreArene(false); });

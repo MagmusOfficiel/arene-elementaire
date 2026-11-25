@@ -6,6 +6,7 @@
 //  Si le boss tombe, tout le groupe gagne. +25 % de butin par compagnon.
 //  Les règles sont côté serveur (ClansRoom.js) et dans expedition.js.
 // =====================================================================
+import { boutonInviter, brancherBoutonInviter } from './ui-invitation.js';
 import { $, esc, p, room, toast } from './ui-commun.js';
 import { monde } from './ui-monde.js';
 import { vueFenetre } from './ui-social.js';
@@ -22,7 +23,7 @@ export function panneauGroupe(terr) {
   if (!groupe) {
     if (p.expedition) return '';
     const proches = monde.proches(260);
-    return `<div class="groupe"><h3>👥 Partir en groupe <small>(+25 % de butin par compagnon)</small></h3>
+    return `<div class="groupe"><h3>👥 Partir en groupe <small>(+25 % de butin par compagnon)</small></h3>${boutonInviter() ? `<p class="cout">Un ami ailleurs ? ${boutonInviter()}</p>` : ''}
       ${proches.length ? `<p class="cout">Joueurs près de toi :</p><div class="invites">${proches.map((a) => `<button class="bouton second" data-inviter="${a.id}"><span style="color:${COUL[a.clan]}">●</span> ${esc(a.nom)} <small>niv. ${a.niv || '?'}</small></button>`).join('')}</div>` : '<p class="cout">Personne près de toi pour l’instant : un compagnon doit venir jusqu’au portail.</p>'}</div>`;
   }
   const moi = groupe.moi;
@@ -30,11 +31,12 @@ export function panneauGroupe(terr) {
     <div class="membresGroupe">${groupe.membres.map((m) => `<div class="membre ${m.etat}"><b style="color:${COUL[m.clan]}">${m.sid === groupe.chef ? '👑 ' : ''}${esc(m.nom)}${m.sid === moi ? ' (toi)' : ''}</b>
       ${m.pv !== null ? `<span class="pvG"><i style="width:${Math.round((m.pv / m.pvMax) * 100)}%"></i></span><small>${m.pv} / ${m.pvMax} PV</small>` : ''}<small>${groupe.parti ? ETATS[m.etat] || '' : ''}</small></div>`).join('')}</div>
     ${!groupe.parti ? (suisChef() ? (() => { const proches = monde.proches(260).filter((a) => !groupe.membres.some((m) => m.sid === a.id)); return groupe.membres.length < 3 && proches.length ? `<div class="invites">${proches.map((a) => `<button class="bouton second" data-inviter="${a.id}">+ ${esc(a.nom)}</button>`).join('')}</div>` : ''; })() + `<p class="cout">${groupe.membres.length < 2 ? 'Attends qu’un compagnon accepte ton invitation.' : 'Choisis le palier ci-dessous : tout le groupe part ensemble.'}</p>` : '<p class="cout">Le chef choisit le palier.</p>') : suisChef() ? '<p class="cout">Tu es le chef : c’est toi qui choisis les salles. Attends que tout le monde ait fini son combat.</p>' : '<p class="cout">Le chef choisit les salles ; tu combats les mêmes monstres avec ton deck.</p>'}
-    <button class="lien" id="btQuitterGroupe">Quitter le groupe</button></div>`;
+    ${boutonInviter()}<button class="lien" id="btQuitterGroupe">Quitter le groupe</button></div>`;
 }
 export function brancherGroupe() {
   $('fenetreCorps').querySelectorAll('[data-inviter]').forEach((b) => b.onclick = () => { room?.send('groupeInviter', { cible: b.dataset.inviter }); b.disabled = true; b.textContent = 'Invité…'; });
   if ($('btQuitterGroupe')) $('btQuitterGroupe').onclick = () => room?.send('groupeQuitter', {});
+  brancherBoutonInviter();
 }
 
 // les messages du serveur

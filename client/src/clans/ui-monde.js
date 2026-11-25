@@ -13,7 +13,7 @@ import { TERRITOIRES } from '../../../shared/clans/monstres.js';
 import * as X from '../../../shared/clans/expedition.js';
 import { LIEUX } from '../../../shared/clans/geo.js';
 import { creerMonde } from './monde.js';
-import { cg } from './crazygames.js';
+import { cg, pret } from './crazygames.js';
 import { RAYON_VISITE } from '../../../shared/clans/reperes.js';
 import { langue, changerLangue } from './i18n.js';
 const estMuetCG = () => document.body.dataset.cgMuet === '1';
@@ -60,7 +60,10 @@ export function classesHTML() {
 export function ecranClan(seulementClasse = false) {
   $('ecranClan').classList.remove('cache'); $('ecranMonde').classList.add('cache');
   cg.jeuFin(); cg.chargementFin();   // v106 : l'écran de création est un menu
+  import('./ui-invitation.js').then((I) => I.quitterSalle());
   $('nomJoueur').value = p?.nom || localStorage.getItem('pseudo') || '';
+  // v110 : sur CrazyGames, on propose le pseudo du joueur (ses amis le reconnaîtront)
+  pret.then(() => { if (!$('nomJoueur').value && cg.pseudo) { $('nomJoueur').value = [...cg.pseudo].slice(0, 16).join(''); $('nomJoueur').dispatchEvent(new Event('input')); } });
   // v79 : revenir à un autre personnage, ou retrouver son compte venu d'un autre appareil
   import('./ui-compte.js').then((C) => {
     const l = C.persos().filter((x) => x.jeton !== C.jetonActif());
@@ -205,6 +208,7 @@ export async function entrerMonde() {
   $('ecranMonde').classList.remove('cache');
   majBarre(); monde.demarrer(p.clan, p.nom, p.classe, cleMaison(p)); monde.majMaParcelle(p.parcelle);
   cg.jeuDebut();   // v106 : CrazyGames « gameplayStart »
+  import('./ui-invitation.js').then((I) => I.entrerSalle());   // v110 : le salon CrazyGames (inviter un ami)
   majPastille(); guide.demarrer(); if (monde.tactile) $('tactile').classList.remove('cache');
   const x = p.expedition;
   if (x?.combatEnCours) setTimeout(() => lancerCombat(X.combatDe(p, x.combatEnCours), X.salle(x.carte, x.combatEnCours).type), 400);
