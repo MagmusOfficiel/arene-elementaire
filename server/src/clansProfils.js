@@ -34,6 +34,7 @@ import * as DC2 from '../../shared/clans/decksConseilles.js';
 import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
+import { pseudoOk } from '../../shared/clans/filtre.js';
 import { lireProfilClans, ecrireProfilClans, jetonValide, maisonsPosees, ecrireMaison, tourEnregistrer } from './stats.js';
 import { emplacementMaison, posMaison, cleMaison } from '../../shared/clans/geo.js';
 
@@ -80,6 +81,7 @@ export const ACTIONS = {
   creer(p, m, ctx) {
     if (p) return { ok: false, raison: 'Tu as déjà un profil.' };
     if (!CLANS.includes(m.clan) || typeof m.classe !== 'string' || !Object.hasOwn(CLASSES, m.classe)) return { ok: false, raison: 'Choix invalide.' };
+    if (!pseudoOk(m.nom)) return { ok: false, raison: 'Ce pseudo n’est pas autorisé. Choisis-en un autre.' };
     ctx.p = P.nouveauProfil(m.clan, propre(m.nom, 16) || 'Joueur', Date.now(), m.classe);
     // tests de bout en bout seulement (jamais en production) : un profil riche pour tout essayer
     if (+process.env.CLANS_TEST_NIVEAU > 1) ctx.p.stats.victoires = (+process.env.CLANS_TEST_NIVEAU - 1) * 6;   // tests seulement
@@ -126,7 +128,7 @@ export const ACTIONS = {
     if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
     noterCombat({ classe: p.classe, clan: p.clan, terr, palier: x.palier, type, deck: def.deck, c, pvAvant: x.pv });
     const r = X.apresCombat(p, c);
-    if (c.fini === 'victoire') Q.evenement(p, 'victoire', 1, { terr, type, cauchemar: palier >= 4 });
+    if (c.fini === 'victoire') Q.evenement(p, 'victoire', 1, { terr, type, cauchemar: palier >= 4, palier });
     let familier = null;
     if (type === 'boss' && c.fini === 'victoire') { ctx.points?.('bossExpe'); familier = F.butinBoss(p, terr, def.palier?.n || 1, alea(graine())); }
     return { ok: true, res: { ...r, issue: c.fini, familier } };
@@ -148,6 +150,7 @@ export const ACTIONS = {
   renommer(p, m) {
     const nom = propre(m.nom, 16);
     if ([...nom].length < 2) return { ok: false, raison: 'Ton pseudo doit faire au moins 2 caractères.' };
+    if (!pseudoOk(nom)) return { ok: false, raison: 'Ce pseudo n’est pas autorisé. Choisis-en un autre.' };
     if (nom === p.nom) return { ok: false, raison: 'C’est déjà ton pseudo.' };
     const reste = (p.renomme || 0) + DELAI_PSEUDO - Date.now();
     if (reste > 0) return { ok: false, raison: `Tu pourras rechanger de pseudo dans ${Math.ceil(reste / 3600000)} h.` };
@@ -182,8 +185,16 @@ export const ACTIONS = {
     return { ok: true, res: { x: e.x, y: e.y, prix } };
   },
   // les quêtes des habitants (v76) : il faut être près de l'habitant
-  pnjAccepter(p, m, ctx) { if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' }; return QP.accepter(p, m.id); },
-  pnjRendre(p, m, ctx) { if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' }; const r = QP.rendre(p, m.id); return r.ok ? { ok: true, res: { rec: r.rec, merci: r.merci, ami: QP.amiDe(p, PNJ_PAR_ID[m.id].clan) } } : r; },
+  // v108 : m.id est l'habitant ; il propose sa quête du moment (il peut en avoir plusieurs, l'une après l'autre)
+  pnjAccepter(p, m, ctx) { if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' }; const q = QP.queteDe(p, m.id); return q ? QP.accepter(p, q) : { ok: false, raison: 'Il n’a plus rien à te demander.' }; },
+  pnjRendre(p, m, ctx) {
+    if (!pres(m.id, ctx)) return { ok: false, raison: 'Approche-toi de lui.' };
+    const q = QP.queteDe(p, m.id); if (!q) return { ok: false };
+    const r = QP.rendre(p, q); return r.ok ? { ok: true, res: { id: q, rec: r.rec, merci: r.merci, xp: r.xp, ami: QP.PAR_CLAN[PNJ_PAR_ID[m.id].clan]?.includes(q) && QP.amiDe(p, PNJ_PAR_ID[m.id].clan) } } : r;
+  },
+  // v108 : un lieu vu, un objet ramassé (le serveur vérifie la position)
+  pnjLieu(p, m, ctx) { if (!ctx?.pos || !QP.valide(m.id)) return { ok: false }; const r = QP.visiter(p, m.id, ctx.pos.x, ctx.pos.y); return r.ok ? { ok: true, res: r } : r; },
+  pnjObjet(p, m, ctx) { if (!ctx?.pos || !QP.valide(m.id)) return { ok: false }; const r = QP.ramasser(p, m.id, m.i, ctx.pos.x, ctx.pos.y); return r.ok ? { ok: true, res: r } : r; },
   decoAcheter(p, m) { return DC.acheter(p, m.id); },
   decoPoser(p, m) { return DC.poser(p, String(m.empl || ''), m.id === null ? null : String(m.id || '')); },
   // le parcours des nouveaux venus (v79)

@@ -70,7 +70,7 @@ test('en duel, l’invocation protège son maître', () => {
   assert.equal(moi.pv, pv); assert.ok(moi.allie.pv < moi.allie.pvMax);
   assert.ok(D.vue(d, a).moi.allie);
 });
-test('l’histoire : 5 quêtes en chaîne, ouvertes aux niveaux 30, 40 et 50', () => {
+test('l’histoire : 5 quêtes en chaîne, ouvertes aux niveaux 30, 34 et 44 (v108)', () => {
   const p = avecNiveau(P.nouveauProfil('plante', 'T', 0), 30);
   assert.equal(QP.etat(p, 'lyra'), 'verrou');
   assert.equal(QP.accepter(p, 'lyra').ok, false);
@@ -80,10 +80,10 @@ test('l’histoire : 5 quêtes en chaîne, ouvertes aux niveaux 30, 40 et 50', (
   assert.equal(QP.rendre(p, 'orin').ok, true);
   assert.equal(QP.etat(p, 'lyra'), 'libre');
   p.pnjQ.lyra = { n: 0, fait: true };
-  assert.equal(QP.etat(p, 'varda'), 'verrou', 'niveau 40 requis');
-  avecNiveau(p, 40); assert.equal(QP.etat(p, 'varda'), 'libre');
+  assert.equal(QP.etat(p, 'varda'), 'verrou', 'niveau 34 requis');
+  avecNiveau(p, 34); assert.equal(QP.etat(p, 'varda'), 'libre');
   p.pnjQ.varda = { fait: true }; p.pnjQ.sel = { fait: true };
-  assert.equal(QP.etat(p, 'nyx'), 'verrou'); avecNiveau(p, 50); assert.equal(QP.accepter(p, 'nyx').ok, true);
+  assert.equal(QP.etat(p, 'nyx'), 'verrou'); avecNiveau(p, 44); assert.equal(QP.accepter(p, 'nyx').ok, true);
   QP.avancer(p, 'victoire', 1, { terr: 'brisees', type: 'boss', cauchemar: false }); assert.equal(QP.etat(p, 'nyx'), 'cours');
   QP.avancer(p, 'victoire', 1, { terr: 'brisees', type: 'boss', cauchemar: true }); assert.equal(QP.etat(p, 'nyx'), 'prete');
   QP.rendre(p, 'nyx'); assert.ok(QP.amiDe(p, 'brisees'));

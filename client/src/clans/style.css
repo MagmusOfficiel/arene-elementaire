@@ -12,7 +12,10 @@
    ===================================================================== */
 :root { --or: #e8c060; --papier: #f0e6d0; --nuit: #0c0a12; --feu: #e0552a; --eau: #2a8ae0; --plante: #3aa84a; }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--nuit); color: var(--papier); font-family: 'Nunito', system-ui, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; overflow: hidden; user-select: none; }
+html, body { margin: 0; height: 100%; background: var(--nuit); color: var(--papier); font-family: 'Nunito', system-ui, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+input, textarea, [contenteditable] { user-select: text; -webkit-user-select: text; }
+/* v106 : chat désactivé par CrazyGames */
+body.sansChat #chatOnglets, body.sansChat #chatTexte, body.sansChat #btChatMobile { display: none !important; }
 button { font: inherit; cursor: pointer; }
 .cache { display: none !important; }
 .ecran { position: fixed; inset: 0; }
@@ -225,6 +228,7 @@ body.tactile .toast { font-size: 13px; padding: 6px 11px; }
 .qBarre em { position: relative; display: block; text-align: center; font: bold 11px/16px system-ui, sans-serif; font-style: normal; text-shadow: 0 1px 2px #000; }
 .qRec { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .qRec small { color: #d8c8a0; white-space: nowrap; }
+.qRec small.qXp { color: #9fe0ff; font-weight: 800; }
 .qOk { color: #8fd88a; font-weight: bold; }
 .qTemps { font-weight: normal; font-size: 12px; color: #a89e8a; margin-left: 8px; }
 
@@ -877,6 +881,8 @@ kbd { display: inline-block; min-width: 18px; text-align: center; font: bold 11p
 .batIco { font-size: 34px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: rgba(255,255,255,.06); }
 .batTete h3 { margin: 0; }
 .pips { display: flex; gap: 4px; margin-top: 4px; } .pips i { width: 14px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.15); } .pips i.on { background: var(--or); box-shadow: 0 0 6px rgba(232,192,96,.6); }
+.pips i.chap.on { background: #b8a0ff; box-shadow: 0 0 6px rgba(184,160,255,.7); } .pips i.chap:not(.on) { outline: 1px dashed rgba(184,160,255,.5); }
+.batChap { font-size: 12.5px; color: #cdbcff; background: rgba(140,110,230,.12); border: 1px solid rgba(140,110,230,.3); border-radius: 8px; padding: 6px 8px; margin: 6px 0 0; }
 .batMaint { font-size: 14px; margin: 10px 0 6px; }
 .batSuiv { font-size: 12.5px; color: #b8e0a8; margin: 0 0 6px; } .batSuiv small { display: block; color: #c8bca8; font-weight: 700; }
 .batCout { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-bottom: 8px; } .batCout .manque { color: #ff8a7a; }
@@ -991,3 +997,8 @@ body.tactile #guide.replie #guideEtape::after { content: ' ▸ (toucher pour lir
 .bete .ficheEt { color: #e8c060; font-size: 12px; letter-spacing: 1px; }
 .bete.fiche3 { border-color: #e8c060 !important; box-shadow: 0 0 0 1px #e8c06066, 0 0 14px #e8c06033; }
 .bete.fiche1 .beteInt { opacity: .7; font-style: italic; }
+/* v108 : quêtes des habitants — titre, objectifs, XP */
+.pnjQuete .pnjTitre { margin: 4px 0 2px; font-size: 16px; color: var(--clan, #e8c060); }
+.pnjObjectifs { margin: 8px auto; padding: 0; list-style: none; font-size: 13.5px; line-height: 1.6; text-align: center; }
+.pnjObjectifs li { margin: 2px 0; }
+.xpQ { color: #9fe0ff; }

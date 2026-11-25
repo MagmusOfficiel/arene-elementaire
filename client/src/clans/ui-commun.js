@@ -2,6 +2,7 @@
 //  LES CLANS ÉLÉMENTAIRES — l’état partagé (profil, connexion, combat) et les petits outils de l’interface
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import { langue, t, tradPhrases } from './i18n.js';
 import { icone, NOMS_RESS } from './ui-icones.js';
 import { BRANCHES, CARTES, ELEMENTS, CLASSES, RARETES, STATUTS, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -13,7 +14,7 @@ export const compte = creerCompte(SERVER_URL.replace(/^ws/, 'http'));
 export const CLE = 'clansProfil';
 export const $ = (id) => document.getElementById(id);
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-export const nf = (n) => Math.floor(n).toLocaleString('fr-FR');
+export const nf = (n) => Math.floor(n).toLocaleString(langue === 'en' ? 'en-US' : 'fr-FR');
 export let p = null;
 export let room = null, monId = null;
 export let combat = null, cible = null, carteChoisie = null;
@@ -56,9 +57,16 @@ const MOTS = [
   [/Épuisée/g, { nom: 'Épuisée', desc: 'Une fois jouée, la carte quitte le combat (elle ne revient pas dans la pioche).' }],
   [/bouclier/g, { nom: 'Bouclier', desc: 'Absorbe les dégâts reçus jusqu’au début de ton prochain tour.' }],
 ];
+// v107 : en anglais, la description est traduite avant d'être mise en forme
+const MOTS_EN = [
+  [/(Burn|burn)( \d+)?/g, STATUTS.brulure], [/Soaked( \d+)?/g, STATUTS.trempe], [/Weak( \d+)?/g, STATUTS.affaibli],
+  [/Thorns( \d+)?/g, STATUTS.epines], [/Regeneration( \d+)?/g, STATUTS.regen], [/Strength/g, STATUTS.force],
+  [/Exhaust/g, MOTS[6][1]], [/shield/g, MOTS[7][1]],
+];
 export function texteCarte(txt) {
+  const en = langue === 'en'; if (en) txt = tradPhrases(txt);
   let h = esc(txt);
-  for (const [re, d] of MOTS) h = h.replace(re, (m) => `<b class="mot" title="${esc(d.nom)} : ${esc(d.desc)}">${m}</b>`);
+  for (const [re, d] of en ? MOTS_EN : MOTS) h = h.replace(re, (m) => `<b class="mot" title="${esc(t(d.nom))}${en ? ':' : ' :'} ${esc(t(d.desc))}">${m}</b>`);
   return h.replace(/(\d+)(?![^<]*>)/g, '<b class="nb">$1</b>');
 }
 export const etoiles = (niv) => '★'.repeat(niv) + '☆'.repeat(Math.max(0, NIV_MAX - niv));

@@ -45,6 +45,7 @@ export const CIEL_Y = OY, NIV_CIEL = 90;
 export const CENTRE_CIEL = [OX + 1608, 300];   // v101 : juste au-dessus des Lagons d'Azur
 const PORTAIL_EAU = [OX + 1608, OY + 136];   // le Pont des Étoiles part du portail de l'Azur, tout droit vers le haut
 import { SANCTUAIRES } from './territoires.js';
+import { REPERES } from './reperes.js';
 export const LIEUX = [
   ...L_LIEUX.map((l) => ({ ...l, x: l.x + OX, y: l.y + OY })),
   // v99 : tout en haut des Îles Célestes, l'Observatoire
@@ -95,7 +96,7 @@ export const SEGMENTS = [[CARREFOUR, CENTRES.feu], [CARREFOUR, CENTRES.eau], [CA
   [CENTRES.feu, CENTRE_AMBRE], [PORTAIL_EAU, CENTRE_CIEL]].concat(LIEUX.filter((l) => l.terr).map((l) => [CENTRE_DE(l.terr), [l.x, l.y]]));
 const L_SEGMENTS = SEGMENTS.map(([a, b]) => [[a[0] - OX, a[1] - OY], [b[0] - OX, b[1] - OY]]);
 function distSeg(px, py, [ax, ay], [bx, by]) { const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - ax - t * dx, py - ay - t * dy); }
-const distChemin = (x, y) => Math.min(...SEGMENTS.map((s) => distSeg(x, y, ...s)));
+export const distChemin = (x, y) => Math.min(...SEGMENTS.map((s) => distSeg(x, y, ...s)));
 const distCheminL = (x, y) => Math.min(...L_SEGMENTS.map((s) => distSeg(x, y, ...s)));
 export const chemin = (x, y) => distChemin(x, y) < 26;
 // où le chemin franchit la lisière (pour les panneaux « niveau 70 » et « niveau 90 »)
@@ -111,8 +112,11 @@ const dansVillageL = (x, y, k, m = 1) => { const [cx, cy] = L_CENTRES[k]; return
 // eau : sable, hautfond, eau (infranchissable)
 // plante : sylve, mousse, mare (infranchissable)
 export const SOLIDES = new Set(['lave', 'eau', 'mare', 'abime', 'crevasse', 'sables_mouvants', 'vide_ciel']);
+const PLACE_REPERE = { feu: 'place', eau: 'place', plante: 'place', brisees: 'dalle', cimes: 'dalle_givre', ambre: 'dalle_ambre', ciel: 'marbre_celeste' };
 export function sol(tx, ty) {
   const x = tx * TUILE + 8, y = ty * TUILE + 8;
+  // v108 : une petite place dallée autour de chaque lieu à visiter
+  for (const r of REPERES) { const d = Math.hypot((x - r.x) * 0.8, y - r.y - 6); if (d < 64 - alea(tx * 3.7 + ty * 1.9) * 12) return PLACE_REPERE[r.zone]; }
   // v99 : les Îles Célestes — des îles d'herbe d'argent et de nuage sur le vide ; des ponts de lumière les relient
   if (dansCiel(x, y)) {
     const dc = distChemin(x, y);
@@ -181,7 +185,7 @@ export function obstacles() {
     const i = ty * L + tx, s = sols[i];
     if (!(s in DENS)) continue;
     const x = tx * TUILE + 8, y = ty * TUILE + 8, bord = tx < 2 || ty < 2 || tx >= L - 2 || ty >= H - 2;
-    if (!bord && (distChemin(x, y) < (t0(x, y) === 'eau' ? 56 : 72) || LIEUX.some((p) => Math.hypot(x - p.x, y - p.y) < 130) || SANCTUAIRES.some((p) => Math.hypot(x - p.x, y - p.y) < 110))) continue;
+    if (!bord && (distChemin(x, y) < (t0(x, y) === 'eau' ? 56 : 72) || LIEUX.some((p) => Math.hypot(x - p.x, y - p.y) < 130) || SANCTUAIRES.some((p) => Math.hypot(x - p.x, y - p.y) < 110) || REPERES.some((p) => Math.hypot(x - p.x, y - p.y) < 110))) continue;
     if (!bord && Object.keys(CENTRES).some((k) => dansVillage(x, y, k, 1.15))) continue;
     if (grille[i - 1] || grille[i - L]) continue;   // pas collés les uns aux autres
     const neuf = !ancien(x, y), lx = neuf ? tx : tx - OTX, ly = neuf ? ty : ty - OTY;   // v100 : l'ancien monde garde son décor
@@ -199,6 +203,8 @@ export function obstacles() {
   { const a = LIEUX[0], tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
   // le pilier de chaque sanctuaire
   for (const a of SANCTUAIRES) { const tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); grille[ty * L + tx] = grille[ty * L + tx - 1] = 1; }
+  // v108 : le socle des lieux à visiter (3 tuiles de large, 2 de profondeur)
+  for (const a of REPERES) { const tx = Math.floor(a.x / TUILE), ty = Math.floor(a.y / TUILE); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 0; j++) grille[(ty + j) * L + tx + i] = 1; }
   l.grille = grille; l.sols = sols;
   return (CACHE = l);
 }

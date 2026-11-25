@@ -6,6 +6,9 @@
 //    des petits sprites dessinés en code, triés par profondeur (y) ;
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
+import { tradPhrases } from './i18n.js';
+import { REPERES } from '../../../shared/clans/reperes.js';
+import { dessinerRepere, dessinerObjetQuete } from './reperesArt.js';
 import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, lisiereFaille, NIV_FAILLE, dansCimes, lisiereCimes, CIMES_X, NIV_CIMES, CENTRE_CIMES, dansAmbre, lisiereAmbre, AMBRE_X, NIV_AMBRE, CENTRE_AMBRE, dansCiel, lisiereCiel, CIEL_Y, NIV_CIEL, CENTRE_CIEL, PASSE_AMBRE, PONT_CIEL, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
@@ -536,6 +539,7 @@ export function creerMonde(canvas, rappels) {
     { const o = OUVRAGES[monClan]; if (Math.hypot(joueur.x - o.x, joueur.y - (o.y + 12)) < 52) best = { id: 'projet', nom: PROJETS[monClan].nom, action: 'projet', x: o.x, y: o.y }; }
     if (marchand.present && Math.hypot(joueur.x - marchand.x, joueur.y - marchand.y) < PORTEE_MARCHAND) best = { id: 'marchand', nom: 'le marchand ambulant', action: 'marchand', x: marchand.x, y: marchand.y };
     for (const f of filons) if (Math.hypot(joueur.x - f.x, joueur.y - f.y) < 36) best = { ...f, nom: 'un filon rare', action: 'filon' };
+    for (const o of rappels.objetsQuete?.() || []) if (Math.hypot(joueur.x - o.x, joueur.y - o.y) < 40) best = { ...o, action: 'objetQuete' };
     for (const h of pnjIci(Date.now() / 1000)) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 30) best = { id: h.n.id, nom: h.n.nom, action: 'pnj', x: h.x, y: h.y };
     for (const [id, a] of autres) if (a.clan !== monClan && duelPossible(a) && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
     // près du boss mondial, on l'affronte (prioritaire : pas de duel par erreur)
@@ -578,7 +582,7 @@ export function creerMonde(canvas, rappels) {
   function parler(id, force = null) {
     const n = PNJ_PAR_ID[id]; if (!n) return;
     const q = posPnj(n, Date.now() / 1000), k = dits.get(id) || 0;
-    const txt = force || (n.clan !== monClan && k === 0 ? DIT_ETRANGER[n.clan] : n.dits[k % n.dits.length]);
+    const txt = tradPhrases(force || (n.clan !== monClan && k === 0 ? DIT_ETRANGER[n.clan] : n.dits[k % n.dits.length]));   // v109 : traduit avant d'être coupé en lignes
     if (!force) dits.set(id, k + 1);
     const dx = joueur.x - q.x, dy = joueur.y - q.y;
     bulle = { id, txt, fin: temps + Math.max(4, txt.length / 14), x: q.x, y: q.y, dir: Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'droite' : 'gauche') : dy > 0 ? 'bas' : 'haut' };
@@ -862,6 +866,9 @@ export function creerMonde(canvas, rappels) {
     if (marchand.present && marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 - 10 && marchand.y < y1 + 50) objets.push({ y: marchand.y, f: () => dessinerMarchand(marchand) });
     for (const f of filons) if (f.x > x0 - 30 && f.x < x1 + 30 && f.y > y0 - 10 && f.y < y1 + 30) objets.push({ y: f.y, f: () => dessinerFilon(f) });
     for (const d of SANCTUAIRES) if (d.x > x0 - 60 && d.x < x1 + 60 && d.y > y0 - 20 && d.y < y1 + 60) objets.push({ y: d.y + 6, f: () => dessinerSanctuaire(d) });
+    // v108 : les lieux à visiter et les objets de quête (seulement ceux du joueur)
+    for (const r of REPERES) if (r.x > x0 - 70 && r.x < x1 + 70 && r.y > y0 - 30 && r.y < y1 + 120) objets.push({ y: r.y + 6, f: () => dessinerRepere(ctx, r, temps) });
+    for (const o of rappels.objetsQuete?.() || []) if (o.x > x0 - 20 && o.x < x1 + 20 && o.y > y0 - 20 && o.y < y1 + 20) objets.push({ y: o.y, f: () => dessinerObjetQuete(ctx, o, temps) });
     if (mondial) objets.push({ y: mondial.y, f: () => dessinerMondial(mondial) });
     ['feu', 'eau', 'plante'].forEach((k, i) => { const a = Math.PI / 2 + (i - 1) * 2.094, bxp = R(CARREFOUR[0] + Math.cos(a) * 80), byp = R(CARREFOUR[1] + Math.sin(a) * 62); objets.push({ y: byp, f: () => { ombre(bxp, byp, 8); ctx.drawImage(BANNIERE[k], bxp - 3, byp - 38); } }); });
     const gens = [...autres.values()].map((a) => { a.x += (a.tx - a.x) * Math.min(1, dt * 10); a.y += (a.ty - a.y) * Math.min(1, dt * 10); return { ...a, dir: ['bas', 'haut', 'gauche', 'droite'][a.dir] || a.dir, marche: Math.hypot(a.tx - a.x, a.ty - a.y) > 1 }; });
@@ -966,6 +973,7 @@ export function creerMonde(canvas, rappels) {
     if (mondial) etiquette(`☠ ${mondial.nom} · ${mondial.pv} / ${mondial.pvMax}`, ex(mondial.x), ey(mondial.y - 84), '#ffb0a0', '#e8402a', true, 4);
     const ma = posMaison(monClan, maCle); etiquette('★ Ta maison', ex(ma.x), ey(ma.y - (maParcelle >= 300 ? 84 : 58)) + Math.sin(temps * 3) * 3 * s, '#ffd870', null, true, 3);
     for (const h of habitants) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 150) etiquette(h.n.nom, ex(h.x), ey(h.y - 30), '#d8ecff', COUL[h.n.clan], false, 1, h.n.role);
+    for (const r of REPERES) if (Math.hypot(joueur.x - r.x, joueur.y - r.y) < 220) etiquette(`${r.ico} ${r.nom}`, ex(r.x), ey(r.y + 22), '#fff0c8', COUL[r.zone] || '#c8a060', false, 1);
     for (const p of gens) {
       const txt = `${p.nom}${p.niv ? ` · ${p.niv}` : ''}${p.statut === 'expedition' ? ' ⚔' : p.statut === 'duel' ? ' ⚔⚔' : ''}`;
       etiquette(txt, ex(p.x), ey(p.y - 30), p.moi ? '#fff4c8' : '#f0e6d0', COUL[p.clan], p.moi, p.moi ? 6 : 5, p.titre ? p.titre : null, p.titre ? styleTitre(p.titreC) : null);
@@ -1001,7 +1009,7 @@ export function creerMonde(canvas, rappels) {
     const l = rappels.libre() && lieuProche();
     if (l) {
       const E = tactile ? '✋ ' : 'E : ';
-      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — ${territoireDe(joueur.x, joueur.y) === monClan ? 'il est sur ton territoire' : 'terre neutre pour vous deux'}` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : l.action === 'marchand' ? 'E : voir les échanges du marchand ambulant' : l.action === 'pnj' ? `E : parler à ${l.nom}` : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
+      const txt = l.action === 'mondial' ? `E : affronter ${l.nom} — boss mondial` : l.action === 'defier' ? `E : défier ${l.nom} en duel — ${territoireDe(joueur.x, joueur.y) === monClan ? 'il est sur ton territoire' : 'terre neutre pour vous deux'}` : l.action === 'filon' ? 'E : ramasser le filon rare' : l.action === 'objetQuete' ? `E : ramasser ${l.nom}` : l.action === 'projet' ? `E : contribuer — ${l.nom} (projet du clan)` : l.action === 'marchand' ? 'E : voir les échanges du marchand ambulant' : l.action === 'pnj' ? `E : parler à ${l.nom}` : `E : ${l.action === 'tirage' ? 'faire des tirages' : l.action === 'expedition' ? 'partir en expédition' : 'entrer dans ta maison'} — ${l.nom}`;
       const txt2 = txt.replace(/^E : /, E);
       ctx.font = `800 ${R(14 * s)}px ${POLICE}`; ctx.textAlign = 'center';
       const w = ctx.measureText(txt2).width + 30 * s, h = 34 * s, y = canvas.height * (tactile ? 0.66 : 0.78);

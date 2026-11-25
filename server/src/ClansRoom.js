@@ -34,6 +34,7 @@ import { rejouer } from '../../shared/clans/combat.js';
 import * as Q from '../../shared/clans/quetes.js';
 import * as X from '../../shared/clans/expedition.js';
 import { RARES } from '../../shared/clans/cartes.js';
+import { filtrer } from '../../shared/clans/filtre.js';
 
 const { Room } = colyseus;
 export const MONDE = GEO;
@@ -92,7 +93,7 @@ export class ClansRoom extends Room {
     });
     sur('amiRetirer', (c, m, j) => { const pid = String(m.pid || ''); if (!j.p.amis?.some((a) => a.pid === pid)) return; j.p.amis = j.p.amis.filter((a) => a.pid !== pid); j.sale = true; this.pousserProfil(c, j); });
     sur('chat', (c, m, j) => {
-      const t = propre(m.t, 140); if (!t) return;
+      const t = filtrer(propre(m.t, 140)); if (!t) return;
       if (Date.now() - (j.dernierChat || 0) < 1200) return;   // pas plus d'un message par seconde
       j.dernierChat = Date.now();
       // v93 : message privé (« @pseudo message » ou bouton 💬 d'un ami)

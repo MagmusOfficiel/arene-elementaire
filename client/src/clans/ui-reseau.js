@@ -2,6 +2,7 @@
 //  LES CLANS ÉLÉMENTAIRES — la connexion au serveur, la reconnexion, les actions, le chat et la liste des joueurs
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import { cg } from './crazygames.js';
 import { cleMaison } from '../../../shared/clans/geo.js';
 import * as F from '../../../shared/clans/familiers.js';
 import * as MT from '../../../shared/clans/montures.js';
@@ -180,8 +181,10 @@ export function listeEnLigne(liste) {
 export let canal = 'tous';
 document.querySelectorAll('#chatOnglets button').forEach((b) => b.onclick = () => { canal = b.dataset.c; document.querySelectorAll('#chatOnglets button').forEach((x) => x.classList.toggle('actif', x === b)); });
 export function ajouterChat(m) {
+  if (!m.systeme && cg.chatCoupe) return;   // v106 : chat désactivé par CrazyGames (les messages du jeu restent)
   const d = document.createElement('p');
   d.innerHTML = m.systeme ? `<span class="sys">${esc(m.t)}</span>` : (m.canal === 'mp' ? `<span class="mp"><small>[privé${m.de === p?.nom ? ` → ${esc(m.a)}` : ''}]</small> <b class="n ${m.clan}">${esc(m.de)}</b> : ${esc(m.t)}</span>` : `${m.canal === 'clan' ? '<small>[clan]</small> ' : ''}<b class="n ${m.clan}">${esc(m.de)}</b> : ${esc(m.t)}`);
+  if (!m.systeme) d.setAttribute('translate', 'no');   // v107 : on ne traduit pas ce qu'écrivent les joueurs
   $('chatMsgs').append(d); $('chatMsgs').scrollTop = 1e6;
   while ($('chatMsgs').children.length > 60) $('chatMsgs').firstChild.remove();
 }
@@ -189,12 +192,12 @@ $('chatTexte').addEventListener('keydown', (e) => {
   e.stopPropagation();
   if (e.key === 'Enter') {
     const t = $('chatTexte').value.trim(), mp = /^@(\S+)\s+(.+)$/.exec(t);   // v93 : « @pseudo message » = message privé
-    if (t && room) room.send('chat', mp ? { t: mp[2], canal: 'mp', a: mp[1] } : { t, canal });
+    if (t && room && !cg.chatCoupe) room.send('chat', mp ? { t: mp[2], canal: 'mp', a: mp[1] } : { t, canal });
     $('chatTexte').value = ''; $('chatTexte').blur();
   }
   if (e.key === 'Escape') $('chatTexte').blur();
 });
-addEventListener('keydown', (e) => { if (e.key === 'Enter' && !$('ecranMonde').classList.contains('cache') && document.activeElement !== $('chatTexte') && $('fenetre').classList.contains('cache')) { $('chatTexte').focus(); e.preventDefault(); } });
+addEventListener('keydown', (e) => { if (e.key === 'Enter' && !cg.chatCoupe && !$('ecranMonde').classList.contains('cache') && document.activeElement !== $('chatTexte') && $('fenetre').classList.contains('cache')) { $('chatTexte').focus(); e.preventDefault(); } });
 
 // v94 : les images du deck et des monstres de sa terre, chargées pendant qu'on se promène
 let preFait = false;

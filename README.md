@@ -885,3 +885,56 @@ D'après `/api/clans/equilibrage` (543 combats, 171 duels depuis la v89 ; peu de
 - **PV bas.** Sous 30 % de PV, les bords de l'écran pulsent en rouge.
 - **Duels et arène.** Étincelles, rayons et coup de zoom sur les gros coups.
 - Ces animations sont coupées si le système demande moins d'animations (`prefers-reduced-motion`).
+
+## Prêt pour CrazyGames (v106)
+
+- **Filtre à grossièretés** (`shared/clans/filtre.js`), en français et en anglais. Il repère aussi les mots déguisés (`f.u.c.k`, `c0nn4rd`, `fuuuuck`, lettres espacées). Dans le chat, le mot est remplacé par des étoiles. Un pseudo grossier est refusé, à la création comme au changement de pseudo. Les mots courts (« cul », « pd »…) ne sont filtrés qu'en mot entier, pour ne pas toucher « calculer » ou « pédestre ».
+- **SDK CrazyGames v3** (`client/src/clans/crazygames.js`). Il n'est chargé que sur CrazyGames (ou avec `?crazygames=1` pour tester). Ailleurs, rien ne change.
+  - `loadingStart` / `loadingStop` pendant la connexion ;
+  - `gameplayStart` à l'arrivée dans le monde, `gameplayStop` au retour à l'écran de création ;
+  - réglage **disableChat** : le chat des joueurs disparaît, les messages du jeu restent ;
+  - réglage **muteAudio** : le son est coupé et le bouton 🔊 du jeu ne peut pas le remettre ;
+  - la langue du joueur est lue (servira pour l'anglais).
+  - Si le SDK ne répond pas, le jeu démarre quand même (4 s maximum).
+- **Téléphone** : `-webkit-user-select`, pas de menu de loupe ni de surbrillance au toucher. Les champs de texte restent sélectionnables.
+- **Build CrazyGames** : `npm run build:crazygames` crée `client/dist-crazygames/`. Les chemins y sont relatifs et le jeu se connecte au serveur Render. C'est ce dossier, zippé, qu'on envoie sur le portail développeur.
+
+## Le jeu en anglais — étape 1 : interface, cartes et classes (v107)
+
+- **Langue.** Sur CrazyGames, le jeu suit la langue du joueur donnée par le SDK : français pour les francophones, anglais pour tous les autres. Ailleurs, il reste en français. Le bouton **🌐 English / Français** du menu ☰ change la langue et s'en souvient. Pour tester : `?lang=en`.
+- **Comment ça marche** (`client/src/clans/i18n.js`). Le code reste écrit en français ; la traduction se fait à l'affichage. Le dictionnaire `client/src/clans/i18n/en.json` (environ 1 700 textes) associe chaque texte français à sa traduction.
+  - Les parties variables s'écrivent `{0}`, `{1}`… Elles sont reprises telles quelles, ou traduites si on les connaît (« Clan du Feu » → « Fire Clan »).
+  - Sont traduits : les textes de la page, les infobulles, les textes dessinés sur la carte et les boîtes de confirmation.
+  - Les descriptions de cartes sont traduites phrase par phrase avant d'être mises en forme. Les mots-clés (Burn, Soaked…) gardent leur infobulle.
+  - Les messages des joueurs dans le chat ne sont jamais traduits.
+  - En anglais, les nombres s'écrivent 1,000 et les touches affichées sont WASD.
+- **Ajouter un texte** : il suffit de l'ajouter à `en.json`. Avec `?lang=en&i18nDebug=1`, `__i18n.manquants` liste dans la console les textes affichés qui ne sont pas encore traduits.
+- **Déjà traduit** : toute l'interface, les messages du serveur, les cartes (noms et effets), les classes et talents, les statuts, les ressources, les lieux, les quêtes du jour.
+- **À venir** : monstres, reliques, apparences, montures, familiers et hauts faits (v108), puis dialogues et quêtes des habitants (v109).
+
+## Plus de quêtes, des lieux à visiter, de l'XP et une maison plus grande (v108)
+
+- **35 nouvelles quêtes, 5 par zone**, plus longues et plus dures. Chaque zone a son fil d'histoire : la légende du Premier Forgeron (Braise), le naufrage du Grand Nautile (Azur), les graines de l'Arbre-Mère (Sylve), le Premier Peuple (Faille), le Roi pris dans la glace (Cimes), le Sphinx et le Soleil (Désert), l'Archange déchu (Îles). Elles sont données par les habitants déjà présents : un habitant propose sa quête suivante quand la précédente est rendue (`pnj` dans `quetesPnj.js`).
+- **Nouveaux types de quêtes :**
+  - **aller voir** un lieu (`lieux`) : validé quand on s'en approche, position vérifiée par le serveur (`pnjLieu`) ;
+  - **ramasser** des objets posés par terre (`objets`) : ils brillent sur la carte, seul le joueur qui a la quête les voit, on les ramasse avec E (`pnjObjet`) ;
+  - **apporter quelque chose à un lieu** (`lieux` + `donner`) ;
+  - **combats avec un palier minimum** (`f.palierMin`), et combats dans le Cauchemar.
+- **17 lieux à visiter** (`shared/clans/reperes.js`, dessin dans `reperesArt.js`) : 3 par territoire de départ, 2 par zone de chapitre. Statues, cratère, autel de la flamme, épave, phare, Arbre-Mère, pierres levées, monolithe, ruines, cairn, sphinx, obélisque, cadran d'étoiles. Chacun a sa petite place pavée et un socle qu'on ne traverse pas. Ils apparaissent sur la grande carte, et ceux d'une quête en cours y sont entourés d'or. Leurs emplacements ont été choisis par calcul : sol praticable, accessible à pied, loin des villages, portails, sanctuaires et autres lieux.
+- **Les quêtes rapportent de l'XP.** Elle est calculée à partir des quêtes rendues, donc les anciennes quêtes déjà faites comptent aussi. Les quêtes de village ne rapportent de l'XP que dans son propre village. Le calibrage : finir toutes les quêtes d'une zone mène au niveau de la zone suivante, ou un en dessous (30, 50, 70, 90, puis 100). Un test le vérifie en simulant un joueur qui enchaîne les quêtes sans farmer. Les niveaux requis par les histoires des chapitres ont été rabaissés pour que tout s'enchaîne : Faille 30-44, Cimes 50-64, Désert 70-84, Îles 90-97.
+- **Journal et dialogues :** titre de la quête, objectifs détaillés (lieux ✓, objets ✓, ressources), XP gagnée, et boutons « 📍 Montre-moi le chemin », « 📍 Y aller » et « 📍 Le retrouver ».
+- **La maison grandit avec les chapitres** : niveaux 6 à 13, +10 PV par niveau. Chaque histoire de chapitre terminée ouvre 2 niveaux, payés avec les matériaux de ce chapitre (fragments et éclats du vide, plumes et cristaux de foudre, sable doré et larmes d'ambre, poussière et cœurs d'étoile). Le niveau suivant verrouillé est affiché dans la parcelle. Les PV de duel ne changent pas.
+
+## Le jeu en anglais — étapes 2 et 3 : tout le reste (v109)
+
+- **Traduits** (environ 850 textes de plus, 2 560 en tout) :
+  - les monstres, boss, titans et malédictions du Cauchemar ;
+  - les reliques, familiers, montures, apparences et décorations ;
+  - les hauts faits et leurs titres, les salles mystère ;
+  - **tous les habitants** : rôles et répliques ;
+  - **toutes les quêtes** : textes, remerciements, titres et objets, y compris les 35 de la v108.
+- Les prénoms des habitants restent tels quels, sauf ceux qui sont des mots : Écume → Foam, Mousse → Moss, Brindille → Twig, Ronce → Bramble, Tison → Cinder.
+- Les bulles au-dessus des habitants sont traduites avant d'être coupées en lignes. En anglais, les guillemets « » deviennent “ ”.
+- Les répliques qui annonçaient d'anciens niveaux (Odra, Imhet, Ysolde) donnent maintenant les niveaux de la v108.
+- Un test vérifie que chaque quête, habitant, lieu et monstre a sa traduction : un texte ajouté sans traduction le fera échouer.
+- Le jeu est entièrement jouable en anglais : il est prêt à être soumis sur CrazyGames.

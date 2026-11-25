@@ -6,6 +6,9 @@
 // =====================================================================
 import { MONDE, LIEUX, CENTRES, CENTRE_FAILLE, CENTRE_CIMES, CENTRE_AMBRE, CENTRE_CIEL, PASSE_AMBRE, PONT_CIEL, CARREFOUR } from '../../../shared/clans/geo.js';
 import { SANCTUAIRES } from '../../../shared/clans/territoires.js';
+import { REPERES } from '../../../shared/clans/reperes.js';
+import * as QP from '../../../shared/clans/quetesPnj.js';
+import { p as moi } from './ui-commun.js';
 import { BOSS_MONDIAUX } from '../../../shared/clans/mondial.js';
 import { $, esc, toast } from './ui-commun.js';
 import { monde } from './ui-monde.js';
@@ -71,6 +74,9 @@ function taille() { const k = dpr(); cv.width = Math.round(innerWidth * k); cv.h
 function lieux() {
   const e = monde.etatCarte(), l = LIEUX.map((p) => ({ x: p.x, y: p.y, nom: p.nom, ico: ICO_LIEU(p), coul: p.terr ? COUL[p.terr] : '#ffe070' }));
   l.push({ x: e.maison.x, y: e.maison.y + 20, nom: 'Ta maison', ico: '🏠', coul: '#ffffff' });
+  // v108 : les lieux à visiter ; ceux d'une quête en cours sont marqués (anneau doré + « ❗ »)
+  const cibles = new Set([...QP.lieuxAVoir(moi).map((r) => r.id), ...QP.objetsAVoir(moi).map((o) => QP.QUETES[o.id].objets[o.i][0])]);
+  for (const r of REPERES) l.push({ x: r.x, y: r.y, nom: cibles.has(r.id) ? `❗ ${r.nom} (quête)` : r.nom, ico: r.ico, coul: cibles.has(r.id) ? '#ffd860' : '#c8b088', quete: cibles.has(r.id) });
   for (const s of SANCTUAIRES) l.push({ x: s.x, y: s.y, nom: s.nom, ico: '🏛️', coul: COUL[e.sanct?.[s.id]?.prop || s.terr] || '#aaa' });
   if (e.mondial) l.push({ x: e.mondial.x, y: e.mondial.y, nom: `${BOSS_MONDIAUX[e.mondial.terr]?.nom || 'Boss mondial'} (boss mondial)`, ico: '💀', coul: '#ff3a2a' });
   return l;
@@ -103,6 +109,7 @@ function dessiner() {
   // les lieux
   for (const l of lieux()) {
     const [x, y] = versEcran(l.x, l.y), r = (l === survol ? 13 : 10) * k;
+    if (l.quete) { ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.arc(x, y, r + (5 + Math.sin(t * 4) * 2) * k, 0, 7); ctx.stroke(); }
     ctx.fillStyle = 'rgba(10,8,14,.85)'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.strokeStyle = l.coul; ctx.lineWidth = 2 * k; ctx.stroke();
     ctx.font = `${Math.round(r * 1.1)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(l.ico, x, y + k); ctx.textBaseline = 'alphabetic';
     if (l === survol || zoom > 0.7 * k) etiquette(l.nom, x, y + r + 12 * k, l.coul, 11);

@@ -255,6 +255,7 @@
 .scene .pile:hover { filter: brightness(1.25); }
 .scene .pile::after { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #c8bca4; white-space: nowrap; text-shadow: 0 1px 2px #000; }
 .scene .pile.pioche::after { content: 'pioche'; } .scene .pile.defausse::after { content: 'défausse'; }
+html[lang="en"] .scene .pile.pioche::after { content: 'draw pile'; } html[lang="en"] .scene .pile.defausse::after { content: 'discard'; }
 .scene .voirPile { position: absolute; inset: 0; z-index: 40; background: rgba(6,4,10,.6); display: flex; align-items: center; justify-content: center; }
 .boitePile { width: min(420px, 92vw); max-height: 70vh; overflow: auto; background: rgba(16,12,24,.97); border: 2px solid rgba(232,192,96,.6); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .boitePile small { color: #a89c84; }

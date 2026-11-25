@@ -1,13 +1,14 @@
 // =====================================================================
 //  Effets sonores synthétisés en direct (Web Audio) — aucun fichier audio
 // =====================================================================
+let forceMuet = false;   // v106 : réglage « son coupé » de CrazyGames (prioritaire sur le bouton du jeu)
 let ctx = null, master, sfxBus, musicBus, ambBus, noiseBuf, music = null, muted = false, douxF = null;
 const last = new Map();   // anti-spam par type de son
 
 export function initAudio() {
   if (ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)();
-  master = ctx.createGain(); master.gain.value = 0.8; master.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = muted || forceMuet ? 0 : 0.8; master.connect(ctx.destination);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
   // un filtre doux sur les effets : il retire le plus aigu (les « tss » fatigants au casque)
   douxF = ctx.createBiquadFilter(); douxF.type = 'lowpass'; douxF.frequency.value = 20000; douxF.Q.value = 0.5; douxF.connect(comp);
@@ -92,9 +93,10 @@ export function foule(intensite = 1, duree = 1.5) {
 
 export function toggleMute() {
   muted = !muted;
-  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.8, ctx.currentTime, 0.05);
+  if (master) master.gain.setTargetAtTime(muted || forceMuet ? 0 : 0.8, ctx.currentTime, 0.05);
   return muted;
 }
+export function forcerMuet(oui) { forceMuet = !!oui; if (master) master.gain.setTargetAtTime(muted || forceMuet ? 0 : 0.8, ctx.currentTime, 0.05); }
 
 // Musique : une piste par mode (monde, royale, tournoi) + boss, avec fondu enchaîné
 const musicCache = new Map();

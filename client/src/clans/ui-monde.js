@@ -13,6 +13,10 @@ import { TERRITOIRES } from '../../../shared/clans/monstres.js';
 import * as X from '../../../shared/clans/expedition.js';
 import { LIEUX } from '../../../shared/clans/geo.js';
 import { creerMonde } from './monde.js';
+import { cg } from './crazygames.js';
+import { RAYON_VISITE } from '../../../shared/clans/reperes.js';
+import { langue, changerLangue } from './i18n.js';
+const estMuetCG = () => document.body.dataset.cgMuet === '1';
 import { initAudio, setMusic, setAmbiance, setDoux, setVolume, estMuet, volumes, sfx, toggleMute } from '../sfx.js';
 import { musique } from './musique.js';
 import { lancerCombat, typeCombat } from './ui-combat.js';
@@ -55,6 +59,7 @@ export function classesHTML() {
 // ---------- v85 : la création du héros, en 3 étapes (clan, classe, nom) avec un aperçu vivant ----------
 export function ecranClan(seulementClasse = false) {
   $('ecranClan').classList.remove('cache'); $('ecranMonde').classList.add('cache');
+  cg.jeuFin(); cg.chargementFin();   // v106 : l'écran de création est un menu
   $('nomJoueur').value = p?.nom || localStorage.getItem('pseudo') || '';
   // v79 : revenir à un autre personnage, ou retrouver son compte venu d'un autre appareil
   import('./ui-compte.js').then((C) => {
@@ -123,12 +128,15 @@ export const monde = creerMonde($('monde'), {
   marchandBouge: (m) => marchandBouge(m),
   fiche: (id) => voirFiche(id),
   carte: () => import('./ui-carte.js').then((m) => m.ouvrirCarte()),   // v101 : clic sur la mini-carte
-  etatPnj: (id) => (p ? QP.etat(p, id) : null),
+  etatPnj: (id) => (p ? QP.etatPnj(p, id) : null),
+  // v108 : les objets de quête à ramasser (recalculés quand le profil change)
+  objetsQuete: () => objetsQueteCache(),
   agir: (l) => {
     if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle(); else if (l.action === 'pnj') import('./ui-pnj.js').then((m) => m.parlerA(l.id));
     else if (l.action === 'projet') fenetreProjet();
     else if (l.action === 'marchand') fenetreMarchand();
     else if (l.action === 'filon') room?.send('ramasser', { id: l.id });
+    else if (l.action === 'objetQuete') ramasserObjet(l);
     else if (l.action === 'mondial') room?.send('mondialEntrer');
     else if (l.action === 'defier') { if (p.expedition) return toast('Termine d’abord ton expédition.'); room?.send('defier', { cible: l.id }); }
   },
@@ -147,8 +155,29 @@ export const monde = creerMonde($('monde'), {
       clearTimeout(b._t); b._t = setTimeout(() => b.classList.add('cache'), 5000);
     }
     envoyerPos(j);
+    lieuxQuete(j);
   },
 });
+// ---------- v108 : les quêtes « va voir » et « ramasse » ----------
+let cacheObj = { p: null, l: [] };
+function objetsQueteCache() { if (!p) return []; if (cacheObj.p !== p || cacheObj.v !== JSON.stringify(p.pnjQ || {})) cacheObj = { p, v: JSON.stringify(p.pnjQ || {}), l: QP.objetsAVoir(p) }; return cacheObj.l; }
+async function ramasserObjet(o) {
+  const r = await faire('pnjObjet', { id: o.id, i: o.i });
+  if (!r.ok) return r.raison && toast(esc(r.raison));
+  sfx.orb?.(); const n = PNJ_PAR_ID[QP.pnjDe(o.id)];
+  toast(r.res.n >= r.res.max ? `🎒 ${esc(o.nom)} : tu as tout trouvé ! Retourne voir <b>${esc(n.nom)}</b>.` : `🎒 Tu ramasses ${esc(o.nom)} (${r.res.n} / ${r.res.max}).`);
+}
+let lieuEnCours = 0;
+function lieuxQuete(j) {
+  if (!p || Date.now() - lieuEnCours < 1500) return;
+  const l = QP.lieuxAVoir(p).find((r) => Math.hypot(j.x - r.x, j.y - r.y) < RAYON_VISITE); if (!l) return;
+  lieuEnCours = Date.now();
+  setTimeout(async () => {   // laisse partir la position d'abord : le serveur la vérifie
+    const r = await faire('pnjLieu', { id: l.id }); if (!r.ok) { lieuEnCours = 0; return; }
+    sfx.fanfare?.(); const n = PNJ_PAR_ID[QP.pnjDe(l.id)];
+    toast(`🗺️ <b>${esc(l.nom)}</b> : te voilà ! ${r.res.n >= r.res.max ? `Retourne voir <b>${esc(n.nom)}</b>.` : `(${r.res.n} / ${r.res.max})`}`);
+  }, 300);
+}
 export let derniereEnvoi = 0, dernierePos = '';
 export function envoyerPos(j) {
   if (!room || performance.now() - derniereEnvoi < 120) return;
@@ -175,6 +204,7 @@ export async function entrerMonde() {
   etatChargement('');
   $('ecranMonde').classList.remove('cache');
   majBarre(); monde.demarrer(p.clan, p.nom, p.classe, cleMaison(p)); monde.majMaParcelle(p.parcelle);
+  cg.jeuDebut();   // v106 : CrazyGames « gameplayStart »
   majPastille(); guide.demarrer(); if (monde.tactile) $('tactile').classList.remove('cache');
   const x = p.expedition;
   if (x?.combatEnCours) setTimeout(() => lancerCombat(X.combatDe(p, x.combatEnCours), X.salle(x.carte, x.combatEnCours).type), 400);
@@ -203,7 +233,7 @@ export function majSon() {
 let musiqueLancee = false;
 setInterval(majSon, 700);
 setInterval(() => majPastille(), 30000);
-export const basculerSon = () => { demarrerSon(); const m = toggleMute(); $('btSon').innerHTML = m ? '🔇 Son coupé <small>M</small>' : '🔊 Son <small>M</small>'; toast(m ? '🔇 Son coupé (touche M pour le remettre)' : '🔊 Son remis'); return m; };
+export const basculerSon = () => { if (cg.actif && estMuetCG()) { toast('🔇 Le son est coupé dans les réglages de CrazyGames.'); return true; } demarrerSon(); const m = toggleMute(); $('btSon').innerHTML = m ? '🔇 Son coupé <small>M</small>' : '🔊 Son <small>M</small>'; toast(m ? '🔇 Son coupé (touche M pour le remettre)' : '🔊 Son remis'); return m; };
 // les réglages du son : trois curseurs et la coupure
 export function fenetreSon() {
   demarrerSon();
@@ -217,6 +247,9 @@ export function fenetreSon() {
   });
 }
 $('btSon').onclick = () => fenetreSon();
+// v107 : français / anglais (on recharge pour que tout, carte comprise, soit redessiné dans la bonne langue)
+$('btLangue').textContent = langue === 'en' ? '🌐 Français' : '🌐 English';
+$('btLangue').onclick = () => { changerLangue(langue === 'en' ? 'fr' : 'en'); location.reload(); };
 // le menu « Plus » de la barre du haut (v56) : les boutons moins fréquents
 export function menuBarre(ouvert) {
   const l = $('menuListe'); ouvert ??= l.classList.contains('cache');

@@ -72,7 +72,7 @@ export const PNJ = [
   { id: 'skadi', clan: 'cimes', nom: 'Skadi', role: 'chasseuse d’orages', classe: 'tireur', app: 't_cimes.c_noir.h_capuche.a_aucune', ancre: pres(CENTRE_CIMES, 60, 130), r: 60,
     dits: ['J’ai vu le Roi des Tempêtes une fois. Une fois suffit.', 'Ici, tout frappe plus fort qu’ailleurs. Viens avec un deck solide.', 'Les sorts de zone, c’est bien. L’étourdissement, c’est mieux.'] },
   { id: 'odra', clan: 'cimes', nom: 'Odra', role: 'vieille du sommet', classe: 'mage', app: 't_cimes.c_blanc.h_fleurs.a_lucioles', ancre: pres(CENTRE_CIMES, -40, 70), r: 15,
-    dits: ['J’ai vu trois tempêtes du siècle. Celle-ci est la pire.', 'Au niveau 70, reviens me voir. Pas avant.', 'Le Néant, la Faille, les Cimes… tout est lié, petit.'] },
+    dits: ['J’ai vu trois tempêtes du siècle. Celle-ci est la pire.', 'Au niveau 64, reviens me voir. Pas avant.', 'Le Néant, la Faille, les Cimes… tout est lié, petit.'] },
   // ---- v99 : les Îles Célestes (Chapitre 5)
   { id: 'elio', clan: 'ciel', nom: 'Elio', role: 'gardien du pont', classe: 'combattant', app: 't_ciel.c_blond.h_aucun.a_lucioles', ancre: pres(CENTRE_CIEL, -130, 30), r: 15,
     dits: ['Au-delà du pont, il faut le niveau 90. Le vide ne pardonne pas.', 'Ici, les monstres volent ta vie à chaque coup. Frappe vite, frappe fort.', 'Ne regarde pas en bas. Vraiment.'] },
@@ -83,7 +83,7 @@ export const PNJ = [
   { id: 'selene', clan: 'ciel', nom: 'Séléné', role: 'chevalière de la lune', classe: 'escrimeur', app: 't_ciel.c_noir.h_capuche.a_aucune', ancre: pres(CENTRE_CIEL, -60, -110), r: 25,
     dits: ['J’ai croisé l’Archange une fois. Il m’a laissé la vie. Je ne sais toujours pas pourquoi.', 'Ici, tout frappe plus fort que dans le désert. Ton meilleur deck, rien d’autre.', 'La Dévoreuse se soigne beaucoup : garde de gros coups pour la fin.'] },
   { id: 'ysolde', clan: 'ciel', nom: 'Ysolde', role: 'oracle', classe: 'mage', app: 't_ciel.c_blanc.h_fleurs.a_lucioles', ancre: pres(CENTRE_CIEL, 0, 90), r: 10,
-    dits: ['Je t’ai vu venir, il y a longtemps. Tu étais plus petit.', 'Au niveau 100, reviens me voir. Pas avant.', 'Après l’Étoile mère… le monde respirera. Pour un temps.'] },
+    dits: ['Je t’ai vu venir, il y a longtemps. Tu étais plus petit.', 'Au niveau 97, reviens me voir. Pas avant.', 'Après l’Étoile mère… le monde respirera. Pour un temps.'] },
   // ---- v98 : le Désert d'Ambre (Chapitre 4)
   { id: 'kesh', clan: 'ambre', nom: 'Kesh', role: 'caravanière', classe: 'escrimeur', app: 't_ambre.c_noir.h_bandeau.a_aucune', ancre: pres(CENTRE_AMBRE, 220, 20), r: 0,
     dits: ['Au-delà de la passe, il faut le niveau 70. Le désert ne fait pas de cadeau.', 'Ici, les monstres te marquent. À trois marques, ça explose, et ton bouclier n’y peut rien.', 'Les sables mouvants avalent tout. Reste sur les dalles.'] },
@@ -94,7 +94,7 @@ export const PNJ = [
   { id: 'saia', clan: 'ambre', nom: 'Saïa', role: 'pisteuse des dunes', classe: 'tireur', app: 't_ambre.c_roux.h_capuche.a_aucune', ancre: pres(CENTRE_AMBRE, 70, 140), r: 60,
     dits: ['J’ai suivi la Reine-scorpion trois jours. Elle, elle m’a suivie quatre.', 'Ici, tout frappe encore plus fort que dans les Cimes. Prends ton meilleur deck.', 'Si tu as deux marques sur toi, achève vite le monstre.'] },
   { id: 'imhet', clan: 'ambre', nom: 'Imhet', role: 'prêtre aveugle', classe: 'mage', app: 't_ambre.c_blanc.h_aucun.a_lucioles', ancre: pres(CENTRE_AMBRE, -40, 80), r: 15,
-    dits: ['Je ne vois plus le soleil depuis longtemps. Mais je le sens devenir noir.', 'Au niveau 90, reviens me voir. Pas avant.', 'Le Néant, la tempête, l’étoile… le monde se défend, et c’est toi son bras.'] },
+    dits: ['Je ne vois plus le soleil depuis longtemps. Mais je le sens devenir noir.', 'Au niveau 82, reviens me voir. Pas avant.', 'Le Néant, la tempête, l’étoile… le monde se défend, et c’est toi son bras.'] },
 ];
 export const PNJ_PAR_ID = Object.fromEntries(PNJ.map((p) => [p.id, p]));
 

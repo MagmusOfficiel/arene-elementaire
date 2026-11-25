@@ -5,6 +5,8 @@
 import * as MY from '../../../shared/clans/mystere.js';
 import * as QP from '../../../shared/clans/quetesPnj.js';
 import { PNJ_PAR_ID } from '../../../shared/clans/pnj.js';
+import { REPERE } from '../../../shared/clans/reperes.js';
+import { NOMS_RESS } from './ui-icones.js';
 import * as RQ from '../../../shared/clans/reliques.js';
 import { BRANCHES, CARTES, ELEMENTS, CLASSES, RARES, NIV_MAX, decrire } from '../../../shared/clans/cartes.js';
 import { TERRITOIRES, PALIERS, MALEDICTIONS, BOSS_CAUCHEMAR } from '../../../shared/clans/monstres.js';
@@ -56,10 +58,10 @@ export function fenetreParcelle() {
         <button class="bouton ${plein ? 'pulse' : ''}" id="btRecolter" ${pr.essence + pr[el.materiau] < 1 ? 'disabled' : ''}>🧺 Récolter</button></div>
     <div class="parcBonus">${bp ? `<span>${PJ.PROJETS[p.clan].ico} Projet du clan <b>+${Math.round(bp * 100)} %</b></span>` : ''}<span title="Sanctuaires tenus par ton clan">🏳️ ${nSanct} / ${T.SANCTUAIRES.length} sanctuaires${nSanct ? ` <b>+${Math.round(T.bonusProduction(nSanct) * 100)} %</b>` : ' — prends-en pour récolter plus'}</span><span>Produit même quand tu n’es pas là</span></div>
     <div class="batiments">${Object.entries(P.BATIMENTS).map(([k, b]) => {
-      const n = p.parcelle[k], max = n >= P.NIV_BAT_MAX, cout = P.coutBatiment(p, k), ok = cout && Object.entries(cout).every(([r, v]) => (p.ress[r] || 0) >= v);
-      return `<div class="batiment"><div class="batTete"><span class="batIco">${b.ico}</span><div><h3>${b.nom}</h3><div class="pips">${Array.from({ length: P.NIV_BAT_MAX }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div></div></div>
+      const n = p.parcelle[k], nm = P.nivMax(p, k), max = n >= nm, chap = k === 'maison' && max && P.chapitreAFinir(p), cout = max ? null : P.coutBatiment(p, k), ok = cout && Object.entries(cout).every(([r, v]) => (p.ress[r] || 0) >= v);
+      return `<div class="batiment"><div class="batTete"><span class="batIco">${b.ico}</span><div><h3>${b.nom}</h3><div class="pips">${Array.from({ length: k === 'maison' ? Math.max(nm, n + (chap ? 1 : 0)) : nm }, (_, i) => `<i class="${i < n ? 'on' : ''}${i >= P.NIV_BAT_MAX ? ' chap' : ''}"></i>`).join('')}</div></div></div>
         <p class="batMaint">${b.desc(n, p.clan)}</p>
-        ${max ? '<p class="batMax">★ Niveau maximum</p>' : `<p class="batSuiv"><small>Niveau ${n + 1}</small>${b.desc(n + 1, p.clan)}</p><div class="batCout">${coutLisible(cout)}</div><button class="bouton" data-b="${k}" ${ok ? '' : 'disabled title="Ressources insuffisantes"'}>⬆️ Améliorer</button>`}</div>`;
+        ${chap ? `<p class="batChap">🔒 Niveau ${n + 1} (${esc(b.desc(n + 1, p.clan).split('.')[0])}) : finis l’histoire du <b>${esc(chap.nom)}</b> pour agrandir encore ta maison.</p>` : max ? '<p class="batMax">★ Niveau maximum</p>' : `<p class="batSuiv"><small>Niveau ${n + 1}</small>${b.desc(n + 1, p.clan)}</p><div class="batCout">${coutLisible(cout)}</div><button class="bouton" data-b="${k}" ${ok ? '' : 'disabled title="Ressources insuffisantes"'}>⬆️ Améliorer</button>`}</div>`;
     }).join('')}</div>`, () => {
     $('btDecorer').onclick = () => import('./ui-deco.js').then((m) => m.fenetreDeco());
     const br = $('btReposer'); if (br) br.onclick = async () => { const r = await faire('seReposer'); if (!r.ok) return r.raison && toast(esc(r.raison)); sfx.orb(); toast(`🛌 Bien reposé : <b>+${r.res.soin} PV</b>, te voilà en pleine forme !`); fenetreParcelle(); };
@@ -369,16 +371,29 @@ export function fenetreQuetes() {
     <div class="quetes">${q.s.map((x, i) => ligneQuete(x, `s${i}`)).join('')}</div>
     ${toutes && q.bonus ? '<p class="cout">Bravo, tout est fait pour aujourd’hui ! Reviens demain.</p>' : ''}
     ${(() => { const l = Object.keys(p.pnjQ || {}).filter((id) => !p.pnjQ[id].fait); const libres = Object.keys(QP.QUETES).filter((id) => !p.pnjQ?.[id]).length;
-      return `<h3>Quêtes des habitants <small class="qTemps">${libres} encore à découvrir (cherche les « ! » au-dessus des habitants)</small></h3>${l.length ? `<div class="quetes">${l.map((id) => { const n = PNJ_PAR_ID[id], pr = QP.progres(p, id), et = QP.etat(p, id);
-        return `<div class="quete${et === 'prete' ? ' prete' : ''}"><span class="qIco">📜</span><div class="qCorps"><b>${esc(n.nom)}</b> <small>(${esc(QP.nomTerre(n.clan))})</small> : ${esc(QP.QUETES[id].txt)}<div class="qBarre"><i style="width:${pr ? Math.round((pr.n / pr.max) * 100) : et === 'prete' ? 100 : 0}%"></i></div></div><div class="qRec"><small>${et === 'prete' ? 'Va le voir !' : pr ? `${pr.n} / ${pr.max}` : 'à apporter'}</small></div></div>`; }).join('')}</div>` : '<p class="cout">Aucune en cours.</p>'}`; })()}`, () => {
+      // v108 : le titre de la quête, ce qu'il reste à faire, l'XP, et un bouton pour y aller (lieux et objets)
+      return `<h3>Quêtes des habitants <small class="qTemps">${libres} encore à découvrir (cherche les « ! » au-dessus des habitants)</small></h3>${l.length ? `<div class="quetes">${l.map((id) => { const q = QP.QUETES[id], n = PNJ_PAR_ID[QP.pnjDe(id)], pr = QP.progres(p, id), et = QP.etat(p, id), xp = QP.xpQuete(p, id);
+        const cible = et === 'prete' ? null : q.lieux ? QP.lieuxAVoir(p).find((x) => x.id === id) : q.objets ? QP.objetsAVoir(p).find((x) => x.id === id) : null;
+        return `<div class="quete${et === 'prete' ? ' prete' : ''}"><span class="qIco">${q.lieux ? '🗺️' : q.objets ? '🎒' : q.donner ? '📦' : '📜'}</span><div class="qCorps"><b>${esc(q.titre || n.nom)}</b> <small>· ${esc(n.nom)} (${esc(QP.nomTerre(n.clan))})</small><br>${esc(objectifTexte(q))}<div class="qBarre"><i style="width:${pr ? Math.round((pr.n / pr.max) * 100) : et === 'prete' ? 100 : 0}%"></i></div></div><div class="qRec"><small>${et === 'prete' ? `Va voir ${esc(n.nom)} !` : pr ? `${pr.n} / ${pr.max}` : 'à apporter'}</small>${xp ? `<small class="qXp">+${xp} XP</small>` : ''}${cible ? `<button class="lien" data-guide="${cible.x},${cible.y}" data-nom="${esc(cible.nom)}">📍 Y aller</button>` : et === 'prete' ? `<button class="lien" data-pnj="${esc(n.id)}">📍 Le retrouver</button>` : ''}</div></div>`; }).join('')}</div>` : '<p class="cout">Aucune en cours.</p>'}`; })()}`, () => {
     $('fenetreCorps').querySelectorAll('[data-q]').forEach((b) => b.onclick = async () => {
       const r = await faire('quete', { quel: b.dataset.q }); if (!r.ok) return r.raison && toast(esc(r.raison));
       sfx.orb(); toast(`📜 ${recHTML(r.res.rec)}`); fenetreQuetes();
     });
+    $('fenetreCorps').querySelectorAll('[data-guide]').forEach((b) => b.onclick = () => { const [x, y] = b.dataset.guide.split(',').map(Number); monde.guider({ x, y, nom: b.dataset.nom }); fermer(); toast(`📍 La flèche te guide vers <b>${esc(b.dataset.nom)}</b>.`); });
+    $('fenetreCorps').querySelectorAll('[data-pnj]').forEach((b) => b.onclick = () => { const h = monde.etatCarte().pnj.find((x) => x.n.id === b.dataset.pnj); if (!h) return; monde.guider({ x: h.x, y: h.y, nom: h.n.nom }); fermer(); toast(`📍 La flèche te guide vers <b>${esc(h.n.nom)}</b>.`); });
   });
   $('fenetreCorps').dataset.vue = 'quetes';
 }
 $('btQuetes').onclick = () => fenetreQuetes();
+// v108 : ce qu'une quête d'habitant demande, en une ligne
+export function objectifTexte(q) {
+  const morceaux = [];
+  if (q.lieux) morceaux.push(`Aller voir : ${q.lieux.map((l) => REPERE[l].nom).join(', ')}`);
+  if (q.objets) morceaux.push(`Ramasser : ${[...new Set(q.objets.map((o) => o[4]))].join(', ')} (près de : ${REPERE[q.objets[0][0]].nom})`);
+  if (q.donner) morceaux.push(`Apporter : ${Object.entries(q.donner).map(([k, v]) => `${nf(v)} ${NOMS_RESS[k] || k}`).join(', ')}`);
+  if (q.ev && !q.lieux && !q.objets) morceaux.push(q.txt.split(/(?<=[.!?])\s+/).filter((x) => /\d/.test(x)).at(-1) || q.txt);
+  return morceaux.join(' · ') || q.txt;
+}
 addEventListener('keydown', (e) => { if ((e.key === 'j' || e.key === 'J') && e.target.tagName !== 'INPUT' && dansMonde && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache')) fenetreQuetes(); });
 
 // ---------- v85 : les decks conseillés ----------

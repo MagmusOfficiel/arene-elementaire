@@ -4,6 +4,7 @@
 //  et les règles qui les font évoluer : tirages, amélioration des cartes,
 //  production et construction de la parcelle, butin des expéditions.
 // =====================================================================
+import { xpQuetes } from './quetesPnj.js';
 import { OX, OY } from './decalage.js';
 import { BRANCHES, CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
 import { alea } from './combat.js';
@@ -30,7 +31,9 @@ export function nouveauProfil(clan, nom = 'Joueur', maintenant = Date.now(), cla
     expedition: null,
   };
 }
-export const pvMax = (p) => 60 + (p.parcelle.maison - 1) * 6 + (CLASSES[p.classe]?.pv || 0);
+// v108 : au-delà du niveau 5, chaque niveau de maison donne 10 PV (et non 6)
+export const pvMaison = (n) => 60 + (Math.min(n, 5) - 1) * 6 + Math.max(0, n - 5) * 10;
+export const pvMax = (p) => pvMaison(p.parcelle.maison) + (CLASSES[p.classe]?.pv || 0);
 // v97 : la vie se garde entre les expéditions ; on la remet au max en se reposant chez soi (p.vie absent = vie pleine)
 export const vie = (p) => { const m = pvMax(p); return p.vie == null ? m : Math.max(1, Math.min(m, Math.round(+p.vie || 1))); };
 export const blesse = (p) => vie(p) < pvMax(p);
@@ -231,13 +234,27 @@ export const deckCombat = (p) => p.deck.map((id) => ({ id, niv: p.collection[id]
 
 // ---------- la parcelle ----------
 export const BATIMENTS = {
-  maison: { nom: 'Maison', ico: '🏠', desc: (n) => `PV max : ${60 + (n - 1) * 6}. Stockage de la production : ${4 + n * 2} h.` },
+  maison: { nom: 'Maison', ico: '🏠', desc: (n) => `PV max : ${pvMaison(n)}. Stockage de la production : ${4 + Math.min(n, 5) * 2} h.` },
   autel: { nom: "Autel d'essence", ico: '🔮', desc: (n) => `Produit ${prodEssence(n)} essence par heure.` },
   atelier: { nom: 'Atelier élémentaire', ico: '⚒️', desc: (n, clan) => `Produit ${prodMat(n)} ${ELEMENTS[clan].nomMat.toLowerCase()} par heure.` },
 };
 export const NIV_BAT_MAX = 5;
+// v108 : la maison continue de grandir avec les chapitres. Chaque histoire finie (sa dernière quête rendue)
+// ouvre 2 niveaux de plus, qui se paient avec les matériaux de ce chapitre.
+export const CHAPITRES_MAISON = [
+  { fin: 'nyx', nom: 'Chapitre 2 · Terres Brisées', niv: [6, 7], cout: [{ essence: 2000, fragments: 120, eclat_vide: 4 }, { essence: 2600, fragments: 180, eclat_vide: 6 }] },
+  { fin: 'odra', nom: 'Chapitre 3 · Cimes Orageuses', niv: [8, 9], cout: [{ essence: 3500, plumes: 150, cristal_foudre: 6 }, { essence: 4200, plumes: 220, cristal_foudre: 9 }] },
+  { fin: 'imhet', nom: 'Chapitre 4 · Désert d’Ambre', niv: [10, 11], cout: [{ essence: 5000, sable_dore: 180, larme_ambre: 8 }, { essence: 6000, sable_dore: 260, larme_ambre: 12 }] },
+  { fin: 'ysolde', nom: 'Chapitre 5 · Îles Célestes', niv: [12, 13], cout: [{ essence: 7000, poussiere_etoile: 220, coeur_etoile: 10 }, { essence: 8500, poussiere_etoile: 320, coeur_etoile: 14 }] },
+];
+export const NIV_MAISON_ABSOLU = 13;
+const chapitreDe = (n) => CHAPITRES_MAISON.find((c) => c.niv.includes(n));
+// le niveau maximum de chaque bâtiment pour ce joueur
+export const nivMax = (p, bat) => { if (bat !== 'maison') return NIV_BAT_MAX; let m = NIV_BAT_MAX; for (const c of CHAPITRES_MAISON) if (p.pnjQ?.[c.fin]?.fait) m = c.niv[1]; else break; return m; };
+// le prochain niveau de maison est-il fermé par un chapitre pas encore fini ? (pour l'afficher)
+export const chapitreAFinir = (p) => { const n = p.parcelle.maison + 1, c = chapitreDe(n); return c && !p.pnjQ?.[c.fin]?.fait ? c : null; };
 const prodEssence = (n) => 15 + n * 10, prodMat = (n) => 1 + n * 2;
-export const stockageHeures = (p) => 4 + p.parcelle.maison * 2;
+export const stockageHeures = (p) => 4 + Math.min(p.parcelle.maison, 5) * 2;
 export function production(p, maintenant = Date.now()) {
   const h = Math.min(stockageHeures(p), Math.max(0, (maintenant - p.parcelle.recolte) / 3600000));
   return { heures: h, essence: Math.floor(prodEssence(p.parcelle.autel) * h), [ELEMENTS[p.clan].materiau]: Math.floor(prodMat(p.parcelle.atelier) * h) };
@@ -250,13 +267,14 @@ export function recolter(p, maintenant = Date.now()) {
 }
 export function coutBatiment(p, bat) {
   const n = p.parcelle[bat], mat = ELEMENTS[p.clan].materiau;
+  if (bat === 'maison' && n >= NIV_BAT_MAX) { const c = chapitreDe(n + 1); return c ? { ...c.cout[c.niv.indexOf(n + 1)] } : null; }
   const base = { maison: [250, 20], autel: [180, 15], atelier: [180, 25] }[bat];
   return { essence: base[0] * n, [mat]: base[1] * n };
 }
 export function construire(p, bat, maintenant = Date.now()) {
   if (!BATIMENTS[bat]) return { ok: false };
-  if (p.parcelle[bat] >= NIV_BAT_MAX) return { ok: false, raison: 'Niveau maximum.' };
-  const cout = coutBatiment(p, bat);
+  if (p.parcelle[bat] >= nivMax(p, bat)) { const c = bat === 'maison' && chapitreAFinir(p); return { ok: false, raison: c ? `Finis d’abord l’histoire du ${c.nom} pour agrandir encore ta maison.` : 'Niveau maximum.' }; }
+  const cout = coutBatiment(p, bat); if (!cout) return { ok: false, raison: 'Niveau maximum.' };
   for (const [k, v] of Object.entries(cout)) if ((p.ress[k] || 0) < v) return { ok: false, raison: 'Ressources insuffisantes.' };
   recolter(p, maintenant);      // on récolte d'abord, au tarif de l'ancien niveau
   for (const [k, v] of Object.entries(cout)) p.ress[k] -= v;
@@ -275,7 +293,8 @@ export const NIVEAU_MAX = 100;   // v87 : 80 (chapitre 2) ; v96 : 100 (chapitre 
 // v87 : rééquilibrage — de l'XP (1 par combat gagné, 4 par boss), et une courbe qui ralentit :
 // passer du niveau n au niveau n+1 coûte de plus en plus. Niveau 20 ≈ 111 XP, 30 ≈ 213, 50 ≈ 507, 80 ≈ 1173.
 export const XP_BOSS = 4;
-export const xpDe = (p) => (p?.stats?.victoires || 0) + (p?.stats?.boss || 0) * XP_BOSS;
+// v108 : les quêtes des habitants rapportent aussi de l'XP (calculée à partir des quêtes rendues : rien à stocker)
+export const xpDe = (p) => (p?.stats?.victoires || 0) + (p?.stats?.boss || 0) * XP_BOSS + xpQuetes(p);
 export const xpPourNiveau = (n) => { const k = Math.max(0, n - 1); return Math.ceil(3 * k + 0.15 * k * k); };
 export const niveau = (p) => { const x = xpDe(p); let n = 1; while (n < NIVEAU_MAX && x >= xpPourNiveau(n + 1)) n++; return n; };
 
@@ -292,7 +311,7 @@ export function assainir(x) {
   const deck = [], compte = {};
   for (const id of Array.isArray(x.deck) ? x.deck : []) { if (!p.collection[id] || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(copiesMax(id), p.collection[id].n)) deck.push(id); }
   if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: copiesMax(id), niv: 1 }; }
-  for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(5, num(x.parcelle?.[k], 5)));
+  for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(k === 'maison' ? NIV_MAISON_ABSOLU : 5, num(x.parcelle?.[k], 5)));
   p.parcelle.recolte = Math.min(Date.now(), +x.parcelle?.recolte || Date.now());
   for (const k of [...CLANS, 'brisees', 'cimes', 'ambre', 'ciel']) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
   for (const k of Object.keys(p.stats)) p.stats[k] = num(x.stats?.[k], 1e6);
