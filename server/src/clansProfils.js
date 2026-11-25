@@ -23,6 +23,8 @@ import * as MA from '../../shared/clans/marchand.js';
 import * as HF from '../../shared/clans/hautsfaits.js';
 import { alea } from '../../shared/clans/combat.js';
 import * as AS from '../../shared/clans/ascension.js';
+import * as TO from '../../shared/clans/tour.js';
+import * as CX from '../../shared/clans/connexion.js';
 import * as MT from '../../shared/clans/montures.js';
 import * as QP from '../../shared/clans/quetesPnj.js';
 import * as DC from '../../shared/clans/deco.js';
@@ -32,7 +34,7 @@ import * as DC2 from '../../shared/clans/decksConseilles.js';
 import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
-import { lireProfilClans, ecrireProfilClans, jetonValide, maisonsPosees, ecrireMaison } from './stats.js';
+import { lireProfilClans, ecrireProfilClans, jetonValide, maisonsPosees, ecrireMaison, tourEnregistrer } from './stats.js';
 import { emplacementMaison } from '../../shared/clans/geo.js';
 
 const SECRET = process.env.CLANS_SECRET || 'clans-elementaires-secret-par-defaut';
@@ -106,7 +108,7 @@ export const ACTIONS = {
   construire(p, m) { if (typeof m.bat !== 'string' || !Object.hasOwn(P.BATIMENTS, m.bat)) return { ok: false }; const r = P.construire(p, m.bat); return r.ok ? { ok: true, res: r } : r; },
   expeCommencer(p, m, ctx) {
     if (p.expedition) return { ok: false, raison: 'Une expédition est déjà en cours.' };
-    const r = ['feu', 'eau', 'plante', 'brisees'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
+    const r = ['feu', 'eau', 'plante', 'brisees', 'cimes'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
     if (r?.ok) { const b = PJ.bonusDe(ctx?.projets, p.clan, 'butin'); if (b) p.expedition.bonusButin = b; }
     return r?.ok ? { ok: true } : (r || { ok: false });
   },
@@ -182,6 +184,19 @@ export const ACTIONS = {
   grimoireReclamer(p, m) { const r = GR.reclamer(p, String(m.cle || '')); if (r.ok && r.gain.titre && !p.titre) p.titre = r.gain.titre; return r.ok ? { ok: true, res: r.gain } : r; },
   parcours(p, m, ctx) { const id = PC.pnjDe(p, PC.etape(p)); return PC.valider(p, !!id && pres(id, ctx)); },
   parcheminFabriquer(p) { return AS.fabriquerParchemin(p); },
+  // le cadeau de connexion (v93)
+  connexionReclamer(p) { return CX.reclamer(p); },
+  // la Tour infinie (v91) : un étage à la fois, combat rejoué par le serveur
+  tourDebut(p) { const r = TO.commencer(p, graine()); return r.ok ? { ok: true, res: { etage: r.etage, graine: r.graine } } : r; },
+  tourCombat(p, m, ctx) {
+    if (!p.tour?.essai) return { ok: false, raison: 'Aucun combat de la Tour en cours.' };
+    const c = rejouer(TO.defEtage(p), m.coups);
+    if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
+    const r = TO.finir(p, c);
+    if (r.victoire) Q.evenement(p, 'tour', 1, { etage: r.etage });   // v93 : quêtes de la Tour
+    if (r.victoire && ctx?.cle) tourEnregistrer(ctx.cle, { nom: p.nom, clan: p.clan, classe: p.classe, etage: p.tour.max });   // v92 : le classement du mois
+    return r.ok ? { ok: true, res: r } : { ok: false };
+  },
   ascensionChanger(p, m) { return AS.changer(p, typeof m.b === 'string' ? m.b : ''); },
   ascensionChoisir(p, m) { return AS.choisir(p, typeof m.b === 'string' ? m.b : ''); },
   // le marchand ambulant : prendre une de ses 3 offres (il faut être à côté de lui)

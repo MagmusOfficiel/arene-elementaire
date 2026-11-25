@@ -28,9 +28,9 @@ test('l’expédition des Terres Brisées est fermée avant le niveau 30', () =>
   avecNiveau(p, 30); P.completer(p);
   assert.equal(X.commencerExpedition(p, 'brisees', 1, 7).ok, true);
 });
-test('niveau max 80, nouvelles ressources présentes', () => {
+test('niveau max 100 (v96), nouvelles ressources présentes', () => {
   const p = P.nouveauProfil('eau', 'T', 0); p.stats.victoires = 1e6;
-  assert.equal(P.niveau(p), 80);
+  assert.equal(P.niveau(p), 100);
   assert.equal(p.ress.fragments, 0); assert.equal(p.ress.eclat_vide, 0);
   const vieux = P.nouveauProfil('eau', 'T', 0); delete vieux.ress.fragments; delete vieux.paliers.brisees; P.completer(vieux);
   assert.equal(vieux.ress.fragments, 0); assert.equal(vieux.paliers.brisees, 1);

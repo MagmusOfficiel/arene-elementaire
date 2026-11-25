@@ -16,6 +16,8 @@ export const ELEMENTS = {
   neutre: { nom: 'Neutre', couleur: '#9a8a7a', fonce: '#2a2420', ico: '✦' },
   // v87 : les Terres Brisées (pas un clan : une région, son matériau et sa ressource rare)
   brisees: { nom: 'Faille', couleur: '#8a60e0', fonce: '#1a0e2a', ico: '🌀', materiau: 'fragments', nomMat: 'Fragments de faille' },
+  // v96 : les Cimes Orageuses
+  cimes: { nom: 'Tempête', couleur: '#4a90d8', fonce: '#0e1a2e', ico: '⚡', materiau: 'plumes', nomMat: 'Plumes d’orage' },
 };
 export const CLANS = ['feu', 'eau', 'plante'];
 // les ressources rares : une par territoire, ramassée sur les filons ou sur les monstres rares
@@ -24,6 +26,7 @@ export const RARES = {
   eau: { id: 'perle_noire', nom: 'Perle noire', ico: '⚫' },
   plante: { id: 'graine_or', nom: "Graine d'or", ico: '🌰' },
   brisees: { id: 'eclat_vide', nom: 'Éclat du vide', ico: '🔷' },
+  cimes: { id: 'cristal_foudre', nom: 'Cristal de foudre', ico: '⚡' },
 };
 export const RECETTES = { epique: { rare: 6, essence: 300 }, legendaire: { rare: 15, essence: 800 } };
 // les classes : PV en plus ou en moins, un talent (géré par combat.js) et leurs propres cartes
@@ -76,7 +79,7 @@ export const CARTES = Object.fromEntries([
   c('cendres', 'Rideau de cendres', 'feu', 'commune', 1, 'defense', '🌫️', { bouclier: 4, brulure: 2, tous: true }),
   c('boule_de_feu', 'Boule de feu', 'feu', 'rare', 2, 'attaque', '☄️', { degats: 14, brulure: 4 }),
   c('incendie', 'Incendie', 'feu', 'rare', 2, 'attaque', '🌋', { degats: 6, brulure: 3, tous: true }),
-  c('combustion', 'Combustion', 'feu', 'rare', 1, 'attaque', '💥', { degatsParBrulure: 2 }),
+  c('combustion', 'Combustion', 'feu', 'rare', 1, 'attaque', '💥', { degatsParBrulure: 1.5 }),   // v95 : ×2 → ×1,5 (47 dégâts en moyenne pour 1 énergie)
   c('rage_ardente', 'Rage ardente', 'feu', 'rare', 1, 'pouvoir', '😤', { force: 2, epuise: true }),
   c('phenix', 'Phénix', 'feu', 'epique', 2, 'pouvoir', '🐦‍🔥', { soin: 10, force: 2, epuise: true }),
   c('meteore', 'Pluie de météores', 'feu', 'epique', 3, 'attaque', '🌠', { degats: 18, tous: true }),
@@ -180,6 +183,11 @@ export const CARTES = Object.fromEntries([
   c('golem_pierre', 'Golem de pierre', 'neutre', 'epique', 2, 'pouvoir', '🗿', { invoque: { nom: 'Golem de pierre', img: 'golem_pierre', ico: '🗿', pv: 30, deg: 3 }, bouclier: 4 }, null, 'brisees'),
   c('esprit_faille', 'Esprit de la faille', 'neutre', 'legendaire', 2, 'pouvoir', '🌀', { invoque: { nom: 'Esprit de la faille', img: 'esprit_faille', ico: '🌀', pv: 22, deg: 7 }, pioche: 1 }, null, 'brisees'),
   c('dragonnet', 'Dragonnet élémentaire', 'neutre', 'legendaire', 3, 'pouvoir', '🐉', { invoque: { nom: 'Dragonnet', img: 'dragonnet', ico: '🐉', pv: 26, deg: 9 }, brulure: 2, tous: true }, null, 'brisees'),
+  // ---- v96 : les cartes de la tempête (Chapitre 3) — forgées avec des cristaux de foudre ; elles ÉTOURDISSENT
+  c('chaine_eclairs', 'Chaîne d’éclairs', 'neutre', 'epique', 2, 'attaque', '⚡', { degats: 7, tous: true, trempe: 1 }, null, 'cimes'),
+  c('oeil_tempete', 'Œil de la tempête', 'neutre', 'epique', 1, 'pouvoir', '🌀', { etourdit: 1, pioche: 1 }, null, 'cimes'),
+  c('marteau_tonnerre', 'Marteau du tonnerre', 'neutre', 'legendaire', 2, 'attaque', '🔨', { degats: 18, etourdit: 1 }, null, 'cimes'),
+  c('avatar_tempete', 'Avatar de la tempête', 'neutre', 'legendaire', 3, 'attaque', '🌩️', { degats: 10, tous: true, etourdit: 1, epuise: true }, null, 'cimes'),
   // ---- les cartes de branche (v69) : seulement à l'autel, seulement pour sa branche
   GA('gd_egide', 'Égide', 'rare', 1, 'defense', '🔰', { bouclier: 10, epines: 2 }),
   GA('gd_represailles', 'Représailles', 'rare', 1, 'attaque', '💢', { bouclierEnDegats: true, bouclier: 4 }),
@@ -209,7 +217,7 @@ export const CARTES = Object.fromEntries([
   SN('sn_precis', 'Tir précis', 'rare', 1, 'attaque', '🎯', { degats: 11 }),
   SN('sn_perforant', 'Tir perforant', 'epique', 2, 'attaque', '➶', { degats: 16, trempe: 2 }),
   SN('sn_patience', 'Patience du chasseur', 'epique', 1, 'pouvoir', '⏳', { force: 3, bouclier: 6, epuise: true }),
-  SN('sn_balle', 'Balle d’argent', 'legendaire', 2, 'attaque', '🌙', { degats: 30, epuise: true }),
+  SN('sn_balle', 'Balle d’argent', 'legendaire', 2, 'attaque', '🌙', { degats: 20, epuise: true }),   // v95 : 30 → 20 (116 dégâts en moyenne par tir en jeu)
   SN('sn_pluie', 'Pluie de flèches', 'legendaire', 3, 'attaque', '🏹', { degats: 5, fois: 4, tous: true }),
   AF('af_grenade', 'Grenade', 'rare', 1, 'attaque', '💣', { degats: 6, tous: true }),
   AF('af_mine', 'Mine incendiaire', 'rare', 1, 'attaque', '🧨', { degats: 4, brulure: 4, tous: true }),
@@ -245,7 +253,7 @@ export function effetsDe(id, niv = 1) {
 export function decrire(id, niv = 1) {
   const e = effetsDe(id, niv), t = [], zone = e.tous ? ' à tous les ennemis' : '';
   if (e.degats) t.push(`Inflige ${e.degats} dégâts${e.fois > 1 ? ` ${e.fois} fois` : ''}${zone}.`);
-  if (e.degatsParBrulure) t.push(`Inflige ${e.degatsParBrulure}× la brûlure de la cible.`);
+  if (e.degatsParBrulure) t.push(`Inflige ${String(e.degatsParBrulure).replace('.', ',')}× la brûlure de la cible.`);
   if (e.bouclierEnDegats) t.push(`Inflige autant de dégâts que ton bouclier${zone}.`);
   if (e.degatsParAffaibli) t.push(`Inflige ${e.degatsParAffaibli}× l’affaibli de la cible.`);
   if (e.rage) t.push(`+1 dégât par tranche de ${e.rage} PV qui te manquent.`);
@@ -263,6 +271,7 @@ export function decrire(id, niv = 1) {
   if (e.energie) t.push(`+${e.energie} énergie.`);
   if (e.pioche) t.push(`Pioche ${e.pioche} carte${e.pioche > 1 ? 's' : ''}.`);
   if (e.invoque) t.push(`Invoque ${e.invoque.ico} ${e.invoque.nom} (${e.invoque.pv} PV) : il frappe un ennemi pour ${e.invoque.deg} au début de chacun de tes tours, et encaisse les coups à ta place tant qu’il tient debout.`);
+  if (e.etourdit) t.push(`${e.tous ? 'Étourdit tous les ennemis' : 'Étourdit la cible'} : ${e.tous ? 'ils perdent' : 'elle perd'} sa prochaine action (un monstre qui vient d’être étourdi résiste un tour). En duel : une énergie de moins pour l’adversaire au prochain tour.`);
   if (e.dupliquer) t.push(`Copie ${e.dupliquer > 1 ? `${e.dupliquer} cartes` : 'une carte'} de ta main au hasard (copie éphémère).`);
   if (e.reduction) t.push(`Les cartes de ta main coûtent ${e.reduction} de moins ce tour.`);
   if (e.epuise) t.push('Épuisée.');
@@ -275,6 +284,8 @@ export const STATUTS = {
   epines: { nom: 'Épines', ico: '🌵', desc: 'Chaque attaque reçue renvoie ces dégâts à l’attaquant.' },
   regen: { nom: 'Régénération', ico: '💚', desc: 'Soigne autant de PV en fin de tour, puis baisse de 1.' },
   force: { nom: 'Force', ico: '💪', desc: 'Ajoute ces dégâts à chaque attaque.' },
+  etourdi: { nom: 'Étourdi', ico: '💫', desc: 'Perd sa prochaine action (son intention attend un tour). Ensuite, il résiste à l’étourdissement pendant un tour.' },
+  paralysie: { nom: 'Paralysie', ico: '⚡', desc: 'Une énergie de moins au prochain tour (par point).' },
   appel: { nom: 'Appel', ico: '🐾', desc: 'Au début de ton tour, ton allié invoqué inflige autant de dégâts à un ennemi.' },
 };
 // le deck de départ selon le clan
@@ -284,5 +295,7 @@ export const DECK_DEPART = {
   plante: ['frappe', 'frappe', 'frappe', 'frappe', 'garde', 'garde', 'garde', 'garde', 'ronce', 'ronce', 'liane', 'seve'],
 };
 // le deck de départ (12 cartes) : 2 Frappe, 2 Garde, 2 cartes de la classe, 6 cartes de l'élément (v83 : 2 exemplaires au plus)
-const ELEM_DEPART = { feu: ['etincelle', 'etincelle', 'tison', 'tison', 'flamme', 'cendres'], eau: ['vague', 'vague', 'jet', 'jet', 'maree', 'maree'], plante: ['ronce', 'ronce', 'liane', 'liane', 'seve', 'seve'] };
-export const deckDepart = (clan, classe) => ['frappe', 'frappe', 'garde', 'garde', ...(CLASSES[classe]?.depart || []), ...ELEM_DEPART[clan]];
+// v91 : le deck de départ fait 20 cartes (le minimum)
+const ELEM_DEPART = { feu: ['etincelle', 'etincelle', 'tison', 'tison', 'flamme', 'flamme', 'cendres', 'cendres'], eau: ['vague', 'vague', 'jet', 'jet', 'maree', 'maree', 'bulle', 'bulle'], plante: ['ronce', 'ronce', 'liane', 'liane', 'seve', 'seve', 'graine', 'graine'] };
+const CLASSE_DEPART = { combattant: 'fracas', mage: 'missiles', tireur: 'tir_rapide', escrimeur: 'botte' };
+export const deckDepart = (clan, classe) => ['frappe', 'frappe', 'garde', 'garde', 'coup_double', 'coup_double', ...(CLASSES[classe]?.depart || []), ...(CLASSES[classe]?.depart || []), ...(CLASSE_DEPART[classe] ? [CLASSE_DEPART[classe], CLASSE_DEPART[classe]] : ['reflexion', 'reflexion']), ...ELEM_DEPART[clan]];

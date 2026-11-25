@@ -33,8 +33,8 @@ export function majBarre() {
   if (!p) return;
   const el = ELEMENTS[p.clan];
   $('moi').innerHTML = `${esc(p.nom)} <span class="badge ${p.clan}" title="${el.clan}">${el.ico}<i class="nomClan"> ${el.clan}</i></span> ${p.classe ? `<span title="${esc(CLASSES[p.classe].talent)} : ${esc(CLASSES[p.classe].desc)}">${CLASSES[p.classe].ico} ${CLASSES[p.classe].nom}</span>` : ''} <small title="${(() => { const n = niveau(), x = P.xpDe(p); return n >= P.NIVEAU_MAX ? `Niveau maximum (${x} XP)` : `XP : ${x} / ${P.xpPourNiveau(n + 1)} pour le niveau ${n + 1} — 1 XP par combat gagné, ${P.XP_BOSS} par boss`; })()}">niv. ${niveau()}</small>`;
-  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
-    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
+  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
+    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)', plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (ressource rare des Cimes)' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
     + `<span title="Duels gagnés / perdus">⚔️ ${p.duels?.gagnes || 0}/${p.duels?.perdus || 0}</span>`;
 }
 export const DESC_CLANS = {
@@ -114,6 +114,7 @@ export let derniereTerr = undefined;
 export const monde = creerMonde($('monde'), {
   // v87 : les Terres Brisées s'ouvrent au niveau 30
   niveau: () => niveau(),
+  cimes: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('⚡ Les Cimes Orageuses sont mortelles : il faut être <b>niveau 50</b> pour franchir le col.'); } }; })(),   // v96
   faille: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🌀 Les Terres Brisées sont trop dangereuses : il faut être <b>niveau 30</b> pour y entrer.'); } }; })(),
   libre: () => Date.now() >= etourdiJusqua && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
   marchandBouge: (m) => marchandBouge(m),
@@ -128,11 +129,12 @@ export const monde = creerMonde($('monde'), {
     else if (l.action === 'defier') { if (p.expedition) return toast('Termine d’abord ton expédition.'); room?.send('defier', { cible: l.id }); }
   },
   position: (j) => {
-    const t = G.dansFaille(j.x, j.y) ? 'brisees' : monde.territoire();   // v87
+    const t = G.dansCimes(j.x, j.y) ? 'cimes' : G.dansFaille(j.x, j.y) ? 'brisees' : monde.territoire();   // v87, v96
     if (t !== derniereTerr) {
       derniereTerr = t;
       const b = $('bandeau');
-      if (t === 'brisees') { b.className = ''; b.textContent = '🌀 Les Terres Brisées — terre sans clan, monstres fusionnés'; }
+      if (t === 'cimes') { b.className = ''; b.textContent = '⚡ Les Cimes Orageuses — neige, foudre et monstres redoutables'; }
+      else if (t === 'brisees') { b.className = ''; b.textContent = '🌀 Les Terres Brisées — terre sans clan, monstres fusionnés'; }
       else if (!t) { b.className = ''; b.textContent = 'Le Carrefour — terre neutre'; }
       else if (t === p.clan) { b.className = ''; b.textContent = `${TERRITOIRES[t].ico} ${TERRITOIRES[t].nom} — ton territoire`; }
       else { b.className = 'ennemi'; b.innerHTML = `⚠️ ${esc(TERRITOIRES[t].nom)} — territoire du ${esc(ELEMENTS[t].clan)}. Ses joueurs peuvent t'attaquer ici. Filons : ${ICO_RESS[RARES[t].id]} ${esc(RARES[t].nom)}.`; }
@@ -297,6 +299,7 @@ export const guide = (() => {
     }
     if (!e) { g.classList.add('cache'); monde.guider(cibleAlerte()); return; }
     $('guideEtape').textContent = titre;
+    if ($('guideEtape').dataset.v !== titre + e.id) { $('guideEtape').dataset.v = titre + e.id; g.classList.remove('replie'); }   // v93 : une nouvelle étape se déplie
     $('guideOk').classList.toggle('cache', etat.n < ETAPES.length);
     const t = e.txt(); if ($('guideTxt').dataset.t !== t) { $('guideTxt').innerHTML = t; $('guideTxt').dataset.t = t; }
     g.classList.remove('cache');
@@ -329,3 +332,6 @@ if (monde.tactile) {
   setInterval(() => { $('btAgir').classList.toggle('pret', !!monde.action()); }, 200);
   $('aideMonde').innerHTML = 'Joystick pour marcher · <b>✋</b> pour agir · touche la carte pour y aller';
 }
+
+// v93 : sur téléphone, toucher le titre du guide le replie (il couvre moins la carte)
+$('guideEtape').addEventListener('click', () => $('guide').classList.toggle('replie'));

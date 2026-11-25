@@ -725,3 +725,71 @@ Le bestiaire commence à zéro pour tout le monde (les anciens combats n'étaien
 - Décor propre à la région : cristaux violets, roches d'obsidienne, arbres morts aux lueurs violettes, obélisques brisés (au lieu des cristaux rouges et des cactus du Feu).
 - Le bandeau affiche « 🌀 Les Terres Brisées » en entrant (au lieu de « Le Carrefour »).
 - Tests : variable `CLANS_TEST_NIVEAU` pour lancer le serveur de test avec un personnage de haut niveau.
+
+## Chapitre 2, la finition (v90)
+
+- **Boss mondial des Terres Brisées : le Gardien du Néant** (240 PV par manche, colosse d'obsidienne fendu de cristaux). Il prend un tour sur quatre dans la rotation des boss mondiaux, mais seulement si au moins un joueur de niveau 30 ou plus est connecté (sinon on passe à une terre de clan). Récompense : essence, éclats et Éclats du vide.
+- **Haut fait « La Faille »** (🥉 1, 🥈 3, 🥇 5 parties de l'histoire finies) et ses titres : Voyageur de la Faille, Arpenteur du vide, Sauveur des trois clans.
+- **Trois cosmétiques à gagner dans l'histoire** : la tenue Voile de la Faille (1re partie), la Cape de la Faille (3 parties), les Ailes de cristal du vide (histoire finie).
+- Les habitants de la Faille portent maintenant le Voile de la Faille (violet).
+- En duel, l'invocation s'affiche avec le portrait de sa carte.
+- Tests : `CLANS_BOSS_TOUR` choisit la terre du premier boss mondial.
+
+## Deck à 20 cartes, duels à 300 PV, la Tour infinie (v91)
+
+- **Deck : 20 cartes au moins** (30 au plus, avant 10 à 25), pour en finir avec les decks de 10 petites cartes à 0/1 qui détruisaient tout. Le deck de départ fait 20 cartes (2 Frappe, 2 Garde, 2 Coup double, 2 × chaque carte de départ de la classe + 2 × une carte commune de classe, 8 cartes de son élément). Les decks trop courts (actif et enregistrés) sont complétés automatiquement à la connexion avec les cartes de départ, offertes s'il le faut. Les decks conseillés font 20 cartes.
+- **Duels à 300 PV** (± la classe : Combattant 330, Mage 280, Tireur et Escrimeur 300), au lieu de 40 à 120. Un duel dure maintenant une dizaine de tours chacun ; la limite passe à 50 tours.
+- **La Tour infinie** (menu ☰ ou touche **T**, dès le niveau 10) : 100 étages, **5 monstres** par combat (les sorts de zone brillent), un **boss avec 2 gardes** (étages 10, 30, 50, 70, 90) ou **4 gardes** (20, 40, 60, 80, 100). Les étages sont les mêmes pour tout le monde ; on monte un étage à la fois, PV pleins, essais illimités, combat rejoué par le serveur. Récompenses à chaque étage (essence, éclats tous les 5 étages, ressource rare et Éclats du vide aux boss), et des cosmétiques : Tenue de la Tour (25), Cape des cimes (50), Lame des cent marches (75), Ailes du sommet (100). Haut fait « La Tour » (10 / 50 / 100 étages).
+- Tests : `tests/clanstour.test.mjs`.
+
+## La Tour : saison mensuelle et classement (v92)
+
+- **Remise à zéro chaque mois** (le 1er à minuit UTC, comme l'arène) : on regrimpe depuis l'étage 1 et on regagne les récompenses d'étage. Le **record** (meilleur étage de tous les temps) est gardé : c'est lui qui débloque les cosmétiques et le haut fait « La Tour », qui restent acquis.
+- **Classement du mois** dans la fenêtre de la Tour : top 20 (à étage égal, le premier arrivé passe devant), ta place, le nombre de jours avant la remise à zéro, et le podium du mois précédent. Gardé dans la base comme l'arène (`clansTour`, `clansTourPalmares`).
+
+## Téléphone, amis, cadeau du jour (v93)
+
+- **Téléphone** : en combat, 4 ou 5 ennemis (la Tour) sont réduits pour tenir à l'écran, l'annonce « Au prochain tour » passe à droite du héros (elle n'est plus cachée par la jauge d'énergie) ; 2 notifications à la fois au plus (le reste est dans 🔔) ; le guide se replie en touchant son titre.
+- **Amis** (menu ☰ ou touche **K**, 30 au plus) : « ➕ Ajouter en ami » dans la fiche d'un joueur ; la liste montre qui est en ligne (clan, classe, niveau), avec 💬 message privé, 🤝 invitation dans son groupe d'expédition et ✕ retirer. Un petit message quand un ami se connecte. Identifiant public d'un personnage (`pid`) dérivé du jeton, sans le révéler.
+- **Messages privés** : « @pseudo message » dans la discussion.
+- **Cadeau du jour** (s'ouvre tout seul à la première connexion du jour, ou menu ☰) : cycle de 7 jours (essence, éclats, ressource rare du clan), **coffre le 7e jour** (1 500 essence, 100 éclats, 5 ressources rares) ; un jour raté et on repart au jour 1.
+- **Quêtes de la Tour** : « Monte 2 étages » (jour) et « Monte 10 étages » (semaine), seulement à partir du niveau 10.
+- **Gardien du Néant** : illustration en combat (dès réception de l'image).
+- Tests : `tests/clanssocial.test.mjs`.
+
+## Chargement plus rapide et tutoriel guidé (v94)
+
+- **Serveur toujours éveillé** : sur Render (offre gratuite), le serveur s'endormait après 15 min sans visite et mettait 30 à 50 s à se réveiller. Il s'appelle maintenant lui-même toutes les 10 min (`/api/ping`, via `RENDER_EXTERNAL_URL` fourni par Render ; `RESTER_EVEILLE=0` pour couper). Un seul service tourne en continu, ce qui tient dans les 750 h gratuites par mois.
+- **Images gardées 7 jours** dans le navigateur (au lieu de 10 min), resservies tout de suite pendant la vérification.
+- **Préchargement** : une fois dans le monde, les illustrations des cartes du deck et des monstres de sa terre se chargent quand le navigateur ne fait rien : le premier combat s'affiche d'un coup.
+- Le sol de la carte (gardé sur l'appareil) est repeint une fois pour tout le monde (lisière de la Faille).
+- **Tutoriel guidé** (une fois par appareil, « Passer » à tout moment) : au **premier combat**, 6 bulles qui montrent la main, l'énergie, les intentions des ennemis, comment jouer une carte, le bouclier et « Fin du tour » ; à la **première ouverture du deck**, 4 bulles (collection, deck de 20 à 30 cartes, + Deck / améliorer, decks conseillés). La zone montrée s'éclaire, le reste s'assombrit.
+
+## Équilibrage d'après les statistiques de jeu (v95)
+
+D'après `/api/clans/equilibrage` (543 combats, 171 duels depuis la v89 ; peu de joueurs, donc à confirmer) :
+- **Balle d'argent** (Sniper, légendaire) : 30 → **20** dégâts. En jeu : 116 dégâts en moyenne par tir (Visée double une attaque sur deux + trempé + niveau 3), de loin la carte la plus forte, et dans tous les duels gagnés du joueur le plus actif.
+- **Combustion** (Feu, rare, 1 énergie) : ×2 → **×1,5** la brûlure de la cible. En jeu : 47 dégâts en moyenne au Cauchemar, plus qu'une légendaire à 2 énergies.
+- **Plus de difficulté en haut** : les combats gagnés étaient à 100 % au palier III et à 95 % au Cauchemar. Palier III : dégâts des monstres ×1,75 → ×1,9. Cauchemar : PV ×2,6 → ×2,9, dégâts ×2 → ×2,25. Les paliers I et II ne changent pas (les nouveaux joueurs).
+- Conseil : remettre les statistiques à zéro après le déploiement pour mesurer l'effet (`POST /api/clans/equilibrage/reset?cle=…`, il faut définir `JOURNAL_CLE`).
+
+## Chapitre 3 : les Cimes Orageuses (v96)
+
+- **Une nouvelle région neutre à l'est** (la carte passe à 4000 × 2880) : neige, glace, roc gris et crevasses bleues infranchissables ; une lisière de givre. On passe le **Col des Cimes** (par la route du Carrefour, à travers la Sylve) à partir du **niveau 50** (client et serveur). Le **Portail des Cimes** est tout au nord-est.
+- **La région la plus dure du jeu** : 14 monstres (7 normaux, 2 rares, 2 élites, 2 boss : le Roi des Tempêtes et la Reine du Blizzard) et un titan du Cauchemar, **l'Œil du Cyclone**. Nouvelle intention des monstres : **⚡ paralysie** (une énergie de moins au prochain tour).
+- **Nouvelle mécanique : étourdir** 💫 — un monstre étourdi perd sa prochaine action (son intention attend un tour), puis résiste un tour (pas d'étourdissement en boucle). En duel : une énergie de moins pour l'adversaire à son prochain tour.
+- **4 cartes de la tempête** à forger avec des **Cristaux de foudre** : Chaîne d'éclairs, Œil de la tempête (épiques), Marteau du tonnerre, Avatar de la tempête (légendaires).
+- **Ressources** : Plumes d'orage (matériau) et Cristal de foudre (rare).
+- **L'histoire en 5 quêtes** (Brann au col, Aela, Torvald, Skadi, Odra) aux **niveaux 50, 60 et 70** ; la dernière demande de fermer l'Œil du Cyclone en Cauchemar. Titre « Maître des Tempêtes », haut fait « Les Cimes », Fourrure des Cimes, Cape de l'orage, Ailes de l'orage.
+- **Boss mondial : le Colosse de l'orage** (1 tour sur 5, s'il y a un joueur de niveau 50+ en ligne).
+- **Deux montures à gagner** : le **Lynx du vide** (Chapitre 2 : abattre le Cœur de la Faille, 4e partie) et le **Griffon des tempêtes** (Chapitre 3 : finir l'histoire), le plus rapide du jeu.
+- **Niveau maximum : 100.** Les monstres des Cimes apparaissent aussi en haut de la Tour (étages 89+).
+- La barre des ressources défile au lieu de pousser les boutons à la ligne.
+- Tests : `tests/clanschapitre3.test.mjs`.
+
+## Montures du Chapitre 1 et de la Tour (v97)
+
+- **Kirin des trois clans** (vitesse 1,55) : gagné en devenant « Ami » des trois villages, c'est-à-dire en finissant les 18 quêtes des habitants du Chapitre 1.
+- **Wyrm de la Tour** (vitesse 1,7) : gagné en atteignant l'étage 100 de la Tour infinie. C'est le record qui compte, donc la monture reste après la remise à zéro mensuelle.
+- La fenêtre de la Tour affiche maintenant le Wyrm dans ses récompenses.
+- Chaque chapitre a désormais sa monture : Kirin (1), Lynx du vide (2), Griffon des tempêtes (3).

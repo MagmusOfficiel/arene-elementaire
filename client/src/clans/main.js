@@ -32,6 +32,8 @@ import './ui-passe.js';
 import './ui-marchand.js';
 import './ui-fiche.js';
 import './ui-ascension.js';
+import './ui-tour.js';
+import './ui-amis.js';
 import './ui-montures.js';
 import './ui-maison.js';
 import './ui-compte.js';

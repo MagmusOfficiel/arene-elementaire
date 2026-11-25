@@ -23,12 +23,12 @@ export async function parlerA(id) {
   if (!et || et === 'faite') return monde.parler(id);
   if (et === 'verrou') return monde.parler(id, QP.verrou(p, id));   // v87 : quête d'histoire pas encore ouverte
   const n = PNJ_PAR_ID[id], q = QP.QUETES[id], pr = QP.progres(p, id);
-  const couleur = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a', brisees: '#8a60e0' }[n.clan];
+  const couleur = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a', brisees: '#8a60e0', cimes: '#4a90d8' }[n.clan];
   const etape = et === 'libre' ? `<p class="dialogue">« ${esc(q.txt)} »</p>`
     : et === 'prete' ? `<p class="dialogue">« Alors, c’est fait ? ${q.donner ? 'Tu as ce que je t’ai demandé ?' : 'Montre-moi ça !'} »</p>`
     : `<p class="dialogue">« ${esc(q.txt)} »</p><p class="cout">${pr ? `Avancement : <b>${pr.n} / ${pr.max}</b>` : `Il te faut : ${lot(q.donner)} (tu as ${Object.keys(q.donner).map((k) => `${nf(p.ress[k] || 0)} ${ICO_RESS[k]}`).join(', ')})`}</p>`;
   ouvrir(`<div class="pnjQuete" style="--clan:${couleur}">
-      <h2>${esc(n.nom)} <small>· ${esc(n.role)}</small></h2>${q.histoire ? `<p class="sousTitre">🌀 Chapitre 2 · L’histoire des Terres Brisées — partie ${q.histoire} / 5</p>` : ''}
+      <h2>${esc(n.nom)} <small>· ${esc(n.role)}</small></h2>${q.histoire ? (q.chap === 3 ? `<p class="sousTitre">⚡ Chapitre 3 · L’histoire des Cimes Orageuses — partie ${q.histoire} / 5</p>` : `<p class="sousTitre">🌀 Chapitre 2 · L’histoire des Terres Brisées — partie ${q.histoire} / 5</p>`) : ''}
       ${etape}
       ${q.donner && et !== 'faite' ? `<p class="cout">À apporter : ${lot(q.donner)}</p>` : ''}
       <p class="cout">Récompense : ${lot(q.rec)}</p>

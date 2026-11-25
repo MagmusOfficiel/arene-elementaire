@@ -8,7 +8,7 @@
 import { CARTES, RARETES } from './cartes.js';
 import { DECK_MIN, copiesMax, nettoyerDeck, pourClasse } from './profil.js';
 
-export const TAILLE = 14;
+export const TAILLE = 20;   // v91
 export const STYLES = {
   assaut: { nom: 'Assaut', ico: '⚔️', desc: 'Frapper fort et vite : beaucoup d’attaques, de la force, des dégâts de zone.', diff: 1 },
   rempart: { nom: 'Rempart', ico: '🛡️', desc: 'Tenir le choc : boucliers, soins, épines, puis contre-attaque.', diff: 1 },
@@ -33,13 +33,13 @@ export const pool = (clan, classe, branche = null) => Object.keys(CARTES).filter
 });
 // le deck conseillé (14 cartes) ; possede(id) -> nombre d'exemplaires, pour « ce que j'ai »
 // quotas : de quoi taper et de quoi tenir dans tous les styles
-const QUOTAS = { assaut: { attaque: 8, defense: 3 }, rempart: { defense: 6, attaque: 4 }, maitrise: { attaque: 5, defense: 3 } };
+const QUOTAS = { assaut: { attaque: 11, defense: 5 }, rempart: { defense: 9, attaque: 6 }, maitrise: { attaque: 7, defense: 5 } };
 export function construire(clan, classe, style, branche = null, possede = null) {
   const ids = pool(clan, classe, branche).filter((id) => !possede || possede(id) > 0).sort((a, b) => score(b, style) - score(a, style) || a.localeCompare(b));
   const deck = [], compte = {}; let chers = 0;
   const prendre = (id) => {
     const max = Math.min(copiesMax(id), possede ? possede(id) : copiesMax(id));
-    if ((compte[id] || 0) >= max || deck.length >= TAILLE || (CARTES[id].cout >= 2 && chers >= 5)) return false;
+    if ((compte[id] || 0) >= max || deck.length >= TAILLE || (CARTES[id].cout >= 2 && chers >= 7)) return false;
     deck.push(id); compte[id] = (compte[id] || 0) + 1; if (CARTES[id].cout >= 2) chers++; return true;
   };
   for (const [type, n] of Object.entries(QUOTAS[style] || {})) { let k = 0; for (const id of ids) { if (k >= n) break; if (CARTES[id].type !== type) continue; while (k < n && prendre(id)) k++; } }

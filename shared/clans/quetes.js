@@ -9,6 +9,7 @@
 import { semaineDe } from './mondial.js';
 import { gagner as xpPasse } from './passe.js';
 import { avancer as avancerPnj } from './quetesPnj.js';
+import { niveau } from './profil.js';
 
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
 const TERRS = ['feu', 'eau', 'plante'];
@@ -25,6 +26,7 @@ const JOUR = [
   { id: 'sanct1', ev: 'sanctuaire', n: 1, ico: '🏳️', txt: 'Participe à la prise d’un sanctuaire', rec: { essence: 120, eclats: 6 } },
   { id: 'arene1', ev: 'arene', n: 1, ico: '🏟️', txt: 'Gagne un combat d’arène', rec: { essence: 90, eclats: 5 } },
   { id: 'projet', ev: 'projet', n: 40, ico: '🏗️', txt: 'Donne 40 points au projet de ton clan', rec: { essence: 90, eclats: 5 } },
+  { id: 'tour1', ev: 'tour', n: 2, niv: 10, ico: '🗼', txt: 'Monte 2 étages de la Tour infinie', rec: { essence: 100, eclats: 6 } },   // v93
   { id: 'mondial', ev: 'mondial', n: 50, ico: '☠', txt: 'Inflige 50 dégâts à un boss mondial', rec: { essence: 120, eclats: 6 } },
 ];
 const SEMAINE = [
@@ -35,6 +37,7 @@ const SEMAINE = [
   { id: 'mondial400', ev: 'mondial', n: 400, ico: '☠', txt: 'Inflige 400 dégâts aux boss mondiaux', rec: { essence: 450, eclats: 30 } },
   { id: 'sanct4', ev: 'sanctuaire', n: 4, ico: '🏳️', txt: 'Participe à la prise de 4 sanctuaires', rec: { essence: 500, eclats: 30 } },
   { id: 'arene5', ev: 'arene', n: 5, ico: '🏟️', txt: 'Gagne 5 combats d’arène', rec: { essence: 450, eclats: 30 } },
+  { id: 'tour10', ev: 'tour', n: 10, niv: 10, ico: '🗼', txt: 'Monte 10 étages de la Tour infinie', rec: { essence: 500, eclats: 30 } },   // v93
   { id: 'tirages20', ev: 'tirage', n: 20, ico: '🔮', txt: 'Fais 20 tirages', rec: { essence: 350, eclats: 25 } },
 ];
 export const BONUS_JOUR = { essence: 150, eclats: 10 };
@@ -56,9 +59,9 @@ export function etat(p, t = Date.now()) {
   const q = p.quetes || {}, jour = jourDe(t), sem = semaineDe(t).id, cle = `${p.creeLe || 0}:${p.nom || ''}`;
   return {
     jour, semaine: sem,
-    j: q.jour === jour && Array.isArray(q.j) ? q.j : choisir(JOUR, 3, hacher(`${cle}:${jour}`)).map((d) => ({ id: d.id, n: 0, ok: false })),
+    j: q.jour === jour && Array.isArray(q.j) ? q.j : choisir(JOUR.filter((d) => !d.niv || niveau(p) >= d.niv), 3, hacher(`${cle}:${jour}`)).map((d) => ({ id: d.id, n: 0, ok: false })),
     bonus: q.jour === jour ? !!q.bonus : false,
-    s: q.semaine === sem && Array.isArray(q.s) ? q.s : choisir(SEMAINE, 2, hacher(`${cle}:${sem}`)).map((d) => ({ id: d.id, n: 0, ok: false })),
+    s: q.semaine === sem && Array.isArray(q.s) ? q.s : choisir(SEMAINE.filter((d) => !d.niv || niveau(p) >= d.niv), 2, hacher(`${cle}:${sem}`)).map((d) => ({ id: d.id, n: 0, ok: false })),
   };
 }
 export function aJour(p, t = Date.now()) { p.quetes = etat(p, t); return p.quetes; }

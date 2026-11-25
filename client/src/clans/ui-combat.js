@@ -109,8 +109,8 @@ export function lancerCombat(def, type) {
   decor($('cbDecor'), terr);
   ambCb?.arreter(); ambCb = ambiance($('cbAmbiance'), terr);
   fxCb ||= creerFx($('cbFx'));
-  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr]?.nom || 'Boss mondial'}`, ascension: '🌟 Épreuve d’ascension' }[type] || 'Combat';
-  $('cbInfo').innerHTML = type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
+  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr]?.nom || 'Boss mondial'}`, ascension: '🌟 Épreuve d’ascension', tour: `🗼 Tour infinie · étage ${p.tour?.essai?.etage || ''}` }[type] || 'Combat';
+  $('cbInfo').innerHTML = type === 'tour' ? (p.tour?.essai?.etage % 10 === 0 ? 'Étage du boss : abats-le, ses gardes avec' : 'Cinq monstres : les sorts de zone font merveille') : type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
   sc.classList.toggle('cauchemar', !!PALIERS[p.expedition?.palier - 1]?.cauchemar && type !== 'mondial');
   dessinerSprite($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p));
   // le familier, à côté du héros (expéditions et boss mondial)
@@ -123,6 +123,7 @@ export function lancerCombat(def, type) {
   rejouerAnim($('cbHeros'), 'entreeG');
   banniere('cbBanniere', `${type === 'boss' || type === 'mondial' ? '☠ ' : ''}${$('cbTitre').textContent}<small>${esc(combat.ennemis.map((e) => e.nom).join(' · '))}</small>`, type === 'boss' || type === 'mondial' ? 'rouge' : '', 1300);
   if (type === 'boss' || type === 'mondial') sfx.rugissement?.();
+  setTimeout(() => import('./ui-coach.js').then((m) => m.tutoCombat()), 1900);   // v94 : le tutoriel, au tout premier combat
 }
 // ce que l'ennemi va faire, en toutes lettres (au survol de son intention) — v61
 const TITRES_INTENTION = {
@@ -163,6 +164,7 @@ function majMenace(c) {
 }
 export function dessinerCombat(donner = false, entree = false) {
   const c = combat;
+  $('cbEnnemis').classList.toggle('beaucoup', c.ennemis.length >= 4);   // v93 : la Tour (5 monstres) tient sur l'écran, même sur téléphone
   $('cbEnnemis').innerHTML = c.ennemis.map((e, n) => {
     const its = C.decrireIntention(c, e), illus = ILLUS_MONSTRES.has(e.id);
     return `<div class="ennemi ${e.rang || ''} ${e.maudit ? 'maudit' : ''} ${typeCombat === 'mondial' ? 'mondial' : ''} ${e.pv <= 0 ? 'parti' : ''} ${e.pv > 0 && e.pv / e.pvMax < 0.35 ? 'blesse' : ''} ${carteChoisie != null ? 'ciblable' : ''} ${entree ? 'entreeD' : ''}" data-e="${e.uid}" style="--respire:${(3 + ((n * 0.7 + e.pvMax) % 1.4)).toFixed(2)}s;--decale:-${((n * 1.3 + e.pvMax * 0.37) % 3).toFixed(2)}s;${entree ? `animation-delay:${150 + n * 120}ms` : ''}">
@@ -327,6 +329,8 @@ export async function jouerEvenements(evs) {
       }
       case 'energie': rejouerAnim($('cbEnergie'), 'change'); break;
       case 'tourEnnemi': banniere('cbBanniere', 'Tour ennemi', 'rouge', 950); await pauseCb(700); break;
+      case 'resiste': { if (!z) break; nombre(z, '🛡 résiste', 'statut', -10); await pauseCb(200); break; }
+      case 'etourdi': { if (!z) break; nombre(z, '💫 étourdi', 'statut', -10); rejouerAnim(z, 'touche'); await pauseCb(260); break; }   // v96
       case 'agit': {
         const el = elEnnemi(e.a); if (!el) break;
         el.classList.add('agit'); setTimeout(() => el.classList.remove('agit'), 600);
@@ -389,7 +393,7 @@ export async function finCombatAnim() {
 }
 $('combat').addEventListener('contextmenu', (e) => { e.preventDefault(); if (animCb || !combat) return; setCarteChoisie(null); dessinerCombat(); });
 addEventListener('keydown', (e) => {
-  if ($('combat').classList.contains('cache') || animCb || !combat) return;
+  if ($('combat').classList.contains('cache') || animCb || !combat || document.getElementById('coachBulle')) return;   // v94 : pas de raccourci pendant le tutoriel
   if (e.key === 'Escape') { setCarteChoisie(null); dessinerCombat(); }
   else if (e.key === 'e' || e.key === 'E') $('btFinTour').click();
   else if (/^[1-9]$/.test(e.key)) choisirCarte(+e.key - 1);
@@ -399,6 +403,12 @@ export function fermerScene() { stopAuraCb?.(); stopAuraCb = null; $('combat').c
 export async function finCombat() {
   if (envoiCombat) return;
   if (mondialEnCours) { fermerScene(); return finManche(); }
+  if (typeCombat === 'tour') {   // v91
+    envoiCombat = true; $('cbAide').textContent = 'Le serveur valide l’étage…';
+    const rep = await act('tourCombat', { coups });
+    envoiCombat = false; fermerScene(); setCombat(null); typeCombat = null;
+    return (await import('./ui-tour.js')).apresEtage(rep);
+  }
   if (typeCombat === 'ascension') {
     envoiCombat = true; $('cbAide').textContent = 'Le serveur valide l’épreuve…';
     const rep = await act('ascensionCombat', { coups });

@@ -19,6 +19,7 @@ const prix = (essence, eclats = 0) => ({ prix: { essence, eclats } });
 const gagne = (cond) => ({ cond });
 const passe = (lot) => ({ passe: lot });   // exclusives du passe de saison (v54) : ni à vendre, ni à gagner autrement
 // cond : { type, n, txt } — vérifié sur le profil
+import { histoireFaille, histoireCimes } from './quetesPnj.js';
 export const PIECES = {
   // tenues : [couleur, couleur foncée]
   t_clan: { slot: 'tenue', nom: 'Couleurs du clan', base: true },
@@ -30,6 +31,9 @@ export const PIECES = {
   t_or: { slot: 'tenue', nom: 'Étoffe d’or', couleurs: ['#e8b830', '#a87a10'], ...prix(2500, 40) },
   t_champion: { slot: 'tenue', nom: 'Champion de l’arène', couleurs: ['#c8283a', '#f0c030'], ...gagne({ type: 'arene', n: 1400, txt: 'Atteins le rang Platine en arène' }) },
   t_cauchemar: { slot: 'tenue', nom: 'Linceul du Cauchemar', couleurs: ['#3a0a3a', '#1a0418'], ...gagne({ type: 'cauchemar', n: 1, txt: 'Bats un boss du Cauchemar' }) },
+  t_faille: { slot: 'tenue', nom: 'Voile de la Faille', couleurs: ['#6a40c0', '#2a1a5a'], ...gagne({ type: 'faille', n: 1, txt: 'Termine la 1re partie de l’histoire des Terres Brisées' }) },   // v90
+  t_cimes: { slot: 'tenue', nom: 'Fourrure des Cimes', couleurs: ['#d8e4f0', '#4a6a8a'], ...gagne({ type: 'cimes', n: 1, txt: 'Termine la 1re partie de l’histoire des Cimes Orageuses' }) },   // v96
+  t_tour: { slot: 'tenue', nom: 'Tenue de la Tour', couleurs: ['#c8b8e8', '#4a3a7a'], ...gagne({ type: 'tour', n: 25, txt: 'Atteins l’étage 25 de la Tour infinie' }) },   // v91
   t_aube: { slot: 'tenue', nom: 'Tenue de l’Aube', couleurs: ['#f0a060', '#b85a3a'], ...passe('Aube') },
   t_abysses: { slot: 'tenue', nom: 'Tenue des Abysses', couleurs: ['#1a3a6a', '#0a1a3a'], ...passe('Abysses') },
   t_seve: { slot: 'tenue', nom: 'Tenue de Sève ancienne', couleurs: ['#5a7a2a', '#34501a'], ...passe('Sève ancienne') },
@@ -80,6 +84,9 @@ export const PIECES = {
   l_ange: { slot: 'ailes', nom: 'Ailes d’ange', couleurs: ['#ffffff', '#c8d0e0'], ...prix(3500, 40) },
   l_demon: { slot: 'ailes', nom: 'Ailes de démon', couleurs: ['#5a1a2a', '#2a0810'], ...gagne({ type: 'boss', n: 25, txt: 'Bats 25 boss d’expédition' }) },
   l_dragon: { slot: 'ailes', nom: 'Ailes de dragon', couleurs: ['#2a7a3a', '#c8a030'], ...gagne({ type: 'cauchemar', n: 3, txt: 'Bats 3 boss du Cauchemar' }) },
+  l_cristal: { slot: 'ailes', nom: 'Ailes de cristal du vide', couleurs: ['#c8a0ff', '#5a8ae8'], ...gagne({ type: 'faille', n: 5, txt: 'Termine l’histoire des Terres Brisées' }) },   // v90
+  l_orage: { slot: 'ailes', nom: 'Ailes de l’orage', couleurs: ['#e8f6ff', '#4a90d8'], ...gagne({ type: 'cimes', n: 5, txt: 'Termine l’histoire des Cimes Orageuses' }) },   // v96
+  l_tour: { slot: 'ailes', nom: 'Ailes du sommet', couleurs: ['#fff8e0', '#f0c030'], ...gagne({ type: 'tour', n: 100, txt: 'Conquiers les 100 étages de la Tour infinie' }) },   // v91
   l_phenix: { slot: 'ailes', nom: 'Ailes de phénix', couleurs: ['#ffd060', '#e04a1a'], ...gagne({ type: 'arene', n: 1550, txt: 'Atteins le rang Diamant en arène' }) },
   // ---- v86 : armes (dans la main)
   r_aucune: { slot: 'arme', nom: 'Aucune', base: true },
@@ -88,6 +95,7 @@ export const PIECES = {
   r_baton: { slot: 'arme', nom: 'Bâton de mage', couleurs: ['#7a4a22', '#8a60ff'], ...prix(1200, 10) },
   r_trident: { slot: 'arme', nom: 'Trident', couleurs: ['#40d0e0', '#2a6a8a'], ...prix(1800, 20) },
   r_arc: { slot: 'arme', nom: 'Arc doré', couleurs: ['#f0c030', '#fff4d0'], ...gagne({ type: 'duels', n: 25, txt: 'Gagne 25 duels' }) },
+  r_tour: { slot: 'arme', nom: 'Lame des cent marches', couleurs: ['#f0e8ff', '#8a60e0'], ...gagne({ type: 'tour', n: 75, txt: 'Atteins l’étage 75 de la Tour infinie' }) },   // v91
   r_faux: { slot: 'arme', nom: 'Faux du Cauchemar', couleurs: ['#c8c0d8', '#3a0a3a'], ...gagne({ type: 'cauchemar', n: 1, txt: 'Bats un boss du Cauchemar' }) },
   // ---- v86 : capes (dans le dos)
   k_aucune: { slot: 'cape', nom: 'Aucune', base: true },
@@ -97,6 +105,9 @@ export const PIECES = {
   k_noire: { slot: 'cape', nom: 'Cape de nuit', couleurs: ['#2a2434', '#14101c'], ...prix(900) },
   k_etoilee: { slot: 'cape', nom: 'Cape étoilée', couleurs: ['#1a1a5a', '#f0e060'], ...prix(2500, 30) },
   k_royale: { slot: 'cape', nom: 'Cape royale', couleurs: ['#8a1a8a', '#f0c030'], ...gagne({ type: 'arene', n: 1250, txt: 'Atteins le rang Or en arène' }) },
+  k_faille: { slot: 'cape', nom: 'Cape de la Faille', couleurs: ['#3a1a6a', '#b080ff'], ...gagne({ type: 'faille', n: 3, txt: 'Termine 3 parties de l’histoire des Terres Brisées' }) },   // v90
+  k_cimes: { slot: 'cape', nom: 'Cape de l’orage', couleurs: ['#1a3050', '#ffe060'], ...gagne({ type: 'cimes', n: 3, txt: 'Termine 3 parties de l’histoire des Cimes Orageuses' }) },   // v96
+  k_tour: { slot: 'cape', nom: 'Cape des cimes', couleurs: ['#e8e8f8', '#6a5aa8'], ...gagne({ type: 'tour', n: 50, txt: 'Atteins l’étage 50 de la Tour infinie' }) },   // v91
   k_heros: { slot: 'cape', nom: 'Cape du héros', couleurs: ['#e8e0d0', '#c8283a'], ...gagne({ type: 'victoires', n: 200, txt: 'Gagne 200 combats d’expédition' }) },
 };
 export const DEFAUT = { tenue: 't_clan', cheveux: 'c_clan', chapeau: 'h_classe', aura: 'a_aucune', ailes: 'l_aucune', arme: 'r_aucune', cape: 'k_aucune' };
@@ -104,7 +115,7 @@ export const DEFAUT = { tenue: 't_clan', cheveux: 'c_clan', chapeau: 'h_classe',
 // où en est le joueur pour une condition
 export function progression(p, cond) {
   const s = p.stats || {};
-  const v = { arene: p.arene?.meilleur || 0, cauchemar: s.cauchemar || 0, duels: p.duels?.gagnes || 0, quetes: s.quetes || 0, victoires: s.victoires || 0, boss: s.boss || 0, sanct: s.sanct || 0 }[cond.type] || 0;
+  const v = { arene: p.arene?.meilleur || 0, cauchemar: s.cauchemar || 0, duels: p.duels?.gagnes || 0, quetes: s.quetes || 0, victoires: s.victoires || 0, boss: s.boss || 0, sanct: s.sanct || 0, faille: histoireFaille(p), cimes: histoireCimes(p), tour: Math.max(p.tour?.record || 0, p.tour?.max || 0) }[cond.type] || 0;
   return { v, ok: v >= cond.n };
 }
 export function possede(p, id) {

@@ -14,7 +14,7 @@ export function alea(graine) {
   return () => { a += 0x6D2B79F5; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
-const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0 });
+const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, etourdi: 0, paralysie: 0 });
 
 // deck : [{ id, niv }] ; joueur : { pv, pvMax } ; ennemis : modèles de monstres.js ; palier : { pv, deg }
 // classe : son talent s'applique pendant le combat (Endurci, Arcanes, Visée, Enchaînement)
@@ -80,7 +80,7 @@ function debutTour(c) {
   if (j.brulure > 0) { const [d] = blesser(c, j, j.brulure, true); ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv }); c.journal.push(`Tu brûles : −${j.brulure} PV.`); j.brulure--; if (verifierFin(c)) return; }
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
-  c.energie = c.energieMax; c.attaquesTour = 0; c.arcanes = false; c.arcN = 0;
+  c.energie = Math.max(1, c.energieMax - (j.paralysie || 0)); j.paralysie = 0; c.attaquesTour = 0; c.arcanes = false; c.arcN = 0;
   piocher(c, c.tour === 1 && c.mods?.includes('epuisement') ? 4 : 5);
   if (RQ.a(c.reliques, 'pierre_lune')) j.bloc += 3;
   if (RQ.a(c.reliques, 'sablier') && c.tour % 3 === 0) c.energie += 1;
@@ -134,7 +134,7 @@ export const jouable = (c, i) => { const k = c.main[i]; return !!k && !c.fini &&
 // Visée (Tireur) : la prochaine attaque sera-t-elle doublée ?
 export const periodeVisee = (c) => (c.branche === 'sniper' ? 2 : 3);
 export const viseeProchaine = (c) => c.classe === 'tireur' && (c.tirs + 1) % periodeVisee(c) === 0;
-export const besoinCible = (id) => { const e = CARTES[id].effets; return CARTES[id].type === 'attaque' && !e.tous || ((e.trempe || e.affaibli || e.brulure) && !e.tous && !e.degats && !e.degatsParBrulure && !e.bouclierEnDegats); };
+export const besoinCible = (id) => { const e = CARTES[id].effets; return CARTES[id].type === 'attaque' && !e.tous || ((e.trempe || e.affaibli || e.brulure || e.etourdit) && !e.tous && !e.degats && !e.degatsParBrulure && !e.bouclierEnDegats); };
 
 // jouer la carte n° i de la main, sur l'ennemi « cible » (uid) si elle vise quelqu'un
 export function jouerCarte(c, i, cible) {
@@ -160,7 +160,7 @@ export function jouerCarte(c, i, cible) {
   }
   if (e.sacrifice) { const d = Math.min(e.sacrifice, j.pv - 1); j.pv -= d; ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv, sang: true }); }
   if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) attaquer(c, j, t, e.degats + bonus, mult);
-  if (e.degatsParBrulure) for (const t of cibles) attaquer(c, j, t, t.brulure * e.degatsParBrulure + bonus, mult);
+  if (e.degatsParBrulure) for (const t of cibles) attaquer(c, j, t, Math.floor(t.brulure * e.degatsParBrulure) + bonus, mult);
   if (e.bouclierEnDegats) for (const t of cibles) attaquer(c, j, t, j.bloc + bonus, mult);
   if (e.degatsParAffaibli) for (const t of cibles) attaquer(c, j, t, t.affaibli * e.degatsParAffaibli + bonus, mult);
   for (const t of cibles) {
@@ -168,6 +168,8 @@ export function jouerCarte(c, i, cible) {
     if (e.brulure) { t.brulure += e.brulure; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'brulure', n: e.brulure }); }
     if (e.trempe) { t.trempe += e.trempe; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'trempe', n: e.trempe }); }
     if (e.affaibli) { t.affaibli += e.affaibli; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: e.affaibli }); }
+    // v96 : étourdi — mais un monstre qui vient de l'être résiste au tour suivant (pas d'étourdissement en boucle)
+    if (e.etourdit && vu) { if (t.resiste > 0 || t.etourdi > 0) ev(c, { t: 'resiste', a: t.uid }); else { t.etourdi = 1; ev(c, { t: 'statut', a: t.uid, k: 'etourdi', n: 1 }); } }
   }
   if (e.doubleBouclier && j.bloc > 0) { const n = j.bloc; j.bloc += n; ev(c, { t: 'bloc', a: 'j', n, bloc: j.bloc }); }
   const blocEn = (e.bouclier || 0) + (c.branche === 'gardien' && carte.type === 'defense' ? 2 : 0);
@@ -216,6 +218,9 @@ export function finTour(c) {
       const [d] = blesser(c, e, e.brulure, true); ev(c, { t: 'brule', a: e.uid, deg: d, pv: e.pv }); e.brulure--;
       if (e.pv <= 0) { ev(c, { t: 'mort', a: e.uid }); c.journal.push(`${e.nom} succombe à ses brûlures.`); continue; }
     }
+    // v96 : étourdi, il perd son action (son intention est reportée au tour suivant)
+    if (e.resiste > 0) e.resiste--;
+    if (e.etourdi > 0) { e.etourdi--; e.resiste = 1; ev(c, { t: 'etourdi', a: e.uid }); if (e.trempe > 0) e.trempe--; if (e.affaibli > 0) e.affaibli--; continue; }
     const it = intention(e);
     ev(c, { t: 'agit', a: e.uid, attaque: !!it.a });
     if (it.d) { e.bloc += Math.round(it.d * e.deg); ev(c, { t: 'bloc', a: e.uid, n: Math.round(it.d * e.deg), bloc: e.bloc }); }
@@ -226,6 +231,7 @@ export function finTour(c) {
     if (it.b) { j.brulure += it.b; ev(c, { t: 'statut', a: 'j', k: 'brulure', n: it.b }); }
     if (it.t) { j.trempe += it.t; ev(c, { t: 'statut', a: 'j', k: 'trempe', n: it.t }); }
     if (it.w) { j.affaibli += it.w; ev(c, { t: 'statut', a: 'j', k: 'affaibli', n: it.w }); }
+    if (it.p) { j.paralysie = (j.paralysie || 0) + it.p; ev(c, { t: 'statut', a: 'j', k: 'paralysie', n: it.p }); }   // v96 : moins d'énergie au prochain tour
     // v87 : l'allié invoqué encaisse les coups à ta place tant qu'il tient debout
     if (it.a) for (let k = 0; k < (it.n || 1); k++) attaquer(c, e, c.allie?.pv > 0 ? c.allie : j, Math.round(it.a * e.deg));
     e.i++;
@@ -247,7 +253,8 @@ export function decrireIntention(c, e) {
   if (it.g) t.push({ type: 'groupe', txt: `${Math.round(it.g * e.deg)}` });
   if (it.s) t.push({ type: 'soin', txt: `${Math.round(it.s * e.deg)}` });
   if (it.e) t.push({ type: 'epines', txt: `${it.e}` });
-  if (it.b || it.t || it.w) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`].filter(Boolean).join(' ') });
+  if (it.b || it.t || it.w || it.p) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`, it.p && `⚡${it.p}`].filter(Boolean).join(' ') });
+  if (e.etourdi > 0) return [{ type: 'malus', txt: '💫 étourdi' }];
   return t;
 }
 

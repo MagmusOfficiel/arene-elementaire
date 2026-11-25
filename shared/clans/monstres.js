@@ -11,6 +11,8 @@ export const TERRITOIRES = {
   plante: { nom: "Sylve d'Émeraude", element: 'plante', ico: '🌲' },
   // v87 (Chapitre 2) : la région neutre du sud, ouverte au niveau 30
   brisees: { nom: 'Terres Brisées', element: 'brisees', ico: '🌀', niv: 30 },
+  // v96 (Chapitre 3) : les Cimes Orageuses, à l'est, ouvertes au niveau 50 — le plus dur du jeu
+  cimes: { nom: 'Cimes Orageuses', element: 'cimes', ico: '⚡', niv: 50 },
 };
 
 const m = (id, nom, ico, pv, intentions, rang = 'normal') => ({ id, nom, ico, pv, intentions, rang });
@@ -76,6 +78,26 @@ export const MONSTRES = {
     },
   },
   // v87 : les monstres « fusionnés » nés de la Faille — nettement plus forts que ceux des trois terres
+  // v96 : les monstres des Cimes — p : paralysie (une énergie de moins au prochain tour)
+  cimes: {
+    normaux: [
+      m('harpie_orage', 'Harpie des orages', '🦅', 46, [{ a: 6, n: 2, p: 1 }, { a: 11 }, { d: 10, f: 1 }]),
+      m('golem_givre', 'Golem de givre', '🧊', 60, [{ d: 14 }, { a: 13, t: 1 }, { a: 8, n: 2 }]),
+      m('loup_blizzard', 'Loup du blizzard', '🐺', 44, [{ a: 7, n: 2 }, { a: 12, w: 1 }, { f: 2 }]),
+      m('elementaire_foudre', 'Élémentaire de foudre', '🌩️', 40, [{ a: 14, p: 1 }, { e: 3, d: 8 }, { a: 5, n: 3 }]),
+      m('yeti', 'Yéti des cimes', '🦍', 62, [{ a: 16 }, { d: 12, s: 6 }, { a: 9, n: 2 }]),
+      m('wyverne_glace', 'Wyverne de glace', '🐲', 52, [{ a: 9, n: 2, t: 1 }, { g: 8 }, { a: 15 }]),
+      m('chamane_tempete', 'Chamane des tempêtes', '🧙', 38, [{ s: 10, g: 6 }, { w: 2, p: 1 }, { a: 10 }]),
+    ],
+    rare: m('oiseau_tonnerre', 'Oiseau-tonnerre', '🦚', 80, [{ a: 8, n: 3, p: 1 }, { d: 16, f: 1 }, { a: 20 }], 'rare'),
+    elite: m('geant_givre', 'Géant du givre', '🗿', 120, [{ a: 20, t: 2 }, { d: 20, f: 1 }, { a: 9, n: 3 }, { g: 14, p: 1 }], 'elite'),
+    boss: m('roi_tempetes', 'Le Roi des Tempêtes', '👑', 170, [{ a: 10, n: 2, p: 1 }, { g: 16, s: 10 }, { a: 26 }, { w: 2, t: 2, a: 12 }, { f: 2, d: 18 }, { a: 7, n: 4, p: 1 }], 'boss'),
+    autres: {
+      rare: m('esprit_aurore', 'Esprit de l’aurore', '🌈', 76, [{ s: 14, g: 8 }, { a: 15, p: 1 }, { a: 6, n: 3 }], 'rare'),
+      elite: m('dragon_givre', 'Dragon de givre', '🐉', 130, [{ a: 8, n: 3, t: 1 }, { d: 18, f: 2 }, { a: 24, p: 1 }, { g: 12 }], 'elite'),
+      boss: m('reine_blizzard', 'La Reine du Blizzard', '❄️', 180, [{ g: 18 }, { a: 11, n: 3, t: 1 }, { w: 3, p: 1, a: 14 }, { a: 28 }, { s: 14, f: 2 }, { a: 8, n: 4 }], 'boss'),
+    },
+  },
   brisees: {
     normaux: [
       m('golem_vapeur', 'Golem de vapeur', '♨️', 40, [{ a: 9, t: 1 }, { d: 10 }, { a: 6, n: 1, b: 1 }]),
@@ -104,8 +126,8 @@ export const tousDe = (terr) => { const M = MONSTRES[terr]; return [...M.normaux
 export const PALIERS = [
   { n: 1, nom: 'Palier I', pv: 1.3, deg: 1.2, butin: 1 },
   { n: 2, nom: 'Palier II', pv: 1.7, deg: 1.45, butin: 1.6 },
-  { n: 3, nom: 'Palier III', pv: 2.2, deg: 1.75, butin: 2.4 },
-  { n: 4, nom: 'Cauchemar', pv: 2.6, deg: 2, butin: 3.6, cauchemar: true },
+  { n: 3, nom: 'Palier III', pv: 2.2, deg: 1.9, butin: 2.4 },   // v95 : 1,75 → 1,9 (100 % de victoires en jeu)
+  { n: 4, nom: 'Cauchemar', pv: 2.9, deg: 2.25, butin: 3.6, cauchemar: true },   // v95 : 2,6/2 → 2,9/2,25 (95 % de victoires en jeu)
 ];
 // ---------- le palier IV « Cauchemar » ----------
 // débloqué en battant le boss du palier III d'un territoire. Chaque expédition tire 2 malédictions au sort,
@@ -122,6 +144,7 @@ export const MALEDICTIONS = {
 export const BOSS_CAUCHEMAR = {
   feu: m('titan_magma', 'Titan primordial', '🌋', 100, [{ a: 12 }, { d: 12, f: 2 }, { a: 5, n: 3 }, { w: 2, a: 7 }, { b: 4, a: 9 }, { a: 16 }], 'boss'),
   eau: m('leviathan_abyssal', 'Léviathan des abysses', '🐋', 102, [{ a: 6, n: 2 }, { t: 2, d: 10 }, { a: 13 }, { f: 1, d: 10 }, { a: 4, n: 3 }, { t: 1, a: 15 }], 'boss'),
+  cimes: m('oeil_cyclone', 'L’Œil du Cyclone', '🌪️', 220, [{ a: 16, p: 1 }, { g: 20, w: 2 }, { a: 8, n: 4 }, { s: 18, f: 2 }, { b: 4, t: 3, a: 14, p: 1 }, { a: 34 }], 'boss'),
   brisees: m('neant_originel', 'Le Néant originel', '🕳️', 200, [{ a: 14 }, { g: 16, w: 2 }, { a: 7, n: 4 }, { s: 16, f: 2 }, { b: 4, t: 3, a: 12 }, { a: 28 }], 'boss'),
   plante: m('ancien_sylvain', 'Ancien sylvain', '🌳', 124, [{ a: 12, e: 3 }, { d: 14, f: 1 }, { a: 7, n: 3 }, { w: 2, a: 10 }, { a: 19 }, { e: 3, d: 10, f: 1 }], 'boss'),
 };

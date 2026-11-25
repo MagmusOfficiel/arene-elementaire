@@ -11,11 +11,12 @@
 // =====================================================================
 import colyseus from 'colyseus';
 import { noterErreur } from './journal.js';
-import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison, posMaison, dansFaille, NIV_FAILLE } from '../../shared/clans/geo.js';
+import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison, posMaison, dansFaille, NIV_FAILLE, CENTRE_FAILLE, dansCimes, NIV_CIMES, CENTRE_CIMES } from '../../shared/clans/geo.js';
 import { nouveauDuel, jouer as jouerDuel, finTour as finTourDuel, vue as vueDuel, deckValide, PV_DUEL } from '../../shared/clans/duel.js';
 import { BUTIN_DUEL } from '../../shared/clans/profil.js';
-import { BOSS_MONDIAUX, MONDIAL, POINTS, NOMS_CLANS, PALIER_MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial } from '../../shared/clans/mondial.js';
-import { lireProfilClans, pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lireProjets, ecrireProjets, areneEnregistrer, areneJoueurs, classementArene } from './stats.js';
+import * as TO from '../../shared/clans/tour.js';
+import { BOSS_MONDIAUX, LIEU_MONDIAL, MONDIAL, POINTS, NOMS_CLANS, PALIER_MONDIAL, pvMondial, pvManche, degatsValides, recompenseMondial } from '../../shared/clans/mondial.js';
+import { lireProfilClans, pointsClan, classementClans, lireSanctuaires, ecrireSanctuaires, lireProjets, ecrireProjets, areneEnregistrer, areneJoueurs, classementArene, classementTour } from './stats.js';
 import crypto from 'node:crypto';
 import * as PJ from '../../shared/clans/projets.js';
 import * as F from '../../shared/clans/familiers.js';
@@ -41,6 +42,8 @@ export const DEPARTS = Object.fromEntries(Object.entries(CENTRES).map(([k, [x, y
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
 const codeParcelle = (pc) => { const v = (k) => Math.max(1, Math.min(5, num(pc?.[k], 1) | 0)); return v('maison') * 100 + v('autel') * 10 + v('atelier'); };
 const empreinte = (jeton) => crypto.createHash('sha256').update(String(jeton)).digest('base64url').slice(0, 16);
+// v93 : l'identifiant public d'un personnage (pour les amis) — ne révèle pas le jeton
+const pidDe = (jeton) => (jeton ? crypto.createHash('sha256').update(`ami:${jeton}`).digest('base64url').slice(0, 12) : '');
 const esc = (t) => String(t).replace(/[<>&]/g, '');
 const STATUTS = ['libre', 'expedition', 'parcelle', 'tirage', 'combat', 'duel', 'arene'];
 const VUE = { l: 760, h: 480 };   // demi-largeur et demi-hauteur de ce qu'un joueur peut voir (avec de la marge)
@@ -62,22 +65,41 @@ export class ClansRoom extends Room {
       c.send('fiche', { id: String(m.id), nom: k.nom, clan: k.clan, classe: p.classe, branche: p.branche || '', niv: k.niv, app: k.app || '', fam: k.fam || '', titre: k.titre || '',
         arene: { elo: a.elo || 1000, meilleur: Math.max(a.meilleur || 0, p.stats.areneMax || 0), v: a.v || 0, d: a.d || 0 }, duels: { g: p.duels?.gagnes || 0, p: p.duels?.perdus || 0 },
         stats: { victoires: p.stats.victoires || 0, boss: p.stats.boss || 0, cauchemar: p.stats.cauchemar || 0, expeditions: p.stats.expeditions || 0 },
-        hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0), statut: k.statut || 'libre' });
+        hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0), statut: k.statut || 'libre', pid: pidDe(k.jeton), tour: TO.record(p) });
     });
     sur('pos', (c, m, j) => {
       if ((j.etourdi || 0) > Date.now()) return;   // v84 : étourdi après une défaite en duel
       const x = Math.max(0, Math.min(MONDE.l, num(m.x, j.x))), y = Math.max(0, Math.min(MONDE.h, num(m.y, j.y)));
       if (dansFaille(x, y) && !dansFaille(j.x, j.y) && (j.niv || 1) < NIV_FAILLE) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v87
+      if (dansCimes(x, y) && !dansCimes(j.x, j.y) && (j.niv || 1) < NIV_CIMES) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v96
       if (Math.hypot(x - j.x, y - j.y) < 200) { j.x = x; j.y = y; }
       // un saut trop grand est refusé : on ramène le joueur là où le serveur le voit (sinon il resterait « coincé » ailleurs)
       else if (Date.now() - (j.recale || 0) > 1500) { j.recale = Date.now(); c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); }
       j.dir = num(m.dir) | 0;
     });
     sur('statut', (c, m, j) => { if (j.duel) return; j.statut = ['libre', 'expedition', 'parcelle', 'tirage'].includes(m.s) ? m.s : 'libre'; if (j.manche) j.statut = 'combat'; });
+    // v93 : les amis (gardés dans le profil : { pid, nom }, 30 au plus)
+    sur('amiAjouter', (c, m, j) => {
+      const pid = String(m.pid || ''), k = [...this.joueurs.values()].find((x) => x.p && pidDe(x.jeton) === pid);
+      if (!k || k === j) return c.send('info', { t: 'Ce joueur n’est plus là.' });
+      const l = (j.p.amis ||= []);
+      if (l.some((a) => a.pid === pid)) return;
+      if (l.length >= 30) return c.send('info', { t: '30 amis au plus.' });
+      l.push({ pid, nom: k.nom }); j.sale = true; this.pousserProfil(c, j);
+      c.send('info', { t: `👋 ${k.nom} est maintenant dans tes amis.` });
+    });
+    sur('amiRetirer', (c, m, j) => { const pid = String(m.pid || ''); if (!j.p.amis?.some((a) => a.pid === pid)) return; j.p.amis = j.p.amis.filter((a) => a.pid !== pid); j.sale = true; this.pousserProfil(c, j); });
     sur('chat', (c, m, j) => {
       const t = propre(m.t, 140); if (!t) return;
       if (Date.now() - (j.dernierChat || 0) < 1200) return;   // pas plus d'un message par seconde
       j.dernierChat = Date.now();
+      // v93 : message privé (« @pseudo message » ou bouton 💬 d'un ami)
+      if (m.canal === 'mp') {
+        const dest = String(m.a || '').slice(0, 20), cl2 = this.clients.find((x) => { const k = this.joueurs.get(x.sessionId); return k?.p && (k.nom === dest || pidDe(k.jeton) === dest); });
+        if (!cl2) return c.send('chat', { systeme: true, t: `${dest} n’est pas connecté.` });
+        const k = this.joueurs.get(cl2.sessionId), mp = { de: j.nom, clan: j.clan, t, canal: 'mp', a: k.nom };
+        cl2.send('chat', mp); if (cl2 !== c) c.send('chat', mp); return;
+      }
       const msg = { de: j.nom, clan: j.clan, t, canal: m.canal === 'clan' ? 'clan' : 'tous' };
       if (msg.canal === 'clan') { for (const cl of this.clients) if (this.joueurs.get(cl.sessionId)?.clan === j.clan) cl.send('chat', msg); }
       else this.broadcast('chat', msg);
@@ -135,7 +157,7 @@ export class ClansRoom extends Room {
     this.scoresChanges = false;
     this.clock.setInterval(() => { if (this.scoresChanges) { this.scoresChanges = false; this.broadcast('scores', this.scores()); } }, 3000);
     // ---------- boss mondial ----------
-    this.mondial = null; this.nMondial = 0; this.prochainMondial = Date.now() + (+process.env.CLANS_BOSS_DELAI || MONDIAL.premier);
+    this.mondial = null; this.nMondial = +process.env.CLANS_BOSS_TOUR || 0; this.prochainMondial = Date.now() + (+process.env.CLANS_BOSS_DELAI || MONDIAL.premier);
     this.clock.setInterval(() => this.tickMondial(), 1000);
     sur('mondialEntrer', (c, m, j) => {
       const b = this.mondial, refus = (t) => c.send('info', { t });
@@ -220,6 +242,7 @@ export class ClansRoom extends Room {
       if (!g || g.chef !== c.sessionId || g.parti) return;
       const terr = String(m.terr || ''), palier = Math.floor(Number(m.palier)) || 1;
       if (g.membres.length < 2) return refus('Invite au moins un compagnon d’abord.');
+      if (terr === 'cimes') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_CIMES) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_CIMES}.`); }   // v96
       if (terr === 'brisees') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_FAILLE) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_FAILLE}.`); }   // v87
       for (const sid of g.membres) { const k = this.joueurs.get(sid); if (!k?.p || k.p.expedition || k.duel || k.manche) return refus(`${k?.nom || 'Un membre'} n’est pas prêt.`); if (palier > (k.p.paliers[terr] || 1)) return refus(`${k.nom} n’a pas encore débloqué ce palier.`); }
       const graine = Math.floor(Math.random() * 2 ** 31);
@@ -272,6 +295,7 @@ export class ClansRoom extends Room {
       c.send('areneFile', { en: true, depuis: this.file.find((f) => f.sid === c.sessionId).t });
     });
     sur('areneClassement', (c, m, j) => c.send('areneClassement', classementArene(empreinte(j.jeton))));
+    sur('tourClassement', (c, m, j) => c.send('tourClassement', classementTour(empreinte(j.jeton))));   // v92
 
     this.setSimulationInterval(() => this.envoyer(), 125);
   }
@@ -619,17 +643,23 @@ export class ClansRoom extends Room {
     }
   }
   lancerMondial() {
-    const terr = ['feu', 'eau', 'plante'][this.nMondial++ % 3], [cx, cy] = CENTRES[terr];
-    let x = cx, y = cy + 300;
+    // v90 : un tour sur quatre dans les Terres Brisées, s'il y a quelqu'un d'assez fort pour y aller
+    // v96 : les Cimes (1 tour sur 5) seulement si quelqu'un de niveau 50+ est là ; la Faille, de niveau 30+
+    const nivMax = Math.max(0, ...[...this.joueurs.values()].map((k) => k.niv || 1));
+    let terr = ['feu', 'eau', 'plante', 'brisees', 'cimes'][this.nMondial++ % 5];
+    if ((terr === 'brisees' && nivMax < NIV_FAILLE) || (terr === 'cimes' && nivMax < NIV_CIMES)) terr = ['feu', 'eau', 'plante'][this.nMondial++ % 3];
+    const neutre = terr === 'brisees' || terr === 'cimes', dedans = terr === 'cimes' ? dansCimes : dansFaille;
+    const [cx, cy] = terr === 'cimes' ? CENTRE_CIMES : terr === 'brisees' ? CENTRE_FAILLE : CENTRES[terr];
+    let x = cx, y = cy + (neutre ? 180 : 300);
     for (let essai = 0; essai < 300; essai++) {
-      const a = Math.random() * Math.PI * 2, d = 420 + Math.random() * 380, px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
-      if (territoireDe(px, py) !== terr || ![[0, 0], [40, 0], [-40, 0], [0, 40], [0, -30]].every(([dx, dy]) => praticable(px + dx, py + dy, this.obs))) continue;
+      const a = Math.random() * Math.PI * 2, d = neutre ? 160 + Math.random() * 260 : 420 + Math.random() * 380, px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
+      if ((neutre ? !dedans(px, py - 40) || !dedans(px - 40, py) || py > GEO.h - 60 || px > GEO.l - 60 : territoireDe(px, py) !== terr) || ![[0, 0], [40, 0], [-40, 0], [0, 40], [0, -30]].every(([dx, dy]) => praticable(px + dx, py + dy, this.obs))) continue;
       x = Math.round(px); y = Math.round(py); break;
     }
     const pvMax = +process.env.CLANS_BOSS_PV || pvMondial(this.clients.length);
     this.mondial = { id: `m${this.nMondial}`, terr, x, y, pv: pvMax, pvMax, fin: Date.now() + MONDIAL.duree, participants: new Map() };
     this.broadcast('mondial', this.etatMondial());
-    this.broadcast('chat', { systeme: true, t: `⚠️ Un boss mondial apparaît dans les ${terr === 'feu' ? 'Terres de Braise' : terr === 'eau' ? "Lagons d'Azur" : "Sylve d'Émeraude"} : ${BOSS_MONDIAUX[terr].nom} (${pvMax} PV) ! Tous les clans peuvent l'affronter.` });
+    this.broadcast('chat', { systeme: true, t: `⚠️ Un boss mondial apparaît dans ${LIEU_MONDIAL[terr]} : ${BOSS_MONDIAUX[terr].nom} (${pvMax} PV) ! Tous les clans peuvent l'affronter.` });
   }
   victoireMondial() {
     const b = this.mondial, liste = [...b.participants.values()].sort((u, v) => v.deg - u.deg), total = liste.reduce((s, u) => s + u.deg, 0);
@@ -646,7 +676,7 @@ export class ClansRoom extends Room {
   // 8 fois par seconde : les joueurs proches de lui (positions, en nombres) ;
   // 1 fois par seconde : tout le monde, pour la mini-carte et la liste des clans ;
   // nom, clan, niveau… : seulement quand ça change.
-  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '', j.maison === j.nom ? '' : j.maison || '', j.mont || '', j.deco || '', j.branche || '']; }
+  infosDe(id, j) { return [j.n, id, j.nom, j.clan, j.niv, j.classe, j.parcelle || 111, j.app || '', j.fam || '', j.titre || '', j.maison === j.nom ? '' : j.maison || '', j.mont || '', j.deco || '', j.branche || '', pidDe(j.jeton)]; }
   envoyer() {
     if (!this.clients.length) return;
     this.tick = (this.tick || 0) + 1;

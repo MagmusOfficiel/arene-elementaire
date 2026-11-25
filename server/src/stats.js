@@ -211,6 +211,33 @@ export function classementArene(id) {
   return { saison: a.saison, fin: a.fin, top: l.slice(0, 20).map(([, e]) => ({ nom: e.nom, clan: e.clan, classe: e.classe, elo: e.elo, v: e.v, d: e.d })), rang, total: l.length, palmares: (data.clansArenePalmares || []).slice(0, 3) };
 }
 
+// ---------- Les Clans Élémentaires : le classement de la Tour infinie (v92, un mois) ----------
+// joueurs : { id (empreinte du jeton) : { nom, clan, classe, etage, t (quand il l'a atteint) } }
+function saisonTour() {
+  const s = saisonArn();
+  let a = data.clansTour;
+  if (!a || a.saison !== s.id) {
+    if (a && Object.keys(a.joueurs || {}).length) {
+      const top = Object.values(a.joueurs).sort((x, y) => y.etage - x.etage || x.t - y.t).slice(0, 3).map(({ nom, clan, etage }) => ({ nom, clan, etage }));
+      (data.clansTourPalmares ||= []).unshift({ saison: a.saison, top }); data.clansTourPalmares.length = Math.min(data.clansTourPalmares.length, 6);
+    }
+    a = data.clansTour = { saison: s.id, fin: s.fin, joueurs: {} }; dirty = true;
+  }
+  return a;
+}
+export function tourEnregistrer(id, e) {
+  const a = saisonTour(), v = a.joueurs[id];
+  if (v && v.etage >= e.etage) { v.nom = e.nom; return; }
+  a.joueurs[id] = { nom: e.nom, clan: e.clan, classe: e.classe, etage: e.etage, t: Date.now() }; dirty = true;
+  const l = Object.entries(a.joueurs); if (l.length > 600) a.joueurs = Object.fromEntries(l.sort((x, y) => y[1].etage - x[1].etage).slice(0, 500));
+}
+// à égalité d'étage, le premier arrivé passe devant
+export function classementTour(id) {
+  const a = saisonTour(), l = Object.entries(a.joueurs).sort((x, y) => y[1].etage - x[1].etage || x[1].t - y[1].t);
+  const rang = id ? l.findIndex(([k]) => k === id) + 1 : 0;
+  return { saison: a.saison, fin: a.fin, top: l.slice(0, 20).map(([, e]) => ({ nom: e.nom, clan: e.clan, classe: e.classe, etage: e.etage })), rang, total: l.length, palmares: (data.clansTourPalmares || []).slice(0, 3) };
+}
+
 // ---------- Les Clans Élémentaires : statistiques d'équilibrage (compteurs, quelques Ko) ----------
 export function equilibrage() {
   const E = (data.clansEquilibrage ||= {});

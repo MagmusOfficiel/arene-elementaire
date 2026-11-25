@@ -37,7 +37,7 @@ export function majCloche(lu = false) {
   if (lu) nonLus = 0;
   const el = $('pastilleN'); if (el) { el.textContent = nonLus; el.classList.toggle('cache', !nonLus); }
 }
-export const ILLUS = new Set([...'gd_egide gd_represailles gd_bastion gd_serment gd_mur gd_jugement bs_entaille bs_soif bs_frenesie bs_hurlement bs_carnage am_prisme am_flux am_tempete am_canalisation am_singularite am_grimoire iv_lien iv_morsure iv_meute iv_totem iv_pacte iv_colosse sn_marque sn_precis sn_perforant sn_patience sn_balle sn_pluie af_grenade af_mine af_tourelle af_fumigene af_barrage af_dynamite du_feinte du_riposte du_ballet bs_fureur du_mille du_grace om_poison om_voile om_assassinat om_brume om_execution om_nuee du_elan miroir echo brasier_vif loup_spectral golem_pierre esprit_faille dragonnet'.split(' '), 'lance_magma', 'dragon', 'coeur_volcan', 'leviathan', 'ocean', 'arbre_monde', 'coeur_phenix', 'perle_abysses', 'trident', 'seve_doree', 'titan', 'archimage', 'fleche_lourde', 'maitre_armes', 'colere', 'couronne',
+export const ILLUS = new Set([...'gd_egide gd_represailles gd_bastion gd_serment gd_mur gd_jugement bs_entaille bs_soif bs_frenesie bs_hurlement bs_carnage am_prisme am_flux am_tempete am_canalisation am_singularite am_grimoire iv_lien iv_morsure iv_meute iv_totem iv_pacte iv_colosse sn_marque sn_precis sn_perforant sn_patience sn_balle sn_pluie af_grenade af_mine af_tourelle af_fumigene af_barrage af_dynamite du_feinte du_riposte du_ballet bs_fureur du_mille du_grace om_poison om_voile om_assassinat om_brume om_execution om_nuee du_elan miroir echo brasier_vif loup_spectral golem_pierre esprit_faille dragonnet chaine_eclairs oeil_tempete marteau_tonnerre avatar_tempete'.split(' '), 'lance_magma', 'dragon', 'coeur_volcan', 'leviathan', 'ocean', 'arbre_monde', 'coeur_phenix', 'perle_abysses', 'trident', 'seve_doree', 'titan', 'archimage', 'fleche_lourde', 'maitre_armes', 'colere', 'couronne',
   'reflexion', 'souffle_vif', 'grimoire_infini', 'flammes_jumelles', 'estocade_vive', 'carquois', 'reflet', 'plan_bataille', 'germination', 'bouture', 'courant', 'reflux',
   'frappe', 'garde', 'coup_double', 'second_souffle', 'etincelle', 'flamme', 'tison', 'cendres', 'boule_de_feu',
   'incendie', 'combustion', 'phenix', 'meteore', 'jet', 'vague', 'bulle', 'maree', 'tsunami',
@@ -46,7 +46,7 @@ export const ILLUS = new Set([...'gd_egide gd_represailles gd_bastion gd_serment
   'cri_guerre', 'second_vent', 'forteresse', 'execution', 'eclair_arcanique', 'bouclier_arcanique', 'missiles', 'meditation', 'torrent', 'nova',
   'savoir', 'transmutation', 'rayon', 'tir', 'piege', 'tir_rapide', 'volee', 'fleche_poison', 'repli', 'pluie_fleches',
   'oeil_faucon', 'tir_precis', 'estoc', 'parade', 'botte', 'fente', 'garde_haute', 'elan', 'danse_lames', 'coup_grace', 'concentration', 'rage_ardente', 'feinte', 'coup_bouclier']);
-export const ILLUS_MONSTRES = new Set(['coeur_faille', 'hydre_fusion', 'archonte_vide', 'neant_originel', 'golem_vapeur', 'liane_ardente', 'spectre_brume', 'chimere_faille', 'eclat_vivant', 'rodeur_abime', 'tisseuse_vide', 'prisme', 'colosse_fusion', 'sentinelle_brisee', 'seigneur_magma', 'hydre', 'reine_epine', 'salamandre', 'diablotin', 'golem_cendre', 'feu_follet', 'phenix_cendre', 'chimere', 'crabe', 'meduse', 'sirene', 'anguille', 'tortue_dragon', 'kraken', 'champignon', 'loup_ronces', 'treant', 'guepe', 'cerf_emeraude', 'mante', 'titan_magma', 'leviathan_abyssal', 'ancien_sylvain',
+export const ILLUS_MONSTRES = new Set(['esprit_aurore', 'dragon_givre', 'reine_blizzard', 'oeil_cyclone', 'colosse_orage', 'harpie_orage', 'golem_givre', 'loup_blizzard', 'elementaire_foudre', 'yeti', 'wyverne_glace', 'chamane_tempete', 'oiseau_tonnerre', 'geant_givre', 'roi_tempetes', 'gardien_neant', 'coeur_faille', 'hydre_fusion', 'archonte_vide', 'neant_originel', 'golem_vapeur', 'liane_ardente', 'spectre_brume', 'chimere_faille', 'eclat_vivant', 'rodeur_abime', 'tisseuse_vide', 'prisme', 'colosse_fusion', 'sentinelle_brisee', 'seigneur_magma', 'hydre', 'reine_epine', 'salamandre', 'diablotin', 'golem_cendre', 'feu_follet', 'phenix_cendre', 'chimere', 'crabe', 'meduse', 'sirene', 'anguille', 'tortue_dragon', 'kraken', 'champignon', 'loup_ronces', 'treant', 'guepe', 'cerf_emeraude', 'mante', 'titan_magma', 'leviathan_abyssal', 'ancien_sylvain',
   'scarabee_braise', 'chaman_braise', 'chauve_souris', 'djinn', 'golem_obsidienne', 'roi_scorpion', 'grenouille', 'pretresse_ecume', 'requin',
   'esprit_marees', 'crocodile', 'reine_corail', 'araignee', 'druide_fou', 'sanglier', 'grand_duc', 'ours_ronces', 'colosse_racines']);
 // les mots-clés des cartes sont soulignés et expliqués au survol (v61)
@@ -83,3 +83,13 @@ export const setRoom = (v) => (room = v);
 export const setMonId = (v) => (monId = v);
 export const setCombat = (v) => (combat = v);
 export const setCarteChoisie = (v) => (carteChoisie = v);
+
+// v94 : on charge en douce, quand le navigateur ne fait rien, les images dont on aura bientôt besoin
+// (les cartes du deck, les monstres de sa terre) : le premier combat s'affiche d'un coup.
+const dejaPre = new Set();
+export function precharger(urls) {
+  const file = urls.filter((u) => !dejaPre.has(u)); file.forEach((u) => dejaPre.add(u));
+  const suivant = () => { const u = file.shift(); if (!u) return; const im = new Image(); im.decoding = 'async'; im.onload = im.onerror = () => attendre(suivant); im.src = u; };
+  const attendre = (f) => (globalThis.requestIdleCallback ? requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 200));
+  attendre(suivant); attendre(suivant);   // deux à la fois
+}

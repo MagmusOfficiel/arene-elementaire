@@ -114,6 +114,7 @@ app.post('/api/clans/supprimer', async (req, res) => {
   try { res.json({ ok: await supprimerProfilClans(jeton, cle) }); } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 app.get('/health', (_req, res) => res.send('ok'));
+app.get('/api/ping', (_req, res) => res.type('text').send('ok'));   // v94 : pour garder le serveur éveillé
 app.get('/api/version', (_req, res) => res.json({ version: VERSION_JEU, sauvegarde: persistance }));
 // les anciennes adresses des Clans (/clans/) mènent à la page d'accueil
 app.get(['/clans', '/clans/', '/clans/index.html'], (_req, res) => res.redirect(301, '/'));
@@ -159,14 +160,22 @@ if (fs.existsSync(dist)) {
   app.use(express.static(dist, { setHeaders: (res, f) => res.set('Cache-Control', cacheDe(f)) }));
 }
 // Cache navigateur : les fichiers de assets/ ont une empreinte dans leur nom (ils ne changent jamais),
-// la page d'accueil est toujours revérifiée, le reste (images, sons) est gardé 10 minutes.
+// la page d'accueil est toujours revérifiée ; v94 : les images et polices sont gardées 7 jours
+// (et resservies tout de suite pendant qu'on vérifie s'il y a du neuf), le reste 10 minutes.
 function cacheDe(chemin) {
   const c = chemin.replace(/\\/g, '/');
   if (c.includes('/assets/')) return 'public, max-age=31536000, immutable';
   if (c.endsWith('.html') || c.endsWith('/') || c.endsWith('config.js')) return 'no-cache';
+  if (/\.(webp|png|jpg|woff2|ogg|mp3)$/.test(c)) return 'public, max-age=604800, stale-while-revalidate=86400';
   return 'public, max-age=600';
 }
 
+// v94 : Render (offre gratuite) endort le serveur après 15 min sans visite, et le réveil prend 30 à 50 s.
+// Le serveur s'appelle lui-même par son adresse publique toutes les 10 min pour rester éveillé
+// (RENDER_EXTERNAL_URL est fourni par Render ; RESTER_EVEILLE=0 pour couper).
+if (process.env.RENDER_EXTERNAL_URL && process.env.RESTER_EVEILLE !== '0') {
+  setInterval(() => { fetch(`${process.env.RENDER_EXTERNAL_URL}/api/ping`).catch(() => {}); }, 10 * 60e3).unref();
+}
 const httpServer = http.createServer(app);
 const gameServer = new colyseus.Server({ transport: new WebSocketTransport({ server: httpServer }) });
 gameServer.define('clans', ClansRoom);   // Les Clans Élémentaires : le monde partagé

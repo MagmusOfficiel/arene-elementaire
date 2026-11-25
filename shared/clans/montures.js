@@ -6,6 +6,7 @@
 //  et les ressources rares pour les plus belles.
 // =====================================================================
 import { niveau } from './profil.js';
+import { histoireFaille, histoireCimes, amiDe } from './quetesPnj.js';
 
 // vit : multiplicateur de vitesse sur la carte ; niv : niveau de compte requis
 export const MONTURES = {
@@ -18,6 +19,12 @@ export const MONTURES = {
   loup: { nom: 'Loup spectral', ico: '🐺', vit: 1.5, niv: 1, desc: 'Il a suivi ton retour du Cauchemar.', gagnee: { txt: 'Bats un boss d’expédition en Cauchemar.', test: (p) => (p.stats?.cauchemar || 0) >= 1 } },
   phenix: { nom: 'Phénix doré', ico: '🦅', vit: 1.65, niv: 1, desc: 'L’oiseau des champions. Il ne touche jamais le sol.', gagnee: { txt: 'Atteins le rang Platine (1 400 Elo) en arène classée.', test: (p) => Math.max(p.stats?.areneMax || 0, p.arene?.meilleur || 0) >= 1400 } },
 };
+// v96 : une monture par chapitre, gagnée dans l'histoire
+MONTURES.lynx_vide = { nom: 'Lynx du vide', ico: '🐈‍⬛', vit: 1.6, niv: 1, desc: 'Né de la Faille. Il marche sans bruit, même sur les cristaux.', gagnee: { txt: 'Abats le Cœur de la Faille (4e partie de l’histoire des Terres Brisées).', test: (p) => histoireFaille(p) >= 4 } };
+MONTURES.griffon = { nom: 'Griffon des tempêtes', ico: '🦅', vit: 1.75, niv: 1, desc: 'Il a grandi dans l’Œil du Cyclone. Le plus rapide de tous.', gagnee: { txt: 'Termine l’histoire des Cimes Orageuses (ferme l’Œil du Cyclone).', test: (p) => histoireCimes(p) >= 5 } };
+// v97 : le Chapitre 1 et la Tour infinie ont aussi la leur
+MONTURES.kirin = { nom: 'Kirin des trois clans', ico: '🦄', vit: 1.55, niv: 1, desc: 'Braise, lagon et sève : il porte les trois villages sur son dos.', gagnee: { txt: 'Deviens « Ami » des trois villages (les 18 quêtes des habitants du Chapitre 1).', test: (p) => ['feu', 'eau', 'plante'].every((c) => amiDe(p, c)) } };
+MONTURES.wyrm_tour = { nom: 'Wyrm de la Tour', ico: '🐲', vit: 1.7, niv: 1, desc: 'Il dormait au sommet de la Tour. Il t’a attendu cent étages.', gagnee: { txt: 'Atteins l’étage 100 de la Tour infinie.', test: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) >= 100 } };
 export const IDS = Object.keys(MONTURES);
 export const valide = (id) => typeof id === 'string' && Object.hasOwn(MONTURES, id);
 export const gagnees = (p) => IDS.filter((id) => MONTURES[id].gagnee?.test(p || {}));

@@ -13,7 +13,7 @@ import * as Q from '../../../shared/clans/quetes.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { sfx } from '../sfx.js';
 import { lancerMondial, majMondial, recompenseMondiale } from './ui-combat.js';
-import { $, CLE, ICO_RESS, SERVER_URL, compte, esc, monId, nf, niveau, p, pause, room, setMonId, setP, setRoom, toast } from './ui-commun.js';
+import { $, CLE, ICO_RESS, ILLUS, ILLUS_MONSTRES, precharger, SERVER_URL, compte, esc, monId, nf, niveau, p, pause, room, setMonId, setP, setRoom, toast } from './ui-commun.js';
 import { afficherDuel, fermerDuel, finDuel } from './ui-duel.js';
 import { dansMonde, ecranClan, entrerMonde, majBarre, monde } from './ui-monde.js';
 import { majProjets } from './ui-projets.js';
@@ -51,7 +51,7 @@ export function recevoirProfil(m) {
   clearTimeout(minuteur); minuteur = setTimeout(() => compte.sauvegarder(), 2000);
   if (p) { majBarre(); monde.majApparence(AP.code(p)); monde.majFamilier(F.actif(p)); monde.majTitre(HF.nomTitre(HF.titreDe(p)), HF.titreDe(p)); monde.majNom(p.nom, cleMaison(p)); monde.majMonture(MT.actif(p)); monde.majDeco(DC.code(p), p.branche); if (dansMonde) monde.majMaParcelle(p.parcelle); }
   if (p && avant) annoncerQuetes(avant);
-  if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); suivreMontures(); }
+  if (p) { suivrePasse(); suivreHautsFaits(); suivreAscension(); suivreMontures(); import('./ui-amis.js').then((m) => m.proposerCadeau()); prechargerUtile(); }
   if (p && nivAvant != null && m.p && P.niveau(p) > nivAvant && dansMonde) feteNiveau(P.niveau(p));
   if (p) { const n = GR.aReclamer(p); if (grAvant != null && n > grAvant) { sfx.niveau(); toast('📚 Le Grimoire a une récompense pour toi ! (menu ☰ → Grimoire)'); } majPastilleG(); }
   if (p && gagneesAvant) for (const id of piecesGagnees()) if (!gagneesAvant.has(id)) { sfx.fanfare(); toast(`🎨 Nouvelle apparence débloquée : <b>${esc(AP.PIECES[id].nom)}</b> ! (bouton 👕)`); }
@@ -132,6 +132,7 @@ export function brancher(room) {
     room.onMessage('fiche', (f) => fenetreFiche(f));
     room.onMessage('alerte', alerteSanctuaire);
     room.onMessage('areneFile', (m) => { setEnFile(m.en ? m.depuis : null); majBandeauArene(); if (vueFenetre() === 'arene') fenetreArene(false); });
+    room.onMessage('tourClassement', (c) => import('./ui-tour.js').then((m) => m.recevoirClassement(c)));   // v92
     room.onMessage('areneClassement', (c) => { setClassArene(c); if (vueFenetre() === 'arene') fenetreArene(false); });
     room.onLeave((code) => {
       const jeton = room.reconnectionToken;
@@ -165,7 +166,7 @@ export const infosJ = new Map(), posJ = new Map();
 export let presents = new Set();
 export function listeJoueurs() {
   const l = [];
-  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '', i[10] || '', i[11] || '', i[12] || '', i[13] || '']); }
+  for (const n of presents) { const i = infosJ.get(n), q = posJ.get(n); if (i && q) l.push([i[1], i[2], i[3], q.x, q.y, q.dir, ETATS_JOUEUR[q.s] || 'libre', i[4], i[5], i[6], i[7] || '', i[8] || '', i[9] || '', i[10] || '', i[11] || '', i[12] || '', i[13] || '', i[14] || '']); }
   return l;
 }
 export function listeEnLigne(liste) {
@@ -180,13 +181,28 @@ export let canal = 'tous';
 document.querySelectorAll('#chatOnglets button').forEach((b) => b.onclick = () => { canal = b.dataset.c; document.querySelectorAll('#chatOnglets button').forEach((x) => x.classList.toggle('actif', x === b)); });
 export function ajouterChat(m) {
   const d = document.createElement('p');
-  d.innerHTML = m.systeme ? `<span class="sys">${esc(m.t)}</span>` : `${m.canal === 'clan' ? '<small>[clan]</small> ' : ''}<b class="n ${m.clan}">${esc(m.de)}</b> : ${esc(m.t)}`;
+  d.innerHTML = m.systeme ? `<span class="sys">${esc(m.t)}</span>` : (m.canal === 'mp' ? `<span class="mp"><small>[privé${m.de === p?.nom ? ` → ${esc(m.a)}` : ''}]</small> <b class="n ${m.clan}">${esc(m.de)}</b> : ${esc(m.t)}</span>` : `${m.canal === 'clan' ? '<small>[clan]</small> ' : ''}<b class="n ${m.clan}">${esc(m.de)}</b> : ${esc(m.t)}`);
   $('chatMsgs').append(d); $('chatMsgs').scrollTop = 1e6;
   while ($('chatMsgs').children.length > 60) $('chatMsgs').firstChild.remove();
 }
 $('chatTexte').addEventListener('keydown', (e) => {
   e.stopPropagation();
-  if (e.key === 'Enter') { const t = $('chatTexte').value.trim(); if (t && room) room.send('chat', { t, canal }); $('chatTexte').value = ''; $('chatTexte').blur(); }
+  if (e.key === 'Enter') {
+    const t = $('chatTexte').value.trim(), mp = /^@(\S+)\s+(.+)$/.exec(t);   // v93 : « @pseudo message » = message privé
+    if (t && room) room.send('chat', mp ? { t: mp[2], canal: 'mp', a: mp[1] } : { t, canal });
+    $('chatTexte').value = ''; $('chatTexte').blur();
+  }
   if (e.key === 'Escape') $('chatTexte').blur();
 });
 addEventListener('keydown', (e) => { if (e.key === 'Enter' && !$('ecranMonde').classList.contains('cache') && document.activeElement !== $('chatTexte') && $('fenetre').classList.contains('cache')) { $('chatTexte').focus(); e.preventDefault(); } });
+
+// v94 : les images du deck et des monstres de sa terre, chargées pendant qu'on se promène
+let preFait = false;
+function prechargerUtile() {
+  if (preFait || !p) return; preFait = true;
+  const B = import.meta.env.BASE_URL;
+  import('../../../shared/clans/monstres.js').then(({ tousDe }) => precharger([
+    ...[...new Set(p.deck)].filter((id) => ILLUS.has(id)).map((id) => `${B}clans/cartes/${id}.webp`),
+    ...tousDe(p.clan).map((m) => m.id).filter((id) => ILLUS_MONSTRES.has(id)).map((id) => `${B}clans/monstres/${id}.webp`),
+  ]));
+}

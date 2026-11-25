@@ -78,6 +78,12 @@ const ART = {
   raie: { pal: { B: '#3aa0d8', b: '#1a5a8a', c: '#8ad8f8', k: '#0a1a2a', t: '#1a5a8a', g: '#bff0ff' }, poses: [[...RAIE_A, ...BULLES_A], [...RAIE_B, ...BULLES_B]], selle: 9, flotte: true },
   loup: { pal: { B: '#9ad8ff', b: '#4a8ac8', e: '#d8f4ff', k: '#ffffff', d: '#1a3a6a', w: '#e8f8ff', g: '#bff0ff' }, poses: [[...LOUP, ...PAS], [...LOUP, ...GALOP]], selle: 6, lueur: 'rgba(150,220,255,.18)' },
   phenix: { pal: { R: '#e8402a', O: '#ffb030', Y: '#fff0a0', y: '#ffc040', k: '#2a0a0a', t: '#ff7a20', T: '#ffd040' }, poses: [[...PHENIX_A, ...ETINCELLES_A], [...PHENIX_B, ...ETINCELLES_B]], selle: 9, flotte: true, lueur: 'rgba(255,190,80,.2)' },
+  // v96 : le Lynx du vide (Chapitre 2) et le Griffon des tempêtes (Chapitre 3)
+  lynx_vide: { pal: { B: '#4a2a8a', b: '#2a1450', e: '#c8a0ff', k: '#80e0ff', d: '#1a0a30', w: '#8a60e0', g: '#e0c8ff' }, poses: [[...LOUP, ...PAS], [...LOUP, ...GALOP]], selle: 6, lueur: 'rgba(160,110,255,.2)' },
+  griffon: { pal: { R: '#e8f0f8', O: '#8ab8e0', Y: '#ffffff', y: '#ffe060', k: '#1a3050', t: '#4a90d8', T: '#ffe060' }, poses: [[...PHENIX_A, ...ETINCELLES_A], [...PHENIX_B, ...ETINCELLES_B]], selle: 9, flotte: true, lueur: 'rgba(140,200,255,.2)' },
+  // v97 : le Kirin (Chapitre 1, aux couleurs des trois clans) et le Wyrm de la Tour (étage 100)
+  kirin: { pal: { B: '#f2ead8', b: '#c8b890', d: '#3a2414', a: '#ff8a30', t: '#40b8e8', k: '#2a8a3a' }, poses: [[...CERF, ...PAS], [...CERF, ...GALOP]], selle: 6, lueur: 'rgba(255,220,150,.18)' },
+  wyrm_tour: { pal: { R: '#e8c050', o: '#fff4c0', w: '#6a3ab0', h: '#ffffff', d: '#3a2a0a', k: '#80f0ff', t: '#e8c050' }, poses: [[...DRAGON, ...PAS.map((l) => l.replace(/b/g, 'R'))], [...DRAGON, ...GALOP.map((l) => l.replace(/b/g, 'R'))]], selle: 6, lueur: 'rgba(255,220,120,.22)' },
   dragon: { pal: { R: '#c8342a', o: '#ffc040', w: '#7a1a3a', h: '#f4e0b0', d: '#2a0a0a', k: '#ffe060', t: '#c8342a' }, poses: [[...DRAGON, ...PAS.map((l) => l.replace(/b/g, 'R'))], [...DRAGON, ...GALOP.map((l) => l.replace(/b/g, 'R'))]], selle: 6 },
 };
 export const selleDe = (id) => ART[id]?.selle ?? 6;

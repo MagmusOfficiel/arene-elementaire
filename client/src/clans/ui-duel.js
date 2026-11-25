@@ -8,7 +8,7 @@ import * as AP from '../../../shared/clans/apparence.js';
 import { decor, ambiance, creerFx, PALETTES } from './scene.js';
 import { sfx } from '../sfx.js';
 import { banniere, defausserMain, dessinerSprite, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler } from './ui-combat.js';
-import { $, ICO_RESS, carteHTML, centre, esc, nf, p, pause, room, statutsHTML, toast } from './ui-commun.js';
+import { $, ICO_RESS, ILLUS, carteHTML, centre, esc, nf, p, pause, room, statutsHTML, toast } from './ui-commun.js';
 import { etourdir, fermer, monde, ouvrir } from './ui-monde.js';
 import { finArene } from './ui-social.js';
 
@@ -42,7 +42,7 @@ export function afficherDuel(v) {
     majJauge($('duHeros').querySelector('.jauge'), m.pv, m.pvMax, m.bloc);
     majJauge(advDu().querySelector('.jauge'), a.pv, a.pvMax, a.bloc);
     // v87 : l'invocation de chacun, sous ses statuts
-    const inv = (x) => (x.allie ? `<span class="invDuel" title="Encaisse les coups et frappe à chaque tour">${x.allie.ico} ${esc(x.allie.nom)} ${x.allie.pv}/${x.allie.pvMax} · ⚔ ${x.allie.deg}</span>` : '');
+    const inv = (x) => (x.allie ? `<span class="invDuel" title="Encaisse les coups et frappe à chaque tour">${x.allie.img && ILLUS.has(x.allie.img) ? `<i class="invPortrait" style="background-image:url(${import.meta.env.BASE_URL}clans/cartes/${x.allie.img}.webp)"></i>` : x.allie.ico} ${esc(x.allie.nom)} ${x.allie.pv}/${x.allie.pvMax} · ⚔ ${x.allie.deg}</span>` : '');
     $('duStatuts').innerHTML = statutsHTML(m) + inv(m); advDu().querySelector('.statuts').innerHTML = statutsHTML(a) + inv(a);
   };
   montrer();

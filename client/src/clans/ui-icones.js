@@ -10,6 +10,7 @@ export const NOMS_RESS = {
   essence: 'Essence', eclats: 'Éclats', braises: 'Braises (Feu)', perles: 'Perles (Eau)', seve: 'Sève (Plante)',
   cristal: 'Cristal de lave (rare, Feu)', perle_noire: 'Perle noire (rare, Eau)', graine_or: 'Graine d’or (rare, Plante)',
   fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (rare, Terres Brisées)',
+  plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (rare, Cimes Orageuses)',
 };
 const SYMBOLES = `
 <symbol id="ir-essence" viewBox="0 0 24 24">
@@ -77,6 +78,15 @@ const SYMBOLES = `
   <path d="M12 2.5l6 9.5-6 9.5-6-9.5z" fill="url(#ir-g-vide)" stroke="#1a0e3a" stroke-width="1.1"/>
   <path d="M12 2.5v19M6 12h12" stroke="#e8f4ff" stroke-width=".7" opacity=".6"/>
   <path d="M19.5 3.5l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z" fill="#d0c0ff"/>
+</symbol>
+<symbol id="ir-plumes" viewBox="0 0 24 24">
+  <path d="M6 20c2-7 6-12 13-15-2 6-5 11-11 14z" fill="#9ac8f0" stroke="#1a3050" stroke-width="1.1"/>
+  <path d="M6 20l9-11" stroke="#e8f6ff" stroke-width="1"/>
+  <path d="M14 4l-2 4 3 0-2 4" stroke="#ffe040" stroke-width="1.3" fill="none"/>
+</symbol>
+<symbol id="ir-cristal_foudre" viewBox="0 0 24 24">
+  <path d="M12 2l5 7-5 13-5-13z" fill="#5aa8ff" stroke="#0e2440" stroke-width="1.1"/>
+  <path d="M13 6l-3 6h3l-2 6 5-8h-3l2-4z" fill="#fff08a" stroke="#c89a10" stroke-width=".6"/>
 </symbol>`;
 // le sprite, posé une seule fois dans la page
 if (typeof document !== 'undefined' && !document.getElementById('spriteRess')) {

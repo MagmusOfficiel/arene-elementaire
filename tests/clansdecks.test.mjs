@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as P from '../shared/clans/profil.js';
+import { CARTES } from '../shared/clans/cartes.js';
 import * as X from '../shared/clans/expedition.js';
 import { ACTIONS } from '../server/src/clansProfils.js';
 
@@ -13,7 +14,7 @@ test('decks : trois emplacements, l’actif est le deck joué', () => {
   // un emplacement vide commence comme une copie
   assert.ok(ACTIONS.deckChoisir(p, { i: 1 }).ok); assert.deepEqual(p.deck, d0); assert.equal(P.emplacements(p).actif, 1);
   // on modifie le deck 2, puis on revient au 1 : chacun garde ses cartes
-  const id = p.deck[0]; assert.ok(P.retirerDuDeck(p, id).ok); const d1 = [...p.deck];
+  const id = Object.keys(CARTES).find((k) => CARTES[k].element === 'feu' && !CARTES[k].classe && !CARTES[k].exclusif && !p.deck.includes(k)); p.collection[id] = { n: 1, niv: 1 }; assert.ok(P.ajouterAuDeck(p, id).ok); const d1 = [...p.deck];
   assert.ok(ACTIONS.deckChoisir(p, { i: 0 }).ok); assert.deepEqual(p.deck, d0);
   assert.ok(ACTIONS.deckChoisir(p, { i: 1 }).ok); assert.deepEqual(p.deck, d1);
   assert.equal(ACTIONS.deckChoisir(p, { i: 7 }).ok, false); assert.equal(ACTIONS.deckChoisir(p, { i: '1' }).ok, false);

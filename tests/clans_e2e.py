@@ -54,7 +54,7 @@ def page(b, nom, mobile=False):
     vp = {'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 760}
     ctx = b.new_context(viewport=vp, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     pg = ctx.new_page(); pg.nom = nom
-    pg.add_init_script('globalThis.__marchandToujours = true')   # v74 : le marchand ne passe plus qu’une heure sur trois
+    pg.add_init_script('globalThis.__marchandToujours = true; globalThis.__pasDeCadeau = true; globalThis.__pasDeTuto = true')   # v74 : le marchand ne passe plus qu’une heure sur trois ; v93 : pas de cadeau du jour qui s’ouvre tout seul
     pg.on('pageerror', lambda e: erreurs_js.append(f'{nom} : {e}'))
     pg.on('dialog', lambda d: d.accept())
     return pg
@@ -128,7 +128,7 @@ def scenario(b):
     A.click('#btDeck'); A.wait_for_selector('[data-deck="1"]', timeout=5000)
     d0 = etat(A, 'p.deck.length')
     A.click('[data-deck="1"]'); A.wait_for_function('__clans.p.decks?.actif === 1', timeout=8000)
-    A.locator('[data-r]').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0 - 1}', timeout=8000)
+    A.locator('[data-a]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0 + 1}', timeout=8000)   # v91 : 20 cartes au moins, on en ajoute une
     A.click('[data-deck="0"]'); A.wait_for_function(f'__clans.p.decks.actif === 0 && __clans.p.deck.length === {d0}', timeout=8000)
     verifier(True, 'deux decks différents, on passe de l’un à l’autre en un clic')
     A.click('[data-ren="0"]'); A.fill('.champDeck', 'Mon deck test'); A.keyboard.press('Enter')
@@ -138,9 +138,9 @@ def scenario(b):
     etape('Deck : retirer, ajouter, améliorer')
     A.wait_for_timeout(400)
     d0 = etat(A, 'p.deck.length')
-    A.locator('[data-r]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0 - 1}', timeout=8000)
+    A.locator('[data-a]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0 + 1}', timeout=8000)
+    A.wait_for_timeout(300); A.locator('[data-r]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0}', timeout=8000)
     verifier(True, 'une carte retirée du deck (bug de la v43 corrigé)')
-    A.wait_for_timeout(300); A.locator('[data-a]:not([disabled])').first.click(); A.wait_for_function(f'__clans.p.deck.length === {d0}', timeout=8000)
     verifier(True, 'une carte ajoutée au deck')
     A.wait_for_timeout(300)
     up = A.locator('[data-u]:not([disabled])').first

@@ -902,3 +902,68 @@ kbd { display: inline-block; min-width: 18px; text-align: center; font: bold 11p
 @keyframes titreLueur { 50% { filter: drop-shadow(0 0 6px var(--tl)); } }
 .titreBadge.deco-sang { text-shadow: 0 1px 0 #000, 0 0 6px #ff2a1a; background-image: linear-gradient(var(--tf1), var(--tf2)), radial-gradient(circle at 20% 100%, #c01a10 2px, transparent 3px); }
 .titreFi { margin: 4px 0 0; }
+
+/* v91 : la Tour infinie */
+.tour h2 small { font-size: 14px; color: #c8b8e8; font-weight: 600; }
+.tour .sousTitre { max-width: 720px; }
+.tourCorps { display: flex; gap: 18px; align-items: flex-start; }
+.tourFrise { display: flex; flex-direction: column; gap: 4px; min-width: 96px; padding: 8px; border-radius: 12px; background: linear-gradient(#2a2244, #14101e); border: 1px solid #4a3a7a; }
+.tourEtage { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.04); color: #9a90b8; font-size: 13px; text-align: center; }
+.tourEtage.fait { background: rgba(90,200,120,.18); color: #b8f0c8; }
+.tourEtage.actuel { background: #8a60e0; color: #fff; box-shadow: 0 0 12px rgba(160,110,255,.7); }
+.tourEtage.boss { border: 1px solid #f0c030; }
+.tourDroite { flex: 1; }
+.tourEnnemis { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.tourEnnemi { width: 92px; text-align: center; font-size: 11px; color: #d8d0f0; }
+.tourEnnemi img, .tourEnnemi .tourIco { display: block; width: 84px; height: 84px; margin: 0 auto 2px; border-radius: 10px; object-fit: cover; border: 2px solid #4a3a7a; background: #1a1428; font-size: 46px; line-height: 84px; }
+.tourEnnemi.chef img, .tourEnnemi.chef .tourIco { border-color: #f0c030; box-shadow: 0 0 12px rgba(240,192,48,.6); }
+.tourCosm { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 4px; }
+.tourCosm li.fait { color: #b8f0c8; }
+.tourFini { font-size: 18px; color: #f0c030; }
+@media (max-width: 640px) { .tourCorps { flex-direction: column; } .tourFrise { flex-direction: row; flex-wrap: wrap; } }
+/* v92 : classement de la Tour */
+.classeTour { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 3px; max-height: 260px; overflow: auto; }
+.classeTour li { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.04); }
+.classeTour li.podium { background: rgba(240,192,48,.12); }
+.classeTour .rangT { display: inline-block; min-width: 26px; text-align: center; }
+.classeTour .etageT { float: right; color: #c8a0ff; font-weight: 700; }
+.tour h3 small { font-size: 12px; color: #a898c8; font-weight: 500; }
+
+/* v93 : téléphone — moins de choses qui couvrent l'écran */
+body.tactile #toasts .toast:nth-last-child(n+3) { display: none; }   /* 2 notifications à la fois au plus (les autres sont dans 🔔) */
+body.tactile #toasts { width: min(260px, 70vw); }
+body.tactile #guide { width: min(250px, calc(100vw - 20px)); font-size: 12px; padding-top: 6px; }
+body.tactile #guideEtape { cursor: pointer; }
+body.tactile #guideEtape::after { content: ' ▾'; color: #a89870; }
+body.tactile #guide.replie #guideEtape::after { content: ' ▸ (toucher pour lire)'; font-size: 10px; }
+#guide.replie #guideTxt, #guide.replie #guideOk { display: none; }
+
+/* v93 : amis, messages privés, cadeau du jour */
+.listeAmis { list-style: none; padding: 0; display: grid; gap: 4px; }
+.listeAmis li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,.04); color: #a8a0b8; }
+.listeAmis li.enLigne { background: rgba(90,200,120,.1); color: #e8f0e8; }
+.listeAmis .actionsAmi { margin-left: auto; display: flex; gap: 8px; }
+.amis h2 small { font-size: 13px; color: #a898c8; font-weight: 600; }
+#chatMsgs .mp { color: #f0c8ff; } #chatMsgs .mp small { color: #c890f0; }
+.joursCadeau { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin: 12px 0; }
+.jourC { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid #3a3050; font-size: 12px; text-align: center; }
+.jourC .icoC { font-size: 26px; }
+.jourC.pris { opacity: .55; }
+.jourC.auj { border-color: #f0c030; box-shadow: 0 0 14px rgba(240,192,48,.5); background: rgba(240,192,48,.1); }
+.jourC.coffre { background: linear-gradient(rgba(160,110,255,.18), rgba(240,192,48,.12)); }
+@media (max-width: 640px) { .joursCadeau { grid-template-columns: repeat(4, 1fr); } }
+
+/* v94 : le tutoriel guidé */
+#coachVoile { position: fixed; inset: 0; z-index: 200; background: transparent; }
+#coachTrou { position: fixed; z-index: 201; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(4,3,10,.72), 0 0 0 3px #f0c030, 0 0 24px 6px rgba(240,192,48,.55); pointer-events: auto; transition: all .25s ease; animation: coachPulse 1.6s ease-in-out infinite; }
+#coachBulle { position: fixed; z-index: 202; background: linear-gradient(#2a2238, #16101e); border: 2px solid #f0c030; border-radius: 14px; padding: 12px 14px 10px; color: #f0e8d8; font-size: 14px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,.6); transition: left .25s, top .25s; }
+#coachBulle p { margin: 0 0 8px; }
+#coachBulle .coachBas { display: flex; align-items: center; gap: 10px; }
+#coachBulle .coachBas small { color: #a898c8; margin-right: auto; }
+@keyframes coachPulse { 50% { box-shadow: 0 0 0 9999px rgba(4,3,10,.72), 0 0 0 3px #ffe080, 0 0 34px 10px rgba(240,192,48,.75); } }
+/* v96 : avec toutes les ressources (Faille, Cimes), la barre ne pousse plus les boutons à la ligne : elle défile */
+@media (min-width: 701px) {
+  #ressources { flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 92%, transparent); }
+  #ressources::-webkit-scrollbar { display: none; }
+  #ressources span { white-space: nowrap; flex: none; }
+}

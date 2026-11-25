@@ -7,7 +7,7 @@
 import { BRANCHES, CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
 import { alea } from './combat.js';
 
-export const DECK_MIN = 10, DECK_MAX = 25, COPIES_MAX = 2;
+export const DECK_MIN = 20, DECK_MAX = 30, COPIES_MAX = 2;   // v91 : 20 cartes au moins (avant : 10)
 // v83 : 2 exemplaires d'une même carte au plus dans un deck, 1 seul pour une légendaire
 export const copiesMax = (id) => (CARTES[id]?.rarete === 'legendaire' ? 1 : COPIES_MAX);
 export const PRIX_TIRAGE = 100, PRIX_TIRAGE_10 = 900;
@@ -19,12 +19,12 @@ export function nouveauProfil(clan, nom = 'Joueur', maintenant = Date.now(), cla
   for (const id of deck) collection[id] = { n: (collection[id]?.n || 0) + 1, niv: 1 };
   return {
     v: 2, clan, classe, nom: String(nom).slice(0, 16) || 'Joueur', creeLe: maintenant,
-    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0, fragments: 0, eclat_vide: 0 },
+    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0, fragments: 0, eclat_vide: 0, plumes: 0, cristal_foudre: 0 },
     duels: { gagnes: 0, perdus: 0 },
     collection, deck,
     parcelle: { maison: 1, autel: 1, atelier: 1, recolte: maintenant },
     tirages: { total: 0, depuisLegendaire: 0 },
-    paliers: { feu: 1, eau: 1, plante: 1, brisees: 1 },   // le palier max débloqué dans chaque territoire
+    paliers: { feu: 1, eau: 1, plante: 1, brisees: 1, cimes: 1 },   // le palier max débloqué dans chaque territoire
     stats: { combats: 0, victoires: 0, boss: 0, expeditions: 0 },
     expedition: null,
   };
@@ -114,23 +114,17 @@ export function fabriquer(p, id, remise = 0) {
 export const BUTIN_DUEL = (essencePerdant) => Math.min(300, Math.floor(Math.max(0, essencePerdant) * 0.15));
 // un profil plus ancien : les champs ajoutés depuis
 export function completer(p) {
-  for (const k of ['cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide']) p.ress[k] ??= 0;
+  for (const k of ['cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre']) p.ress[k] ??= 0;
   p.duels ??= { gagnes: 0, perdus: 0 };
-  if (p.paliers) p.paliers.brisees ??= 1;   // v87
+  if (p.paliers) { p.paliers.brisees ??= 1; p.paliers.cimes ??= 1; }   // v87, v96
+  if (p.amis !== undefined) p.amis = Array.isArray(p.amis) ? p.amis.filter((x) => x && typeof x.pid === 'string' && typeof x.nom === 'string').slice(0, 30).map((x) => ({ pid: x.pid.slice(0, 16), nom: x.nom.slice(0, 20) })) : [];   // v93
   p.parcours ??= (p.stats?.combats || 0) > 0 ? 6 : 0;   // v79 : les anciens joueurs ont déjà fait leurs premiers pas
   // v83 : decks remis aux nouvelles limites (2 par carte, 1 par légendaire), puis complétés si besoin
   delete p.avisDeck;
   const avant = p.deck.length;
   p.deck = nettoyerDeck(p, p.deck);
-  for (const id of [...deckDepart(p.clan, p.classe || 'combattant'), ...Object.keys(p.collection)]) {
-    if (p.deck.length >= DECK_MIN) break;
-    if (!CARTES[id] || !pourClasse(id, p.classe, p.branche)) continue;
-    const c = (p.collection[id] ||= { n: 0, niv: 1 }), k = p.deck.filter((x) => x === id).length;
-    if (k >= copiesMax(id)) continue;
-    if (k >= c.n) c.n++;
-    p.deck.push(id);
-  }
-  if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = nettoyerDeck(p, d.cartes);
+  p.deck = remplirDeck(p, p.deck);
+  if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = remplirDeck(p, nettoyerDeck(p, d.cartes));   // v91 : chaque deck enregistré remonte à 20
   if (p.deck.length < avant) p.avisDeck = avant - p.deck.length;
   delete p.avisClasse;
   const conv = convertirAutresClasses(p);
@@ -189,6 +183,19 @@ export function emplacements(p) {
   const actif = Number.isInteger(d.actif) && d.actif >= 0 && d.actif < NB_DECKS ? d.actif : 0;
   l[actif].cartes = [...p.deck];   // l'emplacement actif, c'est toujours le deck joué
   return { actif, l };
+}
+// v91 : un deck trop court est complété jusqu'au minimum avec les cartes de départ (offertes s'il le faut), puis la collection
+export function remplirDeck(p, cartes) {
+  const deck = [...cartes];
+  for (const id of [...deckDepart(p.clan, p.classe || 'combattant'), ...Object.keys(p.collection)]) {
+    if (deck.length >= DECK_MIN) break;
+    if (!CARTES[id] || !pourClasse(id, p.classe, p.branche)) continue;
+    const c = (p.collection[id] ||= { n: 0, niv: 1 }), k = deck.filter((x) => x === id).length;
+    if (k >= copiesMax(id)) continue;
+    if (k >= c.n) c.n++;
+    deck.push(id);
+  }
+  return deck;
 }
 // un deck enregistré peut ne plus être valable (cartes perdues…) : on garde ce qui l'est
 export function nettoyerDeck(p, cartes) {
@@ -257,7 +264,7 @@ export function profilValide(p) {
 
 // niveau de compte (affiché à côté du nom)
 // niveau maximum : 60 (v83), 80 depuis le chapitre 2 (v87)
-export const NIVEAU_MAX = 80;   // v87 : chapitre 2
+export const NIVEAU_MAX = 100;   // v87 : 80 (chapitre 2) ; v96 : 100 (chapitre 3)
 // v87 : rééquilibrage — de l'XP (1 par combat gagné, 4 par boss), et une courbe qui ralentit :
 // passer du niveau n au niveau n+1 coûte de plus en plus. Niveau 20 ≈ 111 XP, 30 ≈ 213, 50 ≈ 507, 80 ≈ 1173.
 export const XP_BOSS = 4;
@@ -280,7 +287,7 @@ export function assainir(x) {
   if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: copiesMax(id), niv: 1 }; }
   for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(5, num(x.parcelle?.[k], 5)));
   p.parcelle.recolte = Math.min(Date.now(), +x.parcelle?.recolte || Date.now());
-  for (const k of [...CLANS, 'brisees']) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
+  for (const k of [...CLANS, 'brisees', 'cimes']) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
   for (const k of Object.keys(p.stats)) p.stats[k] = num(x.stats?.[k], 1e6);
   p.tirages = { total: num(x.tirages?.total, 1e6), depuisLegendaire: Math.min(59, num(x.tirages?.depuisLegendaire, 59)) };
   p.duels = { gagnes: num(x.duels?.gagnes, 1e6), perdus: num(x.duels?.perdus, 1e6) };

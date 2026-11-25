@@ -6,7 +6,7 @@
 //    des petits sprites dessinés en code, triés par profondeur (y) ;
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
-import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, lisiereFaille, NIV_FAILLE, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
+import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, lisiereFaille, NIV_FAILLE, dansCimes, lisiereCimes, CIMES_X, NIV_CIMES, CENTRE_CIMES, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
 import { PROJETS, ETAPES } from '../../../shared/clans/projets.js';
 import { dessinerFamilier } from './familiersArt.js';
 import { dessinerMonture, selleDe, decalageFlot } from './montureArt.js';
@@ -21,7 +21,7 @@ import { SANCTUAIRES, CAPTURE } from '../../../shared/clans/territoires.js';
 import { PIECES, lireCode } from '../../../shared/clans/apparence.js';
 export { MONDE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, territoireDe };
 const NOMS_TERR = { feu: 'Terres de Braise', eau: "Lagons d'Azur", plante: "Sylve d'Émeraude" };
-const COUL = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a', brisees: '#8a60e0' };   // v87 : la Faille
+const COUL = { feu: '#e0552a', eau: '#2a8ae0', plante: '#3aa84a', brisees: '#8a60e0', cimes: '#4a90d8' };   // v87 : la Faille
 const POLICE = '"Nunito", system-ui, sans-serif';   // v63 : lisible, chiffres nets (la police pixel rendait les chiffres illisibles)
 try { for (const w of [700, 800, 900]) document.fonts?.load(`${w} 14px Nunito`); } catch { /* rien */ }
 
@@ -41,10 +41,13 @@ const PAL = Object.fromEntries(Object.entries({
   // v87 : les Terres Brisées
   roche_noire: ['#2a2434', '#322a3e', '#3c3448', '#1e1a26'], cristal_sol: ['#2e2a44', '#38325a', '#463c6e', '#221e34'],
   dalle: ['#4a4458', '#544e64', '#605870', '#34303e'], abime: ['#0a0612', '#120a1e', '#1a0e2a', '#06030a'],
+  // v96 : les Cimes Orageuses
+  neige: ['#dfe8f2', '#e8eff7', '#d2dcea', '#c4d0e2'], glace: ['#a8d0ec', '#b8dcf2', '#98c4e4', '#88b4d8'], roc_gris: ['#6e7484', '#7c8292', '#626878', '#545a6a'],
+  dalle_givre: ['#8a96aa', '#96a2b6', '#a2aec2', '#6a7488'], crevasse: ['#0e2440', '#14304e', '#0a1a30', '#061020'],
 }).map(([k, v]) => [k, v.map(hex)]));
 const PLACE = { feu: ['#4a403e', '#564a46', '#62544e', '#2e2624'], eau: ['#d4c098', '#c8b48a', '#dccaa6', '#a8946c'], plante: ['#8a7856', '#7e6c4c', '#968462', '#5e5038'] };
 for (const k in PLACE) PLACE[k] = PLACE[k].map(hex);
-const LIQUIDE = new Set(['eau', 'mare', 'lave', 'abime']);
+const LIQUIDE = new Set(['eau', 'mare', 'lave', 'abime', 'crevasse']);
 
 // la couleur d'un pixel du sol
 function pixelSol(s, x, y, tx, ty) {
@@ -76,6 +79,11 @@ function pixelSol(s, x, y, tx, ty) {
     case 'roche_noire': return h > 0.992 ? hex('#a080ff') : (H(x >> 3, y) > 0.97 ? p[3] : p[i]);
     case 'cristal_sol': return H(x >> 1, y >> 1) > 0.985 ? hex(H(tx, ty) > 0.5 ? '#c8a0ff' : '#80e0ff') : p[i];
     case 'dalle': { const row = Math.floor(y / 8), off = (row & 1) * 6, bx = Math.floor((x + off) / 12); if (y % 8 === 0 || (x + off) % 12 === 0) return p[3]; return H(bx, row) > 0.93 ? hex('#7a6aa0') : p[Math.floor(H(bx, row) * 3)]; }
+    case 'neige': return h > 0.994 ? hex('#ffffff') : p[i];
+    case 'glace': { const r = (x + y * 2) % 23 === 0 || (x * 2 - y) % 31 === 0; return r ? hex('#e8f8ff') : p[i]; }
+    case 'roc_gris': return H(x >> 2, y >> 2) > 0.9 ? p[3] : h > 0.993 ? hex('#f0f4ff') : p[i];
+    case 'dalle_givre': { const row = Math.floor(y / 8), off = (row & 1) * 6, bx = Math.floor((x + off) / 12); if (y % 8 === 0 || (x + off) % 12 === 0) return p[3]; return H(bx, row) > 0.9 ? hex('#d8f0ff') : p[Math.floor(H(bx, row) * 3)]; }
+    case 'crevasse': { const v = Math.sin(x * 0.06 - y * 0.04) + Math.sin(y * 0.05); return H(x, y) > 0.997 ? hex('#80e0ff') : v > 1.2 ? hex('#1a4a7a') : p[i]; }
     case 'abime': { const v = Math.sin(x * 0.05 + y * 0.03) + Math.sin(y * 0.07); return H(x, y) > 0.996 ? hex('#ffffff') : v > 1.3 ? hex('#3a1a5a') : p[i]; }
     case 'mare': { if (H(tx, ty) > 0.8) { const dx = (x & 15) - 8, dy = (y & 15) - 8; if (dx * dx + dy * dy < 14) return dx * dx + dy * dy < 3 ? hex('#e8a0c0') : hex('#4a9a3a'); } return p[i < 3 ? i : 1]; }
   }
@@ -85,7 +93,7 @@ function pixelSol(s, x, y, tx, ty) {
 // ---------- le sol, peint une fois ----------
 // Par bandes de tuiles, en rendant la main au navigateur entre deux bandes (pas d'écran figé),
 // puis gardé sur l'appareil (IndexedDB) : les visites suivantes le relisent en un instant.
-const RENDU_SOL = 1;   // à augmenter quand on change la façon de peindre le sol
+const RENDU_SOL = 2;   // v94 : la lisière de la Faille   // à augmenter quand on change la façon de peindre le sol
 async function peindreSol(obs, progres) {
   const c = document.createElement('canvas'); c.width = MONDE.l; c.height = MONDE.h;
   const g = c.getContext('2d'), img = g.createImageData(MONDE.l, MONDE.h), d = img.data;
@@ -111,12 +119,14 @@ async function peindreSol(obs, progres) {
         if (liq) {
           const bord = (vois[0] !== s && lx < 2) || (vois[1] !== s && lx > 13) || (vois[2] !== s && ly < 2) || (vois[3] !== s && ly > 13);
           const bord2 = (vois[0] !== s && lx < 4) || (vois[1] !== s && lx > 11) || (vois[2] !== s && ly < 4) || (vois[3] !== s && ly > 11);
-          if (bord) col = s === 'abime' ? ((x + y) & 1 ? hex('#a070ff') : hex('#5a30a0')) : s === 'lave' ? hex('#2a1810') : ((x + y) & 1 ? hex('#e8f6ff') : hex('#b8e0f4'));
+          if (bord) col = s === 'crevasse' ? ((x + y) & 1 ? hex('#e8f8ff') : hex('#a0d8f8')) : s === 'abime' ? ((x + y) & 1 ? hex('#a070ff') : hex('#5a30a0')) : s === 'lave' ? hex('#2a1810') : ((x + y) & 1 ? hex('#e8f6ff') : hex('#b8e0f4'));
           else if (bord2 && s === 'lave') col = hex('#ff9a2a');
           else if (bord2 && (x * 7 + y * 3) % 5 === 0) col = hex('#cfeeff');
         } else if ((vois[3] && LIQUIDE.has(vois[3]) && ly > 13) || (vois[2] && LIQUIDE.has(vois[2]) && ly < 1)) k = 0.75;
         // v87 : la lisière des Terres Brisées — une fissure sombre qui luit en violet
         if (y > FAILLE_Y - 30 && y < FAILLE_Y + 120 && ss !== 'dalle' && ss !== 'chemin') { const e = y - lisiereFaille(x); if (e > -2 && e < 2) col = hex('#0e0818'); else if (e >= 2 && e < 4) col = (x + y) & 1 ? hex('#b080ff') : hex('#6a3ac0'); else if (e <= -2 && e > -6) k *= 0.7; }
+        // v96 : la lisière des Cimes — une bande de givre scintillante
+        if (x > CIMES_X - 40 && x < CIMES_X + 120 && ss !== 'dalle_givre' && ss !== 'chemin' && ss !== 'dalle') { const e = x - lisiereCimes(y); if (e > -3 && e < 3) col = (x * 3 + y) % 5 === 0 ? hex('#ffffff') : hex('#cfe6f8'); else if (e <= -3 && e > -10) k *= 0.85; }
         const i = (y * MONDE.l + x) * 4; d[i] = col[0] * k; d[i + 1] = col[1] * k; d[i + 2] = col[2] * k; d[i + 3] = 255;
       }
     }
@@ -174,6 +184,11 @@ const DECOR = {
   rocher_clair: sprite(22, 18, (P, D) => { D(11, 10, 7, '#6e6a60'); D(10, 9, 6, '#9a9488'); D(8, 7, 3, '#c4beb0'); }),
   arbre_mort: sprite(26, 38, (P) => { P('#3a2a22', 11, 12, 4, 25); P('#2a1c16', 13, 12, 2, 25); P('#3a2a22', 6, 14, 5, 2); P('#3a2a22', 5, 9, 2, 6); P('#3a2a22', 15, 18, 6, 2); P('#3a2a22', 19, 12, 2, 7); P('#3a2a22', 10, 5, 2, 8); P('#3a2a22', 14, 7, 2, 6); P('#ff6a20', 12, 30, 1, 1); }),
   cristal: sprite(20, 26, (P) => { const sh = (x, y, w, h, c1, c2) => { for (let k = 0; k < h; k++) { const ww = k < 3 ? k + 1 : w; P(c1, x + (w - ww) / 2 | 0, y + k, ww, 1); } P(c2, x + 1, y + 2, 1, h - 3); }; sh(8, 3, 5, 20, '#d8302a', '#ffb0a0'); sh(3, 10, 4, 13, '#a8201a', '#ff7a60'); sh(13, 8, 4, 15, '#ff5a2a', '#ffd0a0'); }),
+  // v96 : le décor des Cimes Orageuses
+  sapin_givre: sprite(26, 44, (P) => { P('#4a3a30', 11, 34, 4, 8); for (let k = 0; k < 4; k++) { const top = 3 + k * 8; for (let y = 0; y < 12; y++) { const w = 2 + Math.floor(y * (0.8 + k * 0.15)); P('#1e4a52', 13 - w, top + y, w * 2, 1); P('#2e6a72', 13 - w, top + y, Math.max(1, w - 1), 1); if (y < 2) P('#f0f6ff', 13 - w, top + y, w * 2, 1); } } P('#ffffff', 12, 2, 2, 2); }),
+  rocher_neige: sprite(22, 18, (P, D) => { D(11, 10, 7, '#4a5062'); D(10, 9, 6, '#6e7484'); D(10, 6, 5, '#e8f0f8'); P('#ffffff', 8, 4, 4, 1); }),
+  cristal_orage: sprite(20, 28, (P) => { const sh = (x, y, w, h, c1, c2) => { for (let k = 0; k < h; k++) { const ww = k < 3 ? k + 1 : w; P(c1, x + (w - ww) / 2 | 0, y + k, ww, 1); } P(c2, x + 1, y + 2, 1, h - 3); }; sh(8, 2, 5, 23, '#3a8ae0', '#e0f4ff'); sh(3, 11, 4, 14, '#2a5aa8', '#a0d8ff'); sh(13, 8, 4, 17, '#f0d040', '#fff8c0'); P('#ffffff', 10, 4); }),
+  stalagmite: sprite(16, 34, (P) => { for (let k = 0; k < 30; k++) { const w = Math.max(1, Math.floor(k / 4)); P(k % 5 ? '#b8dcf2' : '#e8f8ff', 8 - (w >> 1), 3 + k, w, 1); } P('#88b4d8', 4, 32, 9, 2); }),
   // v87 : le décor des Terres Brisées
   cristal_vide: sprite(20, 28, (P) => { const sh = (x, y, w, h, c1, c2) => { for (let k = 0; k < h; k++) { const ww = k < 3 ? k + 1 : w; P(c1, x + (w - ww) / 2 | 0, y + k, ww, 1); } P(c2, x + 1, y + 2, 1, h - 3); }; sh(8, 2, 5, 23, '#7a48d8', '#e0c8ff'); sh(3, 11, 4, 14, '#4a2a9a', '#a080ff'); sh(13, 8, 4, 17, '#5a8ae8', '#c8f0ff'); P('#ffffff', 10, 4); }),
   rocher_vide: sprite(22, 18, (P, D) => { D(11, 10, 7, '#141020'); D(10, 9, 6, '#2a2438'); D(9, 7, 3, '#463c5c'); P('#b080ff', 14, 11, 2, 1); P('#b080ff', 7, 12, 1, 1); }),
@@ -182,7 +197,7 @@ const DECOR = {
   corail: sprite(20, 18, (P) => { for (const [x, h] of [[5, 10], [9, 14], [13, 9], [16, 6]]) { P('#e8506a', x, 17 - h, 2, h); P('#ff8a9a', x, 17 - h, 1, 2); } P('#e8506a', 6, 9, 3, 2); P('#e8506a', 11, 6, 3, 2); }),
   champignon: sprite(20, 20, (P, D) => { P('#e8dcc0', 8, 10, 4, 8); P('#c8bca0', 10, 10, 2, 8); for (let y = 0; y < 7; y++) { const w = Math.min(8, 3 + y * 2); P('#c82a2a', 10 - w, 3 + y, w * 2, 1); } P('#fff', 6, 5, 2, 2); P('#fff', 11, 4, 2, 1); P('#fff', 13, 7, 2, 2); P('#8a1a1a', 2, 9, 16, 1); }),
 };
-const ancreDecor = { arbre: [16, 40], pin: [13, 42], buisson: [10, 14], palmier: [18, 45], rocher: [11, 16], rocher_clair: [11, 16], arbre_mort: [13, 37], cristal: [10, 24], cristal_vide: [10, 26], rocher_vide: [11, 16], arbre_vide: [13, 37], obelisque: [9, 38], corail: [10, 17], champignon: [10, 18] };
+const ancreDecor = { arbre: [16, 40], pin: [13, 42], buisson: [10, 14], palmier: [18, 45], rocher: [11, 16], rocher_clair: [11, 16], arbre_mort: [13, 37], cristal: [10, 24], cristal_vide: [10, 26], sapin_givre: [13, 42], rocher_neige: [11, 16], cristal_orage: [10, 26], stalagmite: [8, 34], rocher_vide: [11, 16], arbre_vide: [13, 37], obelisque: [9, 38], corail: [10, 17], champignon: [10, 18] };
 
 function spriteMaison(k) {
   const mur = { feu: ['#4a3a36', '#3a2c28'], eau: ['#ece4d0', '#c8bca0'], plante: ['#8a5a30', '#6a4220'] }[k];
@@ -230,6 +245,28 @@ const ATELIER = {
 
 // ---------- les boss mondiaux (64 × 64) ----------
 const BOSS_SPR = {
+  // v96 : le Colosse de l'orage, boss mondial des Cimes — un géant de roc gris parcouru d'éclairs
+  cimes: sprite(64, 66, (P, D) => {
+    D(32, 42, 19, '#3a4254'); D(32, 40, 17, '#5a6478'); D(27, 34, 8, '#7a8498');
+    D(11, 38, 8, '#4a5266'); D(53, 38, 8, '#4a5266'); D(9, 50, 6, '#5a6478'); D(55, 50, 6, '#5a6478');
+    P('#4a5266', 20, 54, 8, 10); P('#4a5266', 36, 54, 8, 10);
+    for (const [x, y] of [[18, 26], [44, 30], [30, 44], [24, 36]]) { P('#fff060', x, y, 2, 3); P('#fff060', x + 2, y + 3, 2, 3); P('#ffd020', x, y + 6, 2, 3); P('#ffffff', x + 1, y, 1, 1); }
+    D(32, 18, 10, '#4a5266'); D(32, 17, 8, '#6a7488');
+    P('#e8f6ff', 14, 6, 6, 3); P('#e8f6ff', 44, 6, 6, 3); P('#ffffff', 16, 5, 3, 1); P('#ffffff', 46, 5, 3, 1);
+    P('#80d8ff', 27, 16, 4, 3); P('#80d8ff', 34, 16, 4, 3); P('#ffffff', 28, 17, 2, 1); P('#ffffff', 35, 17, 2, 1);
+    P('#2a3244', 28, 22, 9, 2); P('#fff060', 30, 22, 2, 1); P('#fff060', 34, 23, 2, 1);
+  }),
+  // v90 : le Gardien du Néant, boss mondial des Terres Brisées — un colosse d'obsidienne fendu de cristaux
+  brisees: sprite(64, 66, (P, D) => {
+    D(32, 42, 19, '#16101e'); D(32, 40, 17, '#2a2238'); D(27, 34, 8, '#3c3250');
+    D(11, 38, 8, '#221a2e'); D(53, 38, 8, '#221a2e'); D(9, 50, 6, '#2a2238'); D(55, 50, 6, '#2a2238');
+    P('#221a2e', 20, 54, 8, 10); P('#221a2e', 36, 54, 8, 10);
+    for (const [x, y, h] of [[16, 26, 12], [46, 24, 14], [30, 30, 10], [24, 44, 7], [40, 42, 8]]) { for (let k = 0; k < h; k++) { const w = Math.min(3, 1 + (k >> 1)); P(k < 2 ? '#e8d8ff' : k % 3 ? '#8a60e0' : '#5a8ae8', x - (w >> 1), y - k, w, 1); } }
+    D(32, 18, 10, '#221a2e'); D(32, 17, 8, '#3c3250');
+    P('#8a60e0', 22, 4, 3, 9); P('#8a60e0', 39, 4, 3, 9); P('#e0c8ff', 23, 3, 1, 3); P('#e0c8ff', 40, 3, 1, 3);
+    P('#c8a0ff', 27, 16, 4, 3); P('#c8a0ff', 34, 16, 4, 3); P('#ffffff', 28, 17, 2, 1); P('#ffffff', 35, 17, 2, 1);
+    P('#5a3aa0', 28, 22, 9, 2); P('#0e0818', 29, 22, 7, 1);
+  }),
   feu: sprite(64, 66, (P, D) => {
     D(32, 40, 20, '#2e2220'); D(32, 38, 18, '#4a3632'); D(26, 32, 9, '#5e4640');
     D(12, 40, 8, '#3a2a26'); D(52, 40, 8, '#3a2a26'); D(10, 50, 6, '#4a3632'); D(54, 50, 6, '#4a3632');
@@ -280,7 +317,7 @@ const COIFFES = {
 // ---------- v86 : ailes, armes, capes (purement esthétiques) ----------
 // ailes : dessinées derrière le corps (devant pour la vue de dos) ; b = battement (0, 1, -1)
 function ailes(P, id, dir, [c1, c2], b) {
-  const plume = id === 'l_ange' || id === 'l_phenix', membrane = id === 'l_demon' || id === 'l_dragon';
+  const plume = id === 'l_ange' || id === 'l_phenix' || id === 'l_tour' || id === 'l_orage', membrane = id === 'l_demon' || id === 'l_dragon';
   // une aile : des colonnes de plus en plus courtes vers l'extérieur (sens -1 : vers la gauche, 1 : vers la droite)
   const aile = (x, sens, y0) => {
     const col = (k, dy, h, c) => P(c, x + sens * k, y0 + dy, 1, h);
@@ -298,6 +335,7 @@ function cape(P, dir, [c1, c2]) {
   else { P(c1, 3, 12, 4, 10); P(c2, 3, 21, 4, 1); }
 }
 const ARMES = {
+  r_tour: (P, x, y, c) => { ARMES.r_epee(P, x, y, c); P('#c8a0ff', x, y - 10, 1, 1); },   // v91 : la Lame des cent marches
   r_epee: (P, x, y, [l, m]) => { P(l, x, y - 9, 1, 9); P('#ffffff', x, y - 9, 1, 1); P(m, x - 1, y, 3, 1); P(m, x, y + 1, 1, 2); },
   r_hache: (P, x, y, [l, m]) => { P(m, x, y - 9, 1, 12); P(l, x + 1, y - 9, 2, 4); P(l, x - 2, y - 9, 2, 3); P('#ffffff', x + 2, y - 9, 1, 1); },
   r_baton: (P, x, y, [m, g]) => { P(m, x, y - 10, 1, 13); P(g, x - 1, y - 12, 3, 2); P('#ffffff', x, y - 12, 1, 1); },
@@ -432,7 +470,8 @@ export function creerMonde(canvas, rappels) {
   // les maisons posées par les joueurs (v72) bloquent le passage comme les autres
   let maisonsPosees = [];
   const dansMaison = (x, y) => maisonsPosees.some((m) => Math.abs(x - m.x) < 29 && y > m.y - 27 && y < m.y + 11);
-  const bloque = (x, y) => !praticable(x, y, obs) || dansMaison(x, y) || (dansFaille(x, y) && !dansFaille(joueur.x, joueur.y) && (rappels.niveau?.() || 1) < NIV_FAILLE && (rappels.faille?.(), true));
+  const bloque = (x, y) => !praticable(x, y, obs) || dansMaison(x, y) || (dansFaille(x, y) && !dansFaille(joueur.x, joueur.y) && (rappels.niveau?.() || 1) < NIV_FAILLE && (rappels.faille?.(), true))
+    || (dansCimes(x, y) && !dansCimes(joueur.x, joueur.y) && (rappels.niveau?.() || 1) < NIV_CIMES && (rappels.cimes?.(), true));   // v96
   function lieuProche() {
     let best = null, d0 = Infinity;
     for (const p of LIEUX) { const d = Math.hypot(joueur.x - p.x, joueur.y - p.y); if (d < p.r + 30 && d < d0) { d0 = d; best = p; } }
@@ -848,6 +887,8 @@ export function creerMonde(canvas, rappels) {
     }
     if (CENTRE_FAILLE[0] > x0 - 100 && CENTRE_FAILLE[0] < x1 + 100 && CENTRE_FAILLE[1] > y0 - 40 && CENTRE_FAILLE[1] < y1 + 40) etiquette('🌀 Les Terres Brisées', ex(CENTRE_FAILLE[0]), ey(CENTRE_FAILLE[1] + 40), '#e0c8ff', '#8a60e0', true, 0);
     if (1608 > x0 - 100 && 1608 < x1 + 100 && FAILLE_Y > y0 - 40 && FAILLE_Y < y1 + 60) etiquette(`Porte de la Faille · niveau ${NIV_FAILLE}`, ex(1608), ey(FAILLE_Y + 10), '#e0c8ff', '#8a60e0', true, 1);
+    if (CENTRE_CIMES[0] > x0 - 100 && CENTRE_CIMES[0] < x1 + 100 && CENTRE_CIMES[1] > y0 - 40 && CENTRE_CIMES[1] < y1 + 40) etiquette('⚡ Les Cimes Orageuses', ex(CENTRE_CIMES[0]), ey(CENTRE_CIMES[1] + 44), '#e8f6ff', '#4a90d8', true, 0);
+    if (CIMES_X > x0 - 100 && CIMES_X < x1 + 100 && CENTRE_CIMES[1] > y0 - 40 && CENTRE_CIMES[1] < y1 + 60) etiquette(`Col des Cimes · niveau ${NIV_CIMES}`, ex(CIMES_X + 30), ey(CENTRE_CIMES[1] - 30), '#e8f6ff', '#4a90d8', true, 1);
     for (const [k, [vx, vy]] of Object.entries(CENTRES)) if (vx > x0 - 100 && vx < x1 + 100 && vy > y0 - 40 && vy < y1 + 40) etiquette(`Village · ${NOMS_TERR[k]}`, ex(vx), ey(vy + 64), '#f8ecd0', COUL[k], true, 0);
     if (marchand.present && marchand.x > x0 - 60 && marchand.x < x1 + 60 && marchand.y > y0 && marchand.y < y1 + 50) {
       const min = Math.max(1, Math.ceil((marchand.part - Date.now()) / 60000));

@@ -35,7 +35,7 @@ test('un ancien profil : ses cartes d’autres classes deviennent des éclats et
   P.completer(p);
   assert.equal(p.collection[id], undefined);
   assert.ok(!p.deck.includes(id) && p.deck.length >= P.DECK_MIN);
-  assert.deepEqual(p.decks.l[1].cartes, ['frappe']);
+  assert.ok(p.decks.l[1].cartes.includes('frappe') && !p.decks.l[1].cartes.includes(id));
   assert.ok(p.ress.eclats > avant); assert.equal(p.avisClasse.n, 3);
   P.completer(p);   // au chargement suivant : rien de plus, l'avis est effacé
   assert.equal(p.avisClasse, undefined);

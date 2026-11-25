@@ -81,8 +81,9 @@ test('tirages : coût, garanties, doublons en éclats', () => {
 
 test('deck et amélioration des cartes', () => {
   const p = P.nouveauProfil('plante', 'T', 0);
+  assert.equal(P.retirerDuDeck(p, 'frappe').ok, false, '20 cartes au moins');
+  p.collection.epine = { n: 2, niv: 1 }; assert.ok(P.ajouterAuDeck(p, 'epine').ok && P.ajouterAuDeck(p, 'epine').ok);
   assert.ok(P.retirerDuDeck(p, 'garde').ok && P.retirerDuDeck(p, 'garde').ok);
-  assert.equal(P.retirerDuDeck(p, 'frappe').ok, false, '10 cartes au moins');
   assert.equal(P.ajouterAuDeck(p, 'frappe').ok, false, 'pas d’autre exemplaire');
   p.collection.chene = { n: 2, niv: 1 };
   assert.ok(P.ajouterAuDeck(p, 'chene').ok && P.ajouterAuDeck(p, 'chene').ok); assert.equal(P.ajouterAuDeck(p, 'chene').ok, false);
@@ -153,7 +154,7 @@ test('classes : les quatre talents', () => {
 
 test('classes : deck de départ, PV, tirages et ancien profil', () => {
   const p = P.nouveauProfil('eau', 'T', 0, 'tireur');
-  assert.equal(p.deck.length, 12); assert.ok(p.deck.includes('tir') && p.deck.includes('piege') && p.deck.includes('vague'));
+  assert.equal(p.deck.length, 20); assert.ok(p.deck.includes('tir') && p.deck.includes('piege') && p.deck.includes('vague'));
   assert.equal(P.pvMax(P.nouveauProfil('eau', 'T', 0, 'mage')), 50);
   p.ress.essence = 1e6; let tireur = 0, autres = 0;
   for (let i = 0; i < 40; i++) for (const x of P.tirer(p, 10, i * 13 + 5).cartes) { const k = CARTES[x.id].classe; if (k === 'tireur') tireur++; else if (k) autres++; }
@@ -161,7 +162,7 @@ test('classes : deck de départ, PV, tirages et ancien profil', () => {
   // un profil créé avant les classes en reçoit une, avec ses deux cartes
   const vieux = P.nouveauProfil('feu', 'V', 0); delete vieux.classe;
   assert.ok(P.profilValide(vieux)); assert.ok(P.choisirClasse(vieux, 'escrimeur'));
-  assert.ok(vieux.deck.includes('estoc') && vieux.collection.parade.n === 1); assert.equal(P.choisirClasse(vieux, 'mage'), false);
+  assert.ok(vieux.deck.includes('estoc') && vieux.collection.parade.n >= 1); assert.equal(P.choisirClasse(vieux, 'mage'), false);
 });
 
 import * as D from '../shared/clans/duel.js';
@@ -237,7 +238,7 @@ test('boss mondial : PV communs, manches, anti-triche et récompenses', () => {
   assert.ok(a.essence > b.essence && a.rare.n > b.rare.n && a.rare.id === 'graine_or');
   // chaque boss mondial se joue avec le moteur de combat normal
   for (const k of Object.keys(BOSS_MONDIAUX)) {
-    const deck = P.deckCombat(P.nouveauProfil(k, 'T', 0, 'combattant'));
+    const deck = P.deckCombat(P.nouveauProfil(['brisees', 'cimes'].includes(k) ? 'feu' : k, 'T', 0, 'combattant'));
     const c = C.nouveauCombat({ deck, joueur: { pv: 75, pvMax: 75 }, ennemis: [{ ...BOSS_MONDIAUX[k], pv: 120 }], palier: PALIER_MONDIAL, graine: 5, classe: 'combattant' });
     for (let t = 0; t < 40 && !c.fini; t++) { for (let i = 0; i < 6; i++) { const j = c.main.findIndex((_, q) => C.jouable(c, q)); if (j < 0) break; C.jouerCarte(c, j, c.ennemis[0].uid); } if (!c.fini) C.finTour(c); }
     assert.ok(c.fini, k); assert.ok(c.ennemis[0].pv < 120, k);

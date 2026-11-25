@@ -71,7 +71,7 @@ export function coupBot(d, qui) {
   j.main.forEach((k, i) => {
     const cout = coutDe(j, i); if (cout > j.energie) return;
     const c = CARTES[k.id], e = effetsDe(k.id, k.niv);
-    let deg = (e.degats || 0) * (e.fois || 1) + (e.degatsParBrulure ? adv.brulure * e.degatsParBrulure : 0) + (e.bouclierEnDegats ? j.bloc : 0);
+    let deg = (e.degats || 0) * (e.fois || 1) + (e.degatsParBrulure ? Math.floor(adv.brulure * e.degatsParBrulure) : 0) + (e.bouclierEnDegats ? j.bloc : 0);
     if (deg) deg += j.force * (e.fois || 1);
     let s = deg + (e.brulure || 0) * 1.6 + (e.trempe || 0) * 2 + (e.affaibli || 0) * 2
       + (e.bouclier || 0) * (vie < 0.6 ? 1.1 : 0.6) + (e.soin || 0) * (1 - vie) * 1.6

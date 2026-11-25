@@ -7,10 +7,13 @@
 // =====================================================================
 export const TUILE = 16;
 // v87 (Chapitre 2) : la carte s'agrandit vers le sud — les Terres Brisées, au-delà de y = FAILLE_Y
-export const MONDE = { l: 3200, h: 2880 };
-export const NT = { l: MONDE.l / TUILE, h: MONDE.h / TUILE };   // 200 × 180 tuiles
+// v96 (Chapitre 3) : et vers l'est — les Cimes Orageuses, au-delà de x = CIMES_X
+export const MONDE = { l: 4000, h: 2880 };
+export const NT = { l: MONDE.l / TUILE, h: MONDE.h / TUILE };   // 250 × 180 tuiles
 export const FAILLE_Y = 2140, NIV_FAILLE = 30;
 export const CENTRE_FAILLE = [1608, 2520];
+export const CIMES_X = 3220, NIV_CIMES = 50;
+export const CENTRE_CIMES = [3640, 1100];
 export const CENTRES = { feu: [648, 1544], eau: [1608, 424], plante: [2568, 1544] };
 export const CARREFOUR = [1608, 1096];
 import { SANCTUAIRES } from './territoires.js';
@@ -21,6 +24,8 @@ export const LIEUX = [
   { id: 'portail_plante', nom: "Portail de la Sylve d'Émeraude", x: 2920, y: 1880, r: 40, action: 'expedition', terr: 'plante' },
   // v87 : le cœur des Terres Brisées
   { id: 'portail_faille', nom: 'Portail de la Faille', x: 1608, y: 2760, r: 40, action: 'expedition', terr: 'brisees' },
+  // v96 : au sommet des Cimes Orageuses
+  { id: 'portail_cimes', nom: 'Portail des Cimes', x: 3840, y: 560, r: 40, action: 'expedition', terr: 'cimes' },
 ];
 export const alea = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 export function bruit(x, y) { return Math.sin(x * 0.013 + Math.sin(y * 0.021) * 2) * 0.5 + Math.sin(y * 0.017 + Math.cos(x * 0.011) * 2) * 0.5; }
@@ -29,10 +34,13 @@ const bruitL = (x, y) => bruit(x * 0.5, y * 0.5);   // grandes formes (côtes, l
 // v87 : les Terres Brisées (neutres, sans clan), au sud
 // la lisière n'est pas droite : elle ondule et se déchire (v87)
 export const lisiereFaille = (x) => FAILLE_Y + 26 + Math.sin(x / 140) * 22 + Math.sin(x / 47 + 1.3) * 9 + bruitL(x, FAILLE_Y) * 20;
-export const dansFaille = (x, y) => y > lisiereFaille(x);
+// v96 : les Cimes Orageuses (neutres, sans clan), à l'est — elles passent avant tout le reste
+export const lisiereCimes = (y) => CIMES_X + 26 + Math.sin(y / 150) * 24 + Math.sin(y / 53 + 0.7) * 9 + bruitL(CIMES_X, y) * 18;
+export const dansCimes = (x, y) => x > lisiereCimes(y);
+export const dansFaille = (x, y) => y > lisiereFaille(x) && !dansCimes(x, y);
 // à quel territoire appartient un point (null : le Carrefour ou les Terres Brisées, neutres)
 export function territoireDe(x, y) {
-  if (dansFaille(x, y)) return null;
+  if (dansFaille(x, y) || dansCimes(x, y)) return null;
   if (Math.hypot(x - CARREFOUR[0], y - CARREFOUR[1]) < 290 + bruitL(x, y) * 30) return null;
   let best = null, d0 = Infinity;
   for (const [k, [cx, cy]] of Object.entries(CENTRES)) { const d = Math.hypot(x - cx, y - cy) * (1 + bruitL(x + cx, y) * 0.06); if (d < d0) { d0 = d; best = k; } }
@@ -46,7 +54,7 @@ export const OUVRAGES = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx,
 export const maisonDe = (clan, nom) => MAISONS[clan][[...nom].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 8];
 
 // les chemins de terre : du Carrefour vers chaque village et chaque portail
-const SEGMENTS = [[CARREFOUR, CENTRES.feu], [CARREFOUR, CENTRES.eau], [CARREFOUR, CENTRES.plante], [CARREFOUR, CENTRE_FAILLE]].concat(LIEUX.filter((l) => l.terr).map((l) => [CENTRES[l.terr] || CENTRE_FAILLE, [l.x, l.y]]));
+const SEGMENTS = [[CARREFOUR, CENTRES.feu], [CARREFOUR, CENTRES.eau], [CARREFOUR, CENTRES.plante], [CARREFOUR, CENTRE_FAILLE], [CARREFOUR, CENTRE_CIMES]].concat(LIEUX.filter((l) => l.terr).map((l) => [CENTRES[l.terr] || (l.terr === 'cimes' ? CENTRE_CIMES : CENTRE_FAILLE), [l.x, l.y]]));
 function distSeg(px, py, [ax, ay], [bx, by]) { const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - ax - t * dx, py - ay - t * dy); }
 const distChemin = (x, y) => Math.min(...SEGMENTS.map((s) => distSeg(x, y, ...s)));
 export const chemin = (x, y) => distChemin(x, y) < 26;
@@ -57,12 +65,19 @@ const dansVillage = (x, y, k, m = 1) => { const [cx, cy] = CENTRES[k]; return ((
 // feu : roche, cendre, lave (infranchissable)
 // eau : sable, hautfond, eau (infranchissable)
 // plante : sylve, mousse, mare (infranchissable)
-export const SOLIDES = new Set(['lave', 'eau', 'mare', 'abime']);
+export const SOLIDES = new Set(['lave', 'eau', 'mare', 'abime', 'crevasse']);
 export function sol(tx, ty) {
   const x = tx * TUILE + 8, y = ty * TUILE + 8, t = territoireDe(x, y);
   if (Math.hypot(x - CARREFOUR[0], y - CARREFOUR[1]) < 130) return 'paves';
   const dc = distChemin(x, y);
-  if (dc < 26) return dansFaille(x, y) ? 'dalle' : 'chemin';
+  if (dc < 26) return dansCimes(x, y) ? 'dalle_givre' : dansFaille(x, y) ? 'dalle' : 'chemin';
+  // v96 : les Cimes Orageuses — neige, glace, roc gris, et les crevasses (infranchissables)
+  if (dansCimes(x, y)) {
+    if (Math.hypot(x - CENTRE_CIMES[0], y - CENTRE_CIMES[1]) < 160) return 'dalle_givre';
+    const n = bruitL(x * 1.5 + 700, y * 1.5 + 200), libre = dc > 70 && !LIEUX.some((l) => Math.hypot(x - l.x, y - l.y) < 150);
+    if (libre && n > 0.62) return 'crevasse';
+    return n > 0.25 ? 'glace' : n > -0.25 ? 'neige' : 'roc_gris';
+  }
   // v87 : les Terres Brisées — roche noire, cristaux, et l'abîme (infranchissable)
   if (dansFaille(x, y)) {
     if (Math.hypot(x - CENTRE_FAILLE[0], y - CENTRE_FAILLE[1]) < 150) return 'dalle';
@@ -90,7 +105,7 @@ export function obstacles() {
   const L = NT.l, H = NT.h, grille = new Uint8Array(L * H), sols = new Array(L * H), l = [];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < L; tx++) { const s = sol(tx, ty); sols[ty * L + tx] = s; if (SOLIDES.has(s)) grille[ty * L + tx] = 1; }
   // v83 : décor allégé sur les terres de Braise et de la Sylve (l'Azur ne change pas)
-  const DENS = { herbe: 0.03, fleurs: 0.02, roche: 0.03, cendre: 0.02, sable: 0.035, sylve: 0.055, mousse: 0.04, roche_noire: 0.03, cristal_sol: 0.025 };
+  const DENS = { herbe: 0.03, fleurs: 0.02, roche: 0.03, cendre: 0.02, sable: 0.035, sylve: 0.055, mousse: 0.04, roche_noire: 0.03, cristal_sol: 0.025, neige: 0.035, glace: 0.02, roc_gris: 0.03 };
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < L; tx++) {
     const i = ty * L + tx, s = sols[i];
     if (!(s in DENS)) continue;
@@ -101,7 +116,7 @@ export function obstacles() {
     const v = alea(tx * 13.7 + ty * 71.3);
     if (v > (bord ? 0.75 : DENS[s])) continue;
     const t = territoireDe(x, y), w = alea(tx * 3.1 + ty * 9.7);
-    const type = dansFaille(x, y) ? (w < 0.45 ? 'cristal_vide' : w < 0.75 ? 'rocher_vide' : w < 0.9 ? 'arbre_vide' : 'obelisque') : !t ? (w < 0.6 ? 'arbre' : 'buisson') : t === 'feu' ? (w < 0.45 ? 'rocher' : w < 0.8 ? 'arbre_mort' : 'cristal') : t === 'eau' ? (w < 0.6 ? 'palmier' : w < 0.85 ? 'rocher_clair' : 'corail') : (w < 0.7 ? 'pin' : w < 0.9 ? 'arbre' : 'champignon');
+    const type = dansCimes(x, y) ? (w < 0.4 ? 'sapin_givre' : w < 0.65 ? 'rocher_neige' : w < 0.85 ? 'cristal_orage' : 'stalagmite') : dansFaille(x, y) ? (w < 0.45 ? 'cristal_vide' : w < 0.75 ? 'rocher_vide' : w < 0.9 ? 'arbre_vide' : 'obelisque') : !t ? (w < 0.6 ? 'arbre' : 'buisson') : t === 'feu' ? (w < 0.45 ? 'rocher' : w < 0.8 ? 'arbre_mort' : 'cristal') : t === 'eau' ? (w < 0.6 ? 'palmier' : w < 0.85 ? 'rocher_clair' : 'corail') : (w < 0.7 ? 'pin' : w < 0.9 ? 'arbre' : 'champignon');
     l.push({ x, y, tx, ty, t, type, r: 7 }); grille[i] = 1;
   }
   // les maisons : 3 tuiles de large, 2 de profondeur

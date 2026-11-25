@@ -7,7 +7,7 @@
 //  Finir les 6 quêtes d'un village donne le titre « Ami du village ».
 // =====================================================================
 import { niveau as niveauDe } from './profil.js';
-const T = { feu: 'Terres de Braise', eau: 'Lagons d’Azur', plante: 'Sylve d’Émeraude', brisees: 'Terres Brisées' };
+const T = { feu: 'Terres de Braise', eau: 'Lagons d’Azur', plante: 'Sylve d’Émeraude', brisees: 'Terres Brisées', cimes: 'Cimes Orageuses' };
 // ev : l'événement compté (comme quetes.js) et f son filtre ; donner : ce qu'on apporte au moment de rendre la quête
 export const QUETES = {
   bram: { txt: 'Montre-moi que tu sais te servir d’une forge : améliore 2 cartes.', ev: 'ameliorer', n: 2, rec: { essence: 200, eclats: 40 }, merci: 'Pas mal du tout ! Tiens, des éclats pour la suite.' },
@@ -33,10 +33,16 @@ export const QUETES = {
   lyra: { histoire: 2, niv: 30, apres: 'orin', txt: 'Les fragments que laissent ces monstres gardent la mémoire du monde d’avant les clans. Rapporte-m’en 60, je les lirai.', donner: { fragments: 60 }, rec: { eclats: 50, eclat_vide: 2 }, merci: 'Les trois clans n’en faisaient qu’un, jadis. Le Cœur de la Faille les a séparés… et il se réveille. Prends ces éclats du vide : Varda en fera des invocations.' },
   varda: { histoire: 3, niv: 40, apres: 'lyra', txt: 'Avec des éclats du vide, je forge des cartes qui appellent des alliés. Mais d’abord, prouve que tu tiens debout là-bas : bats 3 élites ou monstres rares des Terres Brisées.', ev: 'victoire', f: { terr: 'brisees', type: ['elite', 'rare'] }, n: 3, rec: { essence: 800, eclat_vide: 4 }, merci: 'Tu as l’étoffe. Va à l’atelier : avec ces éclats, forge ta première invocation. Sel t’attend près du Cœur.' },
   sel: { histoire: 4, niv: 40, apres: 'varda', txt: 'Le Cœur de la Faille bat au bout du portail. Chaque battement fend la terre un peu plus. Fais-le taire.', ev: 'victoire', f: { terr: 'brisees', type: ['boss'] }, n: 1, rec: { essence: 1000, eclat_vide: 6 }, merci: 'Le silence… enfin. Mais sous le Cœur, il y avait autre chose. Quelque chose de vide. Nyx t’en dira plus.' },
+  // ---- v96 : Chapitre 3, l'histoire des Cimes Orageuses (niveaux 50, 60, 70) — 'chap: 3' les distingue de celles de la Faille
+  brann: { chap: 3, histoire: 1, niv: 50, txt: 'Depuis que le Néant s’est rendormi, le ciel gronde au-dessus des Cimes. Des bêtes d’orage descendent du col. Abats-en 4 et reviens me voir — si tu reviens.', ev: 'victoire', f: { terr: 'cimes' }, n: 4, rec: { essence: 1200, plumes: 50 }, merci: 'Tu tiens debout. Bien. Va voir Aela, là-haut : elle lit les aurores comme d’autres lisent les livres.' },
+  aela: { chap: 3, histoire: 2, niv: 50, apres: 'brann', txt: 'Les plumes d’orage gardent la trace des éclairs qui les ont touchées. Rapporte-m’en 80 : je saurai d’où vient la tempête.', donner: { plumes: 80 }, rec: { cristal_foudre: 3, eclats: 80 }, merci: 'Je vois… Quand le Néant a été vaincu, sa force s’est envolée vers le ciel. Le Roi des Tempêtes l’a avalée. Torvald forge des armes contre la foudre : va le trouver.' },
+  torvald: { chap: 3, histoire: 3, niv: 60, apres: 'aela', txt: 'Mes cartes de tempête étourdissent les monstres : ils ratent leur tour. Mais il me faut un bras qui tienne : bats 3 élites ou monstres rares des Cimes.', ev: 'victoire', f: { terr: 'cimes', type: ['elite', 'rare'] }, n: 3, rec: { cristal_foudre: 5, essence: 1500 }, merci: 'Voilà des cristaux de foudre : à l’atelier, ils deviennent des cartes qui font trembler le ciel. Skadi chasse le Roi depuis des années.' },
+  skadi: { chap: 3, histoire: 4, niv: 60, apres: 'torvald', txt: 'Le Roi des Tempêtes et sa sœur, la Reine du Blizzard, tiennent le sommet. Abats l’un des deux. Je te couvrirai… de loin.', ev: 'victoire', f: { terr: 'cimes', type: ['boss'] }, n: 1, rec: { cristal_foudre: 8, essence: 2000 }, merci: 'Il est tombé ! Mais le ciel tourne toujours. Au-dessus du sommet, il y a l’Œil. Odra sait ce que c’est.' },
+  odra: { chap: 3, histoire: 5, niv: 70, apres: 'skadi', txt: 'L’Œil du Cyclone : la force du Néant, devenue tempête. Il ne se montre que dans le Cauchemar. Ferme-le, et le ciel redeviendra le ciel.', ev: 'victoire', f: { terr: 'cimes', type: ['boss'], cauchemar: true }, n: 1, rec: { cristal_foudre: 12, eclats: 200, essence: 4000 }, merci: 'Le vent est tombé. Pour la première fois depuis des siècles, on voit les étoiles depuis les Cimes. Merci, Maître des Tempêtes.' },
   nyx: { histoire: 5, niv: 50, apres: 'sel', txt: 'Sous le Cœur dort le Néant originel, ce qui restait avant les éléments. Il ne s’éveille que dans le Cauchemar. Va le chercher, et finis cette histoire.', ev: 'victoire', f: { terr: 'brisees', type: ['boss'], cauchemar: true }, n: 1, rec: { essence: 2000, eclat_vide: 10, eclats: 100 }, merci: 'Le Néant est retombé dans le sommeil. Les trois clans te doivent leur monde — même s’ils ne le sauront jamais. Merci, Héros de la Faille.' },
 };
-export const PAR_CLAN = { brisees: ['orin', 'lyra', 'varda', 'sel', 'nyx'], feu: ['bram', 'ignis', 'cendrillon', 'mordred', 'pyra', 'gorran'], eau: ['marin', 'nerea', 'loupiot', 'oracle', 'coralie', 'tholos'], plante: ['sylvain', 'faune', 'mousse', 'aelia', 'brindille', 'ronce'] };
-export const TITRES = { brisees: 'Héros de la Faille', feu: 'Ami des Terres de Braise', eau: 'Ami des Lagons d’Azur', plante: 'Ami de la Sylve' };
+export const PAR_CLAN = { cimes: ['brann', 'aela', 'torvald', 'skadi', 'odra'], brisees: ['orin', 'lyra', 'varda', 'sel', 'nyx'], feu: ['bram', 'ignis', 'cendrillon', 'mordred', 'pyra', 'gorran'], eau: ['marin', 'nerea', 'loupiot', 'oracle', 'coralie', 'tholos'], plante: ['sylvain', 'faune', 'mousse', 'aelia', 'brindille', 'ronce'] };
+export const TITRES = { cimes: 'Maître des Tempêtes', brisees: 'Héros de la Faille', feu: 'Ami des Terres de Braise', eau: 'Ami des Lagons d’Azur', plante: 'Ami de la Sylve' };
 export const valide = (id) => typeof id === 'string' && Object.hasOwn(QUETES, id);
 
 // l'état d'une quête pour ce joueur : 'libre' (à proposer), 'cours', 'prete' (à rendre), 'faite'
@@ -49,6 +55,9 @@ export function etat(p, id) {
   if (q.donner) return Object.entries(q.donner).every(([k, v]) => (p.ress[k] || 0) >= v) ? 'prete' : 'cours';
   return (s.n || 0) >= q.n ? 'prete' : 'cours';
 }
+// v90 : combien de parties de l'histoire de la Faille sont finies (0 à 5)
+export const histoireFaille = (p) => PAR_CLAN.brisees.filter((id) => p.pnjQ?.[id]?.fait).length;
+export const histoireCimes = (p) => PAR_CLAN.cimes.filter((id) => p.pnjQ?.[id]?.fait).length;   // v96
 // v87 : les quêtes d'histoire attendent un niveau et la quête d'avant
 export function verrou(p, id) {
   const q = QUETES[id];

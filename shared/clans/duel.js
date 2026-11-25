@@ -8,8 +8,9 @@
 import { BRANCHES, CARTES, CLASSES, effetsDe } from './cartes.js';
 import { alea, bonusBranche, calculerDegats, defausserMain, effetsMain } from './combat.js';
 import { FAMILIERS } from './familiers.js';
+import { DECK_MIN, DECK_MAX } from './profil.js';
 
-export const TOURS_MAX = 30;          // au-delà, le duel s'arrête : le plus de PV (en %) gagne
+export const TOURS_MAX = 50;          // au-delà, le duel s'arrête : le plus de PV (en %) gagne
 const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0 });
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
 
@@ -70,7 +71,7 @@ function debutTour(d) {
   if (j.affaibli > 0) j.affaibli--;
   j.tours = (j.tours || 0) + 1;
   const f = j.tours === 1 && j.familier ? FAMILIERS[j.familier].effet : {};   // Braisillon et Loutre : au premier tour
-  j.energie = (j.energieMax || 3) + (f.energie || 0); j.attaquesTour = 0; j.arcanes = false; j.arcN = 0;
+  j.energie = Math.max(1, (j.energieMax || 3) + (f.energie || 0) - (j.paralysie || 0)); j.paralysie = 0; j.attaquesTour = 0; j.arcanes = false; j.arcN = 0;   // v96 : paralysie
   piocher(d, j, 5 + (f.pioche || 0));
   // Appel : l'allié invoqué frappe l'adversaire
   if (j.appel > 0 && d.tour > 2) attaquer({ force: 0, affaibli: 0, pv: 1 }, cib(d.j[1 - d.actif]), j.appel);
@@ -101,11 +102,12 @@ export function jouer(d, qui, i) {
   }
   if (e.sacrifice) j.pv -= Math.min(e.sacrifice, j.pv - 1);
   if (e.degats) for (let f = 0; f < (e.fois || 1); f++) attaquer(j, cib(adv), e.degats + bonus, mult);
-  if (e.degatsParBrulure) attaquer(j, cib(adv), adv.brulure * e.degatsParBrulure + bonus, mult);
+  if (e.degatsParBrulure) attaquer(j, cib(adv), Math.floor(adv.brulure * e.degatsParBrulure) + bonus, mult);
   if (e.bouclierEnDegats) attaquer(j, cib(adv), j.bloc + bonus, mult);
   if (e.degatsParAffaibli) attaquer(j, cib(adv), adv.affaibli * e.degatsParAffaibli + bonus, mult);
   if (e.brulure) adv.brulure += e.brulure;
   if (e.trempe) adv.trempe += e.trempe;
+  if (e.etourdit) adv.paralysie = Math.min(2, (adv.paralysie || 0) + e.etourdit);   // v96 : en duel, l'étourdi perd de l'énergie à son prochain tour
   if (e.affaibli) adv.affaibli += e.affaibli;
   if (e.doubleBouclier) j.bloc *= 2;
   if (e.bouclier) j.bloc += e.bouclier;
@@ -136,12 +138,14 @@ export function finTour(d, qui) {
 }
 // ce que voit un joueur : sa main, et seulement le nombre de cartes de l'adversaire
 export function vue(d, qui) {
-  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche, appel: j.appel || 0, app: j.app, pv: j.pv, pvMax: j.pvMax, energieMax: j.energieMax || 3, familier: j.familier || null, allie: j.allie?.pv > 0 ? { nom: j.allie.nom, ico: j.allie.ico, pv: j.allie.pv, pvMax: j.allie.pvMax, deg: j.allie.deg } : null, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
+  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche, appel: j.appel || 0, app: j.app, pv: j.pv, pvMax: j.pvMax, energieMax: j.energieMax || 3, familier: j.familier || null, allie: j.allie?.pv > 0 ? { nom: j.allie.nom, ico: j.allie.ico, img: j.allie.img, pv: j.allie.pv, pvMax: j.allie.pvMax, deg: j.allie.deg } : null, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
   const moi = d.j[qui];
   return { moi: { ...pub(moi), main: moi.main.map((k, i) => ({ id: k.id, niv: k.niv, cout: coutDe(moi, i), eph: !!k.eph })) }, adv: pub(d.j[1 - qui]), aMoi: d.actif === qui, tour: d.tour, fini: d.fini, gagnant: d.gagnant === null ? null : d.gagnant === qui ? 'moi' : 'adv', journal: d.journal.slice(-4) };
 }
 // un deck reçu d'un navigateur : des cartes qui existent, de 10 à 25, niveaux de 1 à 3
 export function deckValide(deck) {
-  return Array.isArray(deck) && deck.length >= 10 && deck.length <= 25 && deck.every((k) => k && CARTES[k.id] && [1, 2, 3].includes(k.niv || 1));
+  return Array.isArray(deck) && deck.length >= DECK_MIN && deck.length <= DECK_MAX && deck.every((k) => k && CARTES[k.id] && [1, 2, 3].includes(k.niv || 1));
 }
-export const PV_DUEL = (pvMax, classe) => Math.max(40, Math.min(120, Number(pvMax) || 60 + (CLASSES[classe]?.pv || 0)));
+// v91 : les duels se jouent à 300 PV (± la classe, ×2) — fini les duels pliés en trois tours
+export const PV_DUEL_BASE = 300;
+export const PV_DUEL = (pvMax, classe) => PV_DUEL_BASE + 2 * (CLASSES[classe]?.pv || 0);

@@ -120,6 +120,7 @@ export function fenetreDeck() {
     }).join('') || '<p>Aucune carte de ce type. Va faire des tirages !</p>'}</div>
     <div class="colDeck"><h3>Ton deck <button class="lien" id="btConseils" title="Des decks tout prêts pour ton clan et ta classe">📋 Decks conseillés</button></h3><div class="listeDeck">${lignes || '<p>Ton deck est vide.</p>'}</div></div></div>`, () => {
     $('fenetreCorps').dataset.vue = 'deck';
+    setTimeout(() => import('./ui-coach.js').then((m) => m.tutoDeck()), 350);   // v94 : la 1re fois
     brancherSelecteur(fenetreDeck);
     $('btConseils').onclick = () => fenetreConseils();
     $('fenetreCorps').querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtreDeck = b.dataset.f; fenetreDeck(); });

@@ -25,6 +25,9 @@ export const HAUTS_FAITS = {
   collection: { nom: 'Collectionneur', ico: '📚', txt: 'cartes différentes possédées', n: [20, 40, 55], titres: ['Collectionneur', 'Archiviste', 'Gardien du grimoire'], val: (p) => Object.values(p.collection || {}).filter((c) => c.n > 0).length },
   maitrise: { nom: 'Forgeron', ico: '🔨', txt: `cartes au niveau ${NIV_MAX}`, n: [1, 10, 30], titres: ['Apprenti forgeron', 'Forgeron', 'Maître forgeron'], val: (p) => Object.values(p.collection || {}).filter((c) => c.n > 0 && c.niv >= NIV_MAX).length },
   projet: { nom: 'Bâtisseur', ico: '🏗️', txt: 'points donnés aux projets du clan', n: [100, 1500, 8000], titres: ['Bâtisseur', 'Architecte du clan', 'Bienfaiteur légendaire'], val: (p) => v(p).projet || 0 },
+  faille: { nom: 'La Faille', ico: '🌀', txt: 'parties de l’histoire des Terres Brisées finies', n: [1, 3, 5], titres: ['Voyageur de la Faille', 'Arpenteur du vide', 'Sauveur des trois clans'], val: (p) => QP.histoireFaille(p) },   // v90
+  cimes: { nom: 'Les Cimes', ico: '⚡', txt: 'parties de l’histoire des Cimes Orageuses finies', n: [1, 3, 5], titres: ['Voyageur des cimes', 'Chasseur d’orages', 'Celui qui ferma l’Œil'], val: (p) => QP.histoireCimes(p) },   // v96
+  tour: { nom: 'La Tour', ico: '🗼', txt: 'meilleur étage de la Tour infinie', n: [10, 50, 100], titres: ['Grimpeur', 'Conquérant de la Tour', 'Maître de la Tour'], val: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) },   // v91
   familiers: { nom: 'Ami des bêtes', ico: '🐾', txt: 'familiers', n: [1, 3, 6], titres: ['Ami des bêtes', 'Dresseur', 'Gardien de la ménagerie'], val: (p) => familiers(p).length },
 };
 export const IDS = Object.keys(HAUTS_FAITS);
