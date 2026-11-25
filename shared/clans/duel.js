@@ -34,9 +34,27 @@ export function nouveauDuel(a, b, graine = 1) {
     if (f.affaiblirEnnemis) adv.affaibli += f.affaiblirEnnemis;
     if (f.bloc) j.bloc += f.bloc;
     if (f.regen) j.regen += f.regen;
+    if (f.marqueEnnemis) adv.marque = (adv.marque || 0) + f.marqueEnnemis;   // v102
+    if (f.etourdirPremier) adv.paralysie = (adv.paralysie || 0) + f.etourdirPremier;
   }
   debutTour(d);
   return d;
+}
+// v103 : ce que chaque carte de ta main ferait à l'adversaire, MAINTENANT (bouclier, trempé, affaibli,
+// force, invocation, marques… tout compte) — on la joue sur une copie du duel
+export function apercuMain(d, qui) {
+  const moi = d.j[qui], adv = d.j[1 - qui];
+  return moi.main.map((_, i) => {
+    try {
+      const k = structuredClone({ ...d, _r: undefined }); k._r = () => 0.5; k.actif = qui; k.fini = false; k.j[qui].energie = 99;
+      if (!jouer(k, qui, i)) return null;
+      const A = k.j[1 - qui], M = k.j[qui];
+      const r = { deg: Math.max(0, adv.pv - A.pv), bloc: Math.max(0, (adv.bloc || 0) - (A.bloc || 0)), allie: Math.max(0, (adv.allie?.pv || 0) - (A.allie?.pv || 0)), soin: Math.max(0, M.pv - moi.pv), monBloc: Math.max(0, (M.bloc || 0) - (moi.bloc || 0)) };
+      r.st = ['brulure', 'trempe', 'affaibli', 'marque'].map((s) => [s, (A[s] || 0) - (adv[s] || 0)]).filter(([, n]) => n > 0);
+      if (!r.st.length) delete r.st;
+      return r.deg || r.bloc || r.allie || r.soin || r.monBloc || r.st ? r : null;
+    } catch { return null; }
+  });
 }
 function piocher(d, j, k) {
   for (let i = 0; i < k; i++) {
@@ -144,7 +162,8 @@ export function finTour(d, qui) {
 export function vue(d, qui) {
   const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche, appel: j.appel || 0, app: j.app, pv: j.pv, pvMax: j.pvMax, energieMax: j.energieMax || 3, familier: j.familier || null, allie: j.allie?.pv > 0 ? { nom: j.allie.nom, ico: j.allie.ico, img: j.allie.img, pv: j.allie.pv, pvMax: j.allie.pvMax, deg: j.allie.deg } : null, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, marque: j.marque || 0, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
   const moi = d.j[qui];
-  return { moi: { ...pub(moi), main: moi.main.map((k, i) => ({ id: k.id, niv: k.niv, cout: coutDe(moi, i), eph: !!k.eph })) }, adv: pub(d.j[1 - qui]), aMoi: d.actif === qui, tour: d.tour, fini: d.fini, gagnant: d.gagnant === null ? null : d.gagnant === qui ? 'moi' : 'adv', journal: d.journal.slice(-4) };
+  const ap = apercuMain(d, qui);
+  return { moi: { ...pub(moi), main: moi.main.map((k, i) => ({ id: k.id, niv: k.niv, cout: coutDe(moi, i), eph: !!k.eph, ap: ap[i] })) }, adv: pub(d.j[1 - qui]), aMoi: d.actif === qui, tour: d.tour, fini: d.fini, gagnant: d.gagnant === null ? null : d.gagnant === qui ? 'moi' : 'adv', journal: d.journal.slice(-4) };
 }
 // un deck reçu d'un navigateur : des cartes qui existent, de 10 à 25, niveaux de 1 à 3
 export function deckValide(deck) {

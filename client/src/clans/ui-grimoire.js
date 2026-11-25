@@ -11,7 +11,7 @@ import { dansMonde, ouvrir } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
 
 let onglet = 'cartes', terre = null;
-const ICO_INT = { a: '🗡️', d: '🛡️', f: '💪', e: '🌵', b: '🔥', t: '💧', w: '🥀', s: '💚', g: '🛡️👥' };
+const ICO_INT = { a: '🗡️', d: '🛡️', f: '💪', e: '🌵', b: '🔥', t: '💧', w: '🥀', s: '💚', g: '🛡️👥', p: '⚡', m: '🎯', v: '🩸' };
 const intentionTxt = (it) => Object.entries(it).filter(([k]) => k !== 'n').map(([k, v]) => `${ICO_INT[k] || ''}${v}${k === 'a' && it.n > 1 ? `×${it.n}` : ''}`).join(' ');
 export const texteRec = (p0, x) => [x.rec.essence && `${nf(x.rec.essence)} ${ICO_RESS.essence}`, x.rec.eclats && `${x.rec.eclats} ${ICO_RESS.eclats}`, x.rec.rare && `${x.rec.rare} ${ICO_RESS[GR.rareDe(p0, x)] || ''}`, x.rec.titre && `titre « ${esc(GR.TITRES[x.rec.titre.split(':')[1]])} »`].filter(Boolean).join(' · ');
 
@@ -31,13 +31,15 @@ function vueBestiaire() {
   terre = terre || p.clan;
   const ms = [...GR.monstresDe(terre), GR.TITANS[GR.TERRES.indexOf(terre)]], vus = ms.filter((m) => GR.vu(p, m.id)).length;
   return `<div class="filtres">${GR.TERRES.map((t) => `<button data-terre="${t}" class="${t === terre ? 'actif' : ''}">${TERRITOIRES[t].ico} ${esc(TERRITOIRES[t].nom)} <small>${GR.monstresDe(t).filter((m) => GR.vu(p, m.id)).length}/${GR.monstresDe(t).length}</small></button>`).join('')}</div>
-    <p class="sousTitre">Les monstres que tu as vaincus en expédition. <b>${vus} / ${ms.length}</b> sur cette terre (titan du Cauchemar compris).</p>
+    <p class="sousTitre">Les monstres que tu as vaincus en expédition. <b>${vus} / ${ms.length}</b> sur cette terre (titan du Cauchemar compris), dont <b>${ms.filter((m) => GR.maitrise(p, m)).length}</b> fiches maîtrisées ★★★. Maîtrise-les toutes pour gagner le titre « ${esc(GR.TITRES[`b_${terre}`] || '')} ».</p>
     <div class="bestiaire">${ms.map((m) => {
       const v = GR.vaincus(p)[m.id] || 0, illus = ILLUS_MONSTRES.has(m.id);
       if (!v) return `<div class="bete inconnue ${m.rang}"><div class="portrait">❔</div><b>???</b><small>${esc(GR.ouVoir(m, terre))}</small></div>`;
-      return `<div class="bete ${m.rang}"><div class="portrait" style="${illus ? `background-image:url(${import.meta.env.BASE_URL}clans/monstres/${m.id}.webp)` : ''}">${illus ? '' : m.ico}</div>
-        <b>${esc(m.nom)}</b><small>${esc(GR.ouVoir(m, terre))} · ${m.pv} PV de base · vaincu ${nf(v)} fois</small>
-        <p class="beteInt" title="Ses intentions, dans l’ordre (il commence à un endroit au hasard)">${m.intentions.map(intentionTxt).join(' → ')}</p></div>`;
+      // v101 : la fiche se remplit : découvert → étudié (ses intentions) → maîtrisé (étoile d'or)
+      const nv = GR.niveauFiche(p, m), suiv = GR.prochainSeuil(p, m), etoiles = '★'.repeat(nv) + '☆'.repeat(3 - nv);
+      return `<div class="bete ${m.rang} fiche${nv}"><div class="portrait" style="${illus ? `background-image:url(${import.meta.env.BASE_URL}clans/monstres/${m.id}.webp)` : ''}">${illus ? '' : m.ico}</div>
+        <b>${esc(m.nom)} <span class="ficheEt" title="Fiche ${GR.NIVEAUX_FICHE[nv]}">${etoiles}</span></b><small>${esc(GR.ouVoir(m, terre))} · vaincu ${nf(v)} fois · fiche <b>${GR.NIVEAUX_FICHE[nv]}</b>${suiv ? ` (prochaine étape : ${suiv} victoires)` : ''}</small>
+        ${nv >= 2 ? `<small>${m.pv} PV de base</small><p class="beteInt" title="Ses intentions, dans l’ordre (il commence à un endroit au hasard)">${m.intentions.map(intentionTxt).join(' → ')}</p>` : '<p class="beteInt">🔒 Ses PV et ses intentions se révèlent quand la fiche est « étudiée ».</p>'}</div>`;
     }).join('')}</div>`;
 }
 function vueRecompenses() {

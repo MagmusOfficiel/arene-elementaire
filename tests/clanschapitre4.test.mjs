@@ -20,7 +20,7 @@ const fini = (p, ids) => { p.pnjQ ||= {}; for (const id of ids) p.pnjQ[id] = { f
 test('la région : tout à l’est, niveau 70, 14 monstres + Soleil noir + boss mondial', () => {
   assert.equal(TERRITOIRES.ambre.niv, 70);
   assert.ok(G.dansAmbre(...G.CENTRE_AMBRE) && !G.dansCimes(...G.CENTRE_AMBRE) && G.dansCimes(...G.CENTRE_CIMES) && !G.dansAmbre(...G.CENTRE_CIMES));
-  assert.ok(G.CENTRE_AMBRE[0] < G.CENTRES.feu[0], 'v100 : le désert est à gauche'); assert.ok(G.dansAmbre(300, G.MONDE.h - 100) && !G.dansFaille(300, G.MONDE.h - 100), 'le sud du désert reste du désert');
+  assert.ok(G.CENTRE_AMBRE[0] < G.CENTRES.feu[0], 'v100 : le désert est à gauche'); assert.ok(G.dansFaille(300, G.MONDE.h - 100) && !G.dansAmbre(300, G.MONDE.h - 100), 'v102 : la Faille occupe tout le bas');
   assert.equal(G.territoireDe(...G.CENTRE_AMBRE), null);
   assert.equal(tousDe('ambre').length, 14); assert.ok(BOSS_CAUCHEMAR.ambre && BOSS_MONDIAUX.ambre);
   assert.ok(MONSTRES.ambre.boss.pv > MONSTRES.cimes.boss.pv, 'plus dur que les Cimes');

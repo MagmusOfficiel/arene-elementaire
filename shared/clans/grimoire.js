@@ -36,6 +36,15 @@ export function ouVoir(m, terr) {
   return M.normaux.includes(m) ? 'Combat ordinaire' : '';
 }
 
+// v101 : chaque fiche se remplit en 3 étapes — découvert (1 victoire), étudié, maîtrisé ;
+// il faut moins de victoires pour les monstres rares, élites et boss
+export const SEUILS = { normal: [1, 10, 25], rare: [1, 5, 12], elite: [1, 5, 12], boss: [1, 3, 6] };
+const seuilsDe = (m) => (TITANS.includes(m) ? [1, 2, 3] : SEUILS[m.rang] || SEUILS.normal);
+export const NIVEAUX_FICHE = ['inconnu', 'découvert', 'étudié', 'maîtrisé'];
+export const niveauFiche = (p, m) => { const v = vaincus(p)[m.id] || 0, s = seuilsDe(m); return s.filter((x) => v >= x).length; };
+export const prochainSeuil = (p, m) => seuilsDe(m)[niveauFiche(p, m)] ?? null;
+export const maitrise = (p, m) => niveauFiche(p, m) >= 3;
+
 // ---------- les cartes ----------
 // celles que ce joueur peut avoir (élément + sa classe + sa branche), rangées par rareté puis par nom
 export const cartesDe = (p) => Object.keys(CARTES).filter((id) => pourClasse(id, p.classe, p.branche || null))
@@ -46,7 +55,10 @@ export const possede = (p, id) => (p.collection?.[id]?.n || 0) > 0;
 // rec : essence, eclats, rare (ressource rare : celle de la terre, sinon celle de ton clan), titre
 const PCT = [[25, { essence: 200 }], [50, { essence: 400, eclats: 15 }], [75, { eclats: 40, rare: 4 }], [100, { eclats: 100, rare: 8, titre: 'gri:cartes' }]];
 const PAR_RARETE = { commune: { essence: 300 }, rare: { essence: 600, eclats: 20 }, epique: { eclats: 60, rare: 5 }, legendaire: { eclats: 150, rare: 10 } };
-export const TITRES = { cartes: 'Maître du grimoire', bestiaire: 'Savant des bêtes' };
+export const TITRES = { cartes: 'Maître du grimoire', bestiaire: 'Savant des bêtes',
+  // v101 : un titre par région dont on maîtrise tous les monstres
+  b_feu: 'Dompteur des braises', b_eau: 'Dompteur des marées', b_plante: 'Dompteur de la sylve', b_brisees: 'Chasseur du Néant',
+  b_cimes: 'Chasseur des tempêtes', b_ambre: 'Chasseur des sables', b_ciel: 'Chasseur d’étoiles' };
 
 export function recompenses(p) {
   const l = [], cartes = cartesDe(p), nb = cartes.filter((id) => possede(p, id)).length, recu = new Set(p.grimoire?.r || []);
@@ -63,6 +75,8 @@ export function recompenses(p) {
     const ms = monstresDe(t), v = ms.filter((m) => vu(p, m.id)).length, moitie = Math.ceil(ms.length / 2);
     l.push({ cle: `b-${t}-1`, livre: 'bestiaire', terr: t, ico: TERRITOIRES[t].ico, txt: `${TERRITOIRES[t].nom} : vaincre ${moitie} monstres différents`, v: Math.min(v, moitie), max: moitie, rec: { essence: 250 } });
     l.push({ cle: `b-${t}-2`, livre: 'bestiaire', terr: t, ico: TERRITOIRES[t].ico, txt: `${TERRITOIRES[t].nom} : vaincre tous les monstres`, v, max: ms.length, rec: { eclats: 30, rare: 6 } });
+    // v101 : toutes les fiches de la région « maîtrisées » (titan compris) → un titre
+    { const tous = [...ms, BOSS_CAUCHEMAR[t]]; l.push({ cle: `b-${t}-3`, livre: 'bestiaire', terr: t, ico: '🏅', txt: `${TERRITOIRES[t].nom} : maîtriser toutes les fiches (titan compris)`, v: tous.filter((m) => maitrise(p, m)).length, max: tous.length, rec: { eclats: 80, rare: 10, titre: `gri:b_${t}` } }); }
   }
   l.push({ cle: 'b-titans', livre: 'bestiaire', ico: '💀', txt: 'Vaincre tous les titans du Cauchemar', v: TITANS.filter((m) => vu(p, m.id)).length, max: TITANS.length, rec: { eclats: 80, rare: 6 } });
   l.push({ cle: 'b-tout', livre: 'bestiaire', ico: '📕', txt: 'Compléter tout le bestiaire', v: TOUS_MONSTRES.filter((m) => vu(p, m.id)).length, max: TOUS_MONSTRES.length, rec: { eclats: 120, titre: 'gri:bestiaire' } });
@@ -85,4 +99,4 @@ export function reclamer(p, cle) {
   g(p).r.push(cle);
   return { ok: true, gain };
 }
-export const aTitre = (p, n) => (p.grimoire?.r || []).includes(n === 'cartes' ? 'c100' : 'b-tout');
+export const aTitre = (p, n) => (p.grimoire?.r || []).includes(n === 'cartes' ? 'c100' : n === 'bestiaire' ? 'b-tout' : `b-${String(n).slice(2)}-3`);

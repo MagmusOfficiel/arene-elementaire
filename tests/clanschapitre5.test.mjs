@@ -28,9 +28,9 @@ test('la région : au-delà du désert, niveau 90, 14 monstres + Étoile mère +
   const p = P.nouveauProfil('feu', 'T', 0); haut(p, 85);
   assert.equal(X.commencerExpedition(p, 'ciel', 1, 3).ok, false);
   haut(p, 90); assert.ok(X.commencerExpedition(p, 'ciel', 1, 3).ok);
-  // on rejoint à pied, depuis le désert, la grande place et le portail (et les habitants)
+  // v101 : on rejoint à pied, depuis le village de l’Azur (le pont part de son portail), la grande place et le portail (et les habitants)
   const o = G.obstacles(), T = G.TUILE, L = G.NT.l, H = G.NT.h, ok = (x, y) => G.praticable(x * T + 8, y * T + 8, o);
-  const vu = new Uint8Array(L * H), q = [[Math.floor(G.CENTRE_AMBRE[0] / T), Math.floor((G.CENTRE_AMBRE[1] + 40) / T)]]; vu[q[0][1] * L + q[0][0]] = 1;
+  const vu = new Uint8Array(L * H), q = [[Math.floor(G.CENTRES.eau[0] / T), Math.floor((G.CENTRES.eau[1] + 40) / T)]]; vu[q[0][1] * L + q[0][0]] = 1;
   while (q.length) { const [x, y] = q.pop(); for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X2 = x + a, Y2 = y + b; if (X2 < 0 || Y2 < 0 || X2 >= L || Y2 >= H || vu[Y2 * L + X2] || !ok(X2, Y2)) continue; vu[Y2 * L + X2] = 1; q.push([X2, Y2]); } }
   const atteint = (x, y) => vu[Math.floor(y / T) * L + Math.floor(x / T)] === 1;
   const por = G.LIEUX.find((l) => l.id === 'portail_ciel');
@@ -60,4 +60,28 @@ test('l’histoire des îles : 5 quêtes aux niveaux 90, 95, 100 ; monture, cosm
   QP.avancer(p, 'victoire', 1, { terr: 'ciel', type: 'boss', cauchemar: true }); QP.rendre(p, 'ysolde');
   assert.equal(QP.histoireCiel(p), 5); assert.ok(QP.amiDe(p, 'ciel'));
   assert.ok(MO.possedees(p).includes('pegase_etoiles')); assert.equal(HF.palierDe(p, 'ciel'), 3);
+});
+
+test('v102 : familiers des nouvelles régions et cartes de fusion', async () => {
+  const F = await import('../shared/clans/familiers.js');
+  for (const t of ['brisees', 'cimes', 'ambre', 'ciel']) assert.equal(F.IDS.filter((id) => F.FAMILIERS[id].terr === t).length, 1, t);
+  const c = C.nouveauCombat({ deck: deck(Array(10).fill('frappe')), joueur: { pv: 50, pvMax: 50 }, ennemis: [{ id: 'a', nom: 'a', ico: 'x', pv: 30, intentions: [{ a: 5 }] }, { id: 'b', nom: 'b', ico: 'x', pv: 80, intentions: [{ a: 5 }] }], familier: 'renardeau', graine: 1 });
+  assert.equal(c.ennemis[1].etourdi, 1, 'le plus costaud est étourdi');
+  const c2 = C.nouveauCombat({ deck: deck(Array(10).fill('frappe')), joueur: { pv: 50, pvMax: 50 }, ennemis: [{ id: 'a', nom: 'a', ico: 'x', pv: 30, intentions: [{ a: 5 }] }], familier: 'scarabeon', graine: 1 });
+  assert.equal(c2.ennemis[0].marque, 1);
+  const fus = Object.values(CARTES).filter((x) => ['feu', 'eau', 'plante'].includes(x.element) && x.exclusif);
+  for (const t of ['brisees', 'cimes', 'ambre', 'ciel']) for (const el of ['feu', 'eau', 'plante']) assert.equal(fus.filter((x) => x.exclusif === t && x.element === el).length, 1, `${t}/${el}`);
+  assert.ok(P.coutFabrication('blizzard').cristal_foudre > 0);
+});
+
+test('v103 : les dégâts annoncés suivent l’ordre des monstres ; aperçu des cartes en duel', () => {
+  const c = C.nouveauCombat({ deck: deck(Array(10).fill('garde')), joueur: { pv: 100, pvMax: 100 }, ennemis: [
+    { id: 'a', nom: 'a', ico: 'x', pv: 50, intentions: [{ t: 1 }] }, { id: 'b', nom: 'b', ico: 'x', pv: 50, intentions: [{ a: 10 }] }], palier: { pv: 1, deg: 1 }, graine: 2 });
+  const p = C.prevoirTour(c), b = c.ennemis[1];
+  assert.equal(p.get(b.uid).deg, 15, 'le trempé du 1er rend le 2e plus fort');
+  assert.equal(C.decrireIntention(c, b, p)[0].txt, '15');
+  const pv = c.joueur.pv; C.finTour(c); assert.equal(pv - c.joueur.pv, 15, 'et c’est bien ce qui arrive');
+  const d = D.nouveauDuel({ nom: 'A', clan: 'feu', classe: 'mage', pvMax: 300, deck: deck(Array(20).fill('frappe')) }, { nom: 'B', clan: 'eau', classe: 'tireur', pvMax: 300, deck: deck(Array(20).fill('frappe')) }, 4);
+  const v = D.vue(d, d.actif), adv = d.j[1 - d.actif];
+  assert.ok(v.moi.main[0].ap?.deg > 0); const avant = adv.pv; D.jouer(d, d.actif, 0); assert.equal(avant - adv.pv, v.moi.main[0].ap.deg, 'l’aperçu dit vrai');
 });

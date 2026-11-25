@@ -7,7 +7,7 @@ import * as A from '../../../shared/clans/arene.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { decor, ambiance, creerFx, PALETTES } from './scene.js';
 import { sfx } from '../sfx.js';
-import { banniere, defausserMain, dessinerSprite, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler } from './ui-combat.js';
+import { banniere, defausserMain, dessinerSprite, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler, impact } from './ui-combat.js';
 import { $, ICO_RESS, ILLUS, carteHTML, centre, esc, nf, p, pause, room, statutsHTML, toast } from './ui-commun.js';
 import { etourdir, fermer, monde, ouvrir } from './ui-monde.js';
 import { finArene } from './ui-social.js';
@@ -50,7 +50,12 @@ export function afficherDuel(v) {
   $('duEnergie').classList.toggle('vide', !v.aMoi || m.energie === 0);
   const n = m.main.length, nouveauTour = v.aMoi && (!avant || !avant.aMoi || avant.tour !== v.tour);
   $('duMain').innerHTML = m.main.map((k, i) => { const rot = (i - (n - 1) / 2) * 5, dy = Math.abs(i - (n - 1) / 2) * 7; let h = carteHTML(k.id, k.niv); if (k.cout < CARTES[k.id].cout) h = h.replace(`<span class="cc">${CARTES[k.id].cout}</span>`, `<span class="cc reduit">${k.cout}</span>`); return h.replace('class="carte', `style="transform: rotate(${rot}deg) translateY(${dy}px)" data-i="${i}" class="carte ${k.eph ? 'eph' : ''} ${v.aMoi && k.cout <= m.energie ? '' : 'injouable'}`); }).join('');
-  $('duMain').querySelectorAll('.carte').forEach((d) => d.onclick = () => jouerDuelCarte(+d.dataset.i, d));
+  $('duMain').querySelectorAll('.carte').forEach((d) => {
+    d.onclick = () => { effacerApercuDu(); jouerDuelCarte(+d.dataset.i, d); };
+    const ap = m.main[+d.dataset.i]?.ap;
+    d.onpointerenter = () => apercuDu(ap); d.onpointerleave = effacerApercuDu; d.onpointerdown = (e) => { if (e.pointerType !== 'mouse') apercuDu(ap); };
+  });
+  effacerApercuDu();
   if (nouveauTour) { distribuer($('duMain'), $('duEnergie'), premier ? 500 : 0); if (!premier) banniere('duBanniere', 'À toi de jouer !', '', 950); }
   else if (avant && avant.aMoi && !v.aMoi) banniere('duBanniere', `Tour de ${esc(a.nom)}`, 'rouge', 950);
   $('btDuelFin').disabled = !v.aMoi;
@@ -59,6 +64,17 @@ export function afficherDuel(v) {
   clearInterval(minuterieDu);
   const maj = () => { const s = Math.max(0, Math.ceil((v.limite - Date.now()) / 1000)); $('duTour').className = v.aMoi ? 'moi' : ''; $('duTour').textContent = `${v.aMoi ? 'À toi de jouer !' : `${a.nom} réfléchit…`} · ${s} s`; };
   maj(); minuterieDu = setInterval(maj, 500);
+}
+// v103 : comme face aux monstres, survoler une carte affiche sur l'adversaire ce qu'elle lui fera
+// (calculé par le serveur sur une copie du duel : bouclier, trempé, affaibli, force, marques, invocation)
+function effacerApercuDu() { document.querySelectorAll('#duel .apercu').forEach((d) => d.remove()); }
+function apercuDu(a) {
+  effacerApercuDu(); if (!a) return;
+  const adv = advDu().querySelector('.combattant'), moi = $('duHeros').querySelector('.combattant'), mortel = a.deg >= (vueDu?.adv?.pv || Infinity);
+  const t = [a.deg && `${mortel ? '☠ ' : ''}−${a.deg}`, a.bloc && `<small>🛡−${a.bloc}</small>`, a.allie && `<small>🐾−${a.allie}</small>`, a.st && `<small>${a.st.map(([s, n]) => `${{ brulure: '🔥', trempe: '💧', affaibli: '🥀', marque: '🎯' }[s]}+${n}`).join(' ')}</small>`].filter(Boolean);
+  if (t.length && adv) { const d = document.createElement('div'); d.className = `apercu ${mortel ? 'mortel' : ''}`; d.innerHTML = t.join(' '); adv.append(d); }
+  const s = [a.monBloc && `🛡+${a.monBloc}`, a.soin && `❤+${a.soin}`].filter(Boolean);
+  if (s.length && moi) { const d = document.createElement('div'); d.className = 'apercu soi'; d.textContent = s.join(' '); moi.append(d); }
 }
 export function animerDuel(av, v) {
   const sc = $('duel'), fx = fxDu, moiC = $('duHeros').querySelector('.combattant'), advC = advDu().querySelector('.combattant');
@@ -69,10 +85,10 @@ export function animerDuel(av, v) {
     nouvelles.forEach((t, n) => { const mm = /^(.+) joue (.+)\.$/.exec(t); if (mm && mm[1] === v.adv.nom) setTimeout(() => nombre(advC, `🃏 ${mm[2]}`, 'statut', -50), n * 250); });
   }
   const dAdv = av.adv.pv - v.adv.pv, dMoi = av.moi.pv - v.moi.pv;
-  if (dAdv > 0) { coup(advC, dAdv, true); rejouerAnim(advDu(), 'touche'); sfx.coup(); }
+  if (dAdv > 0) { coup(advC, dAdv, true); rejouerAnim(advDu(), 'touche'); sfx.coup(); const c = centre(advC); fx.etincelles(c.x, c.y, PALETTES.feu, dAdv >= 15 ? 24 : 12); if (dAdv >= 15) { fx.rayons(c.x, c.y, '#ffd060', { n: 12, len: 170 }); impact(sc, v.adv.pv <= 0); } }   // v105
   if (dMoi > 0) {
     if (!av.aMoi) rejouerAnim(advDu(), 'frappe');
-    setTimeout(() => { coup(moiC, dMoi, false); rejouerAnim($('duHeros'), 'touche'); secouer(sc, dMoi >= 10); flash(sc, 'rgba(220,30,20,.3)'); sfx.hurt(); }, av.aMoi ? 0 : 170);
+    setTimeout(() => { if (dMoi >= 15) impact(sc, false); coup(moiC, dMoi, false); rejouerAnim($('duHeros'), 'touche'); secouer(sc, dMoi >= 10); flash(sc, 'rgba(220,30,20,.3)'); sfx.hurt(); }, av.aMoi ? 0 : 170);
   }
   for (const [qui, z, x, y] of [['moi', moiC, av.moi, v.moi], ['adv', advC, av.adv, v.adv]]) {
     const c = centre(z);

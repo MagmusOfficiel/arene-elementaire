@@ -119,9 +119,10 @@ export const monde = creerMonde($('monde'), {
   ambre: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🏜️ Le Désert d’Ambre est le lieu le plus dangereux du monde : il faut être <b>niveau 70</b> pour franchir la passe.'); } }; })(),   // v98
   cimes: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('⚡ Les Cimes Orageuses sont mortelles : il faut être <b>niveau 50</b> pour franchir le col.'); } }; })(),   // v96
   faille: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🌀 Les Terres Brisées sont trop dangereuses : il faut être <b>niveau 30</b> pour y entrer.'); } }; })(),
-  libre: () => Date.now() >= etourdiJusqua && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
+  libre: () => Date.now() >= etourdiJusqua && ($('grandeCarte')?.classList.contains('cache') ?? true) && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
   marchandBouge: (m) => marchandBouge(m),
   fiche: (id) => voirFiche(id),
+  carte: () => import('./ui-carte.js').then((m) => m.ouvrirCarte()),   // v101 : clic sur la mini-carte
   etatPnj: (id) => (p ? QP.etat(p, id) : null),
   agir: (l) => {
     if (l.action === 'tirage') fenetreTirages(); else if (l.action === 'expedition') fenetreExpedition(l.terr); else if (l.action === 'parcelle') fenetreParcelle(); else if (l.action === 'pnj') import('./ui-pnj.js').then((m) => m.parlerA(l.id));
@@ -354,3 +355,6 @@ if (monde.tactile) {
 
 // v93 : sur téléphone, toucher le titre du guide le replie (il couvre moins la carte)
 $('guideEtape').addEventListener('click', () => $('guide').classList.toggle('replie'));
+
+// v101 : la grande carte (touche C, menu, clic sur la mini-carte)
+import('./ui-carte.js').then((m) => { $('btCarte').onclick = () => { menuBarre(false); m.ouvrirCarte(); }; });

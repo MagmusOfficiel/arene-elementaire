@@ -976,3 +976,18 @@ body.tactile #guide.replie #guideEtape::after { content: ' ▸ (toucher pour lir
 .parcVie small { color: #b8a890; }
 .vieBarre { color: #ff9a8a; font-weight: 600; }
 .rouge { color: #ff8a7a; }
+/* v101 : la grande carte du monde */
+#grandeCarte { position: fixed; inset: 0; z-index: 120; background: #0c0a10; touch-action: none; }
+#grandeCarte.cache { display: none; }
+#grandeCarte canvas { width: 100%; height: 100%; display: block; cursor: grab; }
+#grandeCarte .gcHaut { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: rgba(10,8,14,.85); border: 1px solid #e8c06055; border-radius: 10px; color: #f8ecd0; pointer-events: auto; }
+#grandeCarte .gcHaut b { font-size: 16px; }
+#grandeCarte .gcAide { flex: 1; font-size: 12px; color: #b8a890; }
+#grandeCarte .gcZoom { position: absolute; right: 14px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; }
+#grandeCarte .gcZoom .bouton, #grandeCarte .gcHaut .bouton { min-width: 44px; min-height: 44px; font-size: 20px; padding: 4px 10px; }
+#grandeCarte .gcInfo { position: absolute; left: 14px; bottom: 18px; color: #b8a890; font-size: 12px; background: rgba(10,8,14,.7); padding: 4px 8px; border-radius: 6px; }
+@media (max-width: 700px) { #grandeCarte .gcAide { display: none; } }
+/* v101 : les fiches du bestiaire se remplissent */
+.bete .ficheEt { color: #e8c060; font-size: 12px; letter-spacing: 1px; }
+.bete.fiche3 { border-color: #e8c060 !important; box-shadow: 0 0 0 1px #e8c06066, 0 0 14px #e8c06033; }
+.bete.fiche1 .beteInt { opacity: .7; font-style: italic; }

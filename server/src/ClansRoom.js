@@ -458,16 +458,15 @@ export class ClansRoom extends Room {
       }, 700 + Math.random() * 700);
     }
   }
-  // v84 : le perdant d'un duel est étourdi 10 s, puis renvoyé devant sa maison
+  // v84 : le perdant d'un duel… v101 : d'abord renvoyé devant sa maison (sur sa terre), PUIS étourdi 10 s
   etourdir(c, j) {
-    j.etourdi = Date.now() + 10000;
-    setTimeout(() => {
-      j.etourdi = 0;
-      if (!this.joueurs.has(c.sessionId) || !j.p) return;
+    if (this.joueurs.has(c.sessionId) && j.p) {
       const m = posMaison(j.p.clan, cleMaison(j.p));
       j.x = m.x; j.y = m.y + 40;
       c.send('recale', { x: j.x, y: j.y, retour: true });
-    }, 10000);
+    }
+    j.etourdi = Date.now() + 10000;
+    setTimeout(() => { j.etourdi = 0; }, 10000);
   }
   terminerDuel(x, gagnant, raison) {
     if (x.fin) return; x.fin = true; x.minuteur?.clear();

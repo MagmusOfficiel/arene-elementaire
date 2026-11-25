@@ -17,6 +17,11 @@ export const FAMILIERS = {
   loutre: { nom: 'Loutre', terr: 'eau', ico: '🦦', effet: { pioche: 1 }, desc: 'Au premier tour, pioche 1 carte de plus.' },
   pousse: { nom: 'Pousse', terr: 'plante', ico: '🌱', effet: { regen: 3 }, desc: 'Au début du combat, régénération 3 (soigne 3, puis 2, puis 1).' },
   luciole: { nom: 'Luciole', terr: 'plante', ico: '✨', effet: { affaiblirEnnemis: 1 }, desc: 'Au début du combat, les ennemis sont affaiblis 1 tour (−25 % de dégâts).' },
+  // v102 : un familier par nouvelle région (boss de la région, ou à fabriquer avec sa ressource rare)
+  eclat_vide: { nom: 'Éclat du Néant', terr: 'brisees', ico: '🔮', effet: { affaiblirEnnemis: 1, brulureEnnemis: 1 }, desc: 'Au début du combat, les ennemis sont affaiblis 1 tour et brûlent (1).' },
+  renardeau: { nom: 'Renardeau d’orage', terr: 'cimes', ico: '🦊', effet: { etourdirPremier: 1 }, desc: 'Au début du combat, étourdit l’ennemi le plus costaud : il perd sa première action.' },
+  scarabeon: { nom: 'Scarabéon', terr: 'ambre', ico: '🪲', effet: { marqueEnnemis: 1 }, desc: 'Au début du combat, pose 1 marque sur chaque ennemi (à 3 marques, elles explosent).' },
+  chouette: { nom: 'Chouette céleste', terr: 'ciel', ico: '🦉', effet: { bloc: 4, regen: 2 }, desc: 'Au début du combat, 4 de bouclier et régénération 2.' },
 };
 export const IDS = Object.keys(FAMILIERS);
 export const valide = (id) => typeof id === 'string' && Object.hasOwn(FAMILIERS, id);

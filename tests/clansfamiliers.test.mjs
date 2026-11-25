@@ -11,10 +11,10 @@ import { TERRITOIRES } from '../shared/clans/monstres.js';
 const profil = (clan = 'feu') => { const p = P.nouveauProfil(clan, 'Ana', Date.now(), 'mage'); p.ress.essence = 10000; p.ress.cristal = 20; p.ress.perle_noire = 20; p.ress.graine_or = 20; return p; };
 const def = (familier) => ({ deck: P.deckCombat(profil()), joueur: { pv: 50, pvMax: 50 }, ennemis: [{ id: 'x', nom: 'X', ico: 'x', pv: 30, intentions: [{ a: 6 }] }, { id: 'y', nom: 'Y', ico: 'y', pv: 30, intentions: [{ a: 6 }] }], graine: 42, classe: 'mage', familier });
 
-test('familiers : 6, deux par territoire, chacun avec un effet', () => {
-  assert.equal(F.IDS.length, 6);
+test('familiers : 10, deux par terre de clan, un par région (v102), chacun avec un effet', () => {
+  assert.equal(F.IDS.length, 10);
   for (const t of ['feu', 'eau', 'plante']) assert.equal(F.IDS.filter((id) => F.FAMILIERS[id].terr === t).length, 2);
-  for (const id of F.IDS) assert.ok(Object.keys(F.FAMILIERS[id].effet).length === 1 && F.FAMILIERS[id].desc);
+  for (const id of F.IDS) assert.ok(Object.keys(F.FAMILIERS[id].effet).length >= 1 && F.FAMILIERS[id].desc);
 });
 
 test('familiers : l’effet au début du combat, et rien sans familier', () => {

@@ -833,3 +833,55 @@ D'après `/api/clans/equilibrage` (543 combats, 171 duels depuis la v89 ; peu de
   - côté registre des maisons : les entrées `[clan, x, y]` sans 4e élément sont lues décalées.
 - La carte fait maintenant 4 640 × 3 520.
 - 10 illustrations des Îles Célestes sont arrivées (les monstres de la Méduse stellaire au Chevalier de l'aube).
+
+## Grande carte, pont du ciel, duels, bestiaire et runes (v101)
+
+- **Grande carte du monde** (touche **C**, menu « Plus », ou clic sur la mini-carte). Elle s'ouvre en plein écran. On zoome avec la molette, en pinçant ou avec les boutons ＋ et －, et on se déplace en glissant. Le bouton 📍 recentre sur soi, le bouton 🌍 montre tout le monde. On y voit les régions, les portails, les sanctuaires, sa maison, le boss mondial, les filons, les autres joueurs et, de près, les habitants. Un clic sur un lieu y met la flèche du guide. Échap ferme la carte.
+- **Pont des Étoiles.** Il monte maintenant tout droit depuis le portail des Lagons d'Azur, en haut de la carte, au lieu de passer par le désert. Les îles sont centrées au-dessus de l'Azur, et l'Observatoire est au nord-est.
+- **Duel perdu.** On est d'abord renvoyé devant sa maison, sur son territoire, puis étourdi 10 secondes.
+- **Bestiaire.** Chaque fiche se remplit en 3 étapes : découvert, étudié, maîtrisé ★★★.
+  - Il faut 1, 10 et 25 victoires pour un monstre normal, 1, 5 et 12 pour un rare ou une élite, 1, 3 et 6 pour un boss, 1, 2 et 3 pour un titan.
+  - Les PV et les intentions d'un monstre se révèlent quand sa fiche est « étudiée ».
+  - Maîtriser toutes les fiches d'une région (titan compris) donne une récompense et un titre, par exemple « Dompteur des braises » ou « Chasseur d'étoiles ».
+
+## Runes retirées, familiers, cartes de fusion, Faille sur toute la largeur (v102)
+
+- **Les runes sont retirées**, jugées trop compliquées.
+- **4 nouveaux familiers**, un par région. Comme les autres, on les obtient sur le boss de la région ou on les fabrique avec sa ressource rare.
+  - Éclat du Néant (Terres Brisées) : les ennemis sont affaiblis 1 tour et brûlent (1).
+  - Renardeau d'orage (Cimes) : il étourdit l'ennemi le plus costaud, qui perd sa première action.
+  - Scarabéon (Désert) : il pose 1 marque sur chaque ennemi.
+  - Chouette céleste (Îles) : 4 de bouclier et régénération 2.
+- **12 cartes de fusion.** Chaque élément (Feu, Eau, Plante) se mêle à chaque région des chapitres 2 à 5, avec la mécanique de la région. Elles sont épiques, jouables par tous les clans, et se forgent à l'atelier avec la ressource rare de la région.
+  - Néant : Flamme du Néant, Marée du Néant, Ronces du Néant (affaibli).
+  - Cimes : Vapeur d'orage (étourdit), Blizzard (zone + trempé), Pin de givre.
+  - Désert : Mirage ardent, Oasis, Cactus géant (marque).
+  - Îles : Comète de feu, Pluie d'étoiles (vol de vie), Sève des étoiles.
+- **La Faille sur toute la largeur.** Comme les îles en haut, les Terres Brisées occupent tout le bas de la carte. Le désert et les Cimes s'arrêtent à la Faille, avec un peu moins de neige et de sable. Le centre du désert et sa porte ont été remontés.
+
+## Dégâts annoncés plus justes, aperçu en duel et en arène (v103)
+
+- **Intentions des monstres** (`prevoirTour` dans `shared/clans/combat.js`). Les dégâts annoncés sont calculés dans l'ordre où les monstres agissent :
+  - un trempé posé par un monstre augmente l'attaque des suivants, et la sienne ;
+  - la force qu'un monstre gagne juste avant de frapper compte ;
+  - l'invocation encaisse les coups à la place du joueur, jusqu'à tomber ;
+  - un monstre qui va mourir de ses brûlures affiche « 🔥 va succomber » ;
+  - les explosions de marques sont annoncées (💥).
+  Une attaque renforcée s'affiche en rouge avec ↑. Le total « Au prochain tour : −X PV » suit le même calcul, et un test vérifie qu'il correspond aux vrais dégâts.
+- **Duels et arène.** Comme face aux monstres, survoler une carte (ou appuyer dessus sur téléphone) affiche sur l'adversaire ce qu'elle lui fera : dégâts, ☠ si c'est mortel, bouclier retiré, dégâts à l'invocation, statuts posés (🔥 💧 🥀 🎯). Sur toi s'affichent le bouclier gagné et le soin. Le serveur fait le calcul en jouant la carte sur une copie du duel.
+
+## Cartes de fusion illustrées (v104)
+
+- Les 12 cartes de fusion (élément × région) ont maintenant leur illustration.
+
+## Combats plus stylés (v105)
+
+- **Le héros** prend son élan avant chaque attaque.
+- **Impacts.** Des étincelles qui filent avec une traînée. Sur les gros coups (15 dégâts ou plus), des rayons de lumière, une onde de choc et un coup de zoom sur la scène.
+- **Coup de grâce.** Un petit arrêt sur image, un flash blanc, des rayons et une onde de choc. Quand c'est un boss ou une élite, « K.O. ! » ou « Élite vaincue ! » s'affiche en grand.
+- **Chiffres de dégâts.** Ils prennent la couleur de l'élément de la carte. Les coups doubles (visée) claquent en « CRITIQUE ! ».
+- **Combo.** À partir de 3 coups enchaînés, un compteur « ×N COMBO » s'affiche.
+- **Monstres.** Leurs attaques partent vers leur cible en traînée rouge. Les très gros coups reçus font aussi zoomer la scène.
+- **PV bas.** Sous 30 % de PV, les bords de l'écran pulsent en rouge.
+- **Duels et arène.** Étincelles, rayons et coup de zoom sur les gros coups.
+- Ces animations sont coupées si le système demande moins d'animations (`prefers-reduced-motion`).

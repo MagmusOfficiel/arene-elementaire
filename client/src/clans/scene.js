@@ -197,7 +197,7 @@ export function creerFx(canvas) {
   redim(); addEventListener('resize', redim);
   const lancer = () => { if (!raf) { dernier = performance.now(); raf = requestAnimationFrame(boucle); } };
   function boucle(n) {
-    const dt = Math.min(0.05, (n - dernier) / 1000); dernier = n;
+    const dt = Math.max(0, Math.min(0.05, (n - dernier) / 1000)); dernier = n;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     items = items.filter((it) => (it.t += dt) < it.vie);
     for (const it of items) {
@@ -225,6 +225,20 @@ export function creerFx(canvas) {
         const gr = ctx.createRadialGradient(x, y, 0, x, y, it.r * 2.2); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.3, it.c1); gr.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.globalAlpha = 1; ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, Math.max(0, it.r * 2.2), 0, 6.283); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
+      } else if (it.type === 'rayons') {
+        // v105 : des rayons de lumière qui jaillissent du point d'impact
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (1 - k) ** 1.5; ctx.strokeStyle = it.c; ctx.lineCap = 'round';
+        for (const r of it.l) { const d0 = it.r0 + it.len * k * 0.5, d1 = d0 + it.len * (0.4 + 0.6 * (1 - k)) * r.f; ctx.lineWidth = r.ep * (1 - k * 0.7); ctx.beginPath(); ctx.moveTo(it.x + Math.cos(r.a) * d0, it.y + Math.sin(r.a) * d0); ctx.lineTo(it.x + Math.cos(r.a) * d1, it.y + Math.sin(r.a) * d1); ctx.stroke(); }
+        ctx.globalCompositeOperation = 'source-over';
+      } else if (it.type === 'onde') {
+        const e = 1 - (1 - k) ** 3, r = it.r * e; ctx.globalAlpha = (1 - k) * 0.5;
+        const g = ctx.createRadialGradient(it.x, it.y, Math.max(0, r * 0.6), it.x, it.y, Math.max(1, r)); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.85, it.c); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(it.x, it.y, Math.max(1, r), 0, 6.283); ctx.fill();
+      } else if (it.type === 'trait') {
+        // v105 : une étincelle qui file en laissant une traînée
+        it.vx *= 1 - it.frein * dt; it.vy = it.vy * (1 - it.frein * dt) + it.g * dt; const px = it.x, py = it.y; it.x += it.vx * dt; it.y += it.vy * dt;
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1 - k; ctx.strokeStyle = it.c; ctx.lineWidth = it.ep * (1 - k * 0.5); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px - it.vx * dt * 2, py - it.vy * dt * 2); ctx.lineTo(it.x, it.y); ctx.stroke(); ctx.globalCompositeOperation = 'source-over';
       } else if (it.type === 'eclair') {
         ctx.globalAlpha = (1 - k) * 0.85; const g = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, it.r); g.addColorStop(0, it.c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(it.x - it.r, it.y - it.r, it.r * 2, it.r * 2);
       }
@@ -256,6 +270,15 @@ export function creerFx(canvas) {
       else if (el === 'plante') { this.eclats(x, y, pal, Math.round(22 * k), { vitesse: 200, g: 120, taille: 5, frein: 3, vie: 1.2 }); this.monte(x, y + 20, ['#f4ffc0', '#ffe0f0', '#a8f070'], Math.round(10 * k), 90); this.anneau(x, y, '#a8f070', 90 * k, { ep: 5, vie: 0.5 }); }
       else this.eclair(x, y, '#ffffff', 100 * k, 0.25);
     },
+    // v105 : des effets plus « stylés »
+    rayons(x, y, c, { n = 12, len = 140, r0 = 10, vie = 0.35, ep = 4 } = {}) { items.push({ type: 'rayons', x: P(x), y: P(y), c, len: P(len), r0: P(r0), l: Array.from({ length: n }, (_, i) => ({ a: (i / n) * 6.283 + Math.random() * 0.4, f: 0.5 + Math.random() * 0.7, ep: P(ep) * (0.6 + Math.random() * 0.8) })), t: 0, vie }); lancer(); },
+    onde(x, y, c, r = 220, vie = 0.45) { items.push({ type: 'onde', x: P(x), y: P(y), r: P(r), c, t: 0, vie }); lancer(); },
+    etincelles(x, y, pal, n = 18, { vitesse = 520, g = 500, vie = 0.5, ep = 2.5, angle = null, ecart = 6.283 } = {}) {
+      for (let i = 0; i < n; i++) { const a = angle === null ? Math.random() * 6.283 : angle + (Math.random() - 0.5) * ecart, v = vitesse * (0.4 + Math.random() * 0.8) * s(); items.push({ type: 'trait', x: P(x), y: P(y), vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: g * s(), frein: 2.5, ep: P(ep), c: pal[Math.floor(Math.random() * pal.length)], t: 0, vie: vie * (0.6 + Math.random() * 0.6) }); }
+      lancer();
+    },
+    // le coup de grâce : rayons, onde de choc, étincelles
+    grace(x, y, pal) { this.rayons(x, y, pal[1] || '#fff', { n: 16, len: 220, vie: 0.5, ep: 5 }); this.onde(x, y, pal[2] || pal[1], 260, 0.55); this.etincelles(x, y, pal, 34, { vitesse: 700, vie: 0.7 }); },
     vider() { items = []; },
   };
 }

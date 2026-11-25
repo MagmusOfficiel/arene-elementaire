@@ -44,6 +44,9 @@ export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 
     if (f.energie) c.energie += f.energie;
     if (f.pioche) piocher(c, f.pioche);
     if (f.regen) c.joueur.regen += f.regen;
+    // v102 : les familiers des nouvelles régions
+    if (f.marqueEnnemis) for (const e of c.ennemis) e.marque = (e.marque || 0) + f.marqueEnnemis;
+    if (f.etourdirPremier && c.ennemis.length) { const e = c.ennemis.reduce((a, b) => (b.pv > a.pv ? b : a)); e.etourdi = (e.etourdi || 0) + 1; }
   }
   // les reliques de l'expédition (v59)
   RQ.debutCombat(c, c.reliques);
@@ -268,16 +271,46 @@ export function finTour(c) {
   debutTour(c);
 }
 // ce que le monstre va faire, en clair (pour l'affichage)
-export function decrireIntention(c, e) {
+// v103 : les dégâts annoncés tiennent compte de ce que font les monstres AVANT lui ce tour-ci
+// (ils agissent dans l'ordre : un trempé posé par le 2e rend le 3e plus dangereux), de sa propre
+// force gagnée juste avant de frapper, de l'allié invoqué qui encaisse à ta place, et des brûlures
+// qui l'achèveront avant qu'il agisse.
+export function prevoirTour(c) {
+  const j = c.joueur, res = new Map();
+  let trempeJ = j.trempe || 0, marquesJ = j.marque || 0, alliePv = c.allie?.pv > 0 ? c.allie.pv : 0;
+  for (const e of vivants(c)) {
+    if (e.brulure >= e.pv) { res.set(e.uid, { meurt: true, degJ: 0, explo: 0 }); continue; }
+    if (e.etourdi > 0) { res.set(e.uid, { etourdi: true, degJ: 0, explo: 0 }); continue; }
+    const it = intention(e);
+    if (it.t) trempeJ += it.t;   // son propre trempé passe avant son coup
+    let explo = 0;
+    if (it.m) { marquesJ += it.m; while (marquesJ >= MARQUES) { marquesJ -= MARQUES; explo += Math.round(DETONATION_MONSTRE * e.deg); } }
+    let deg = 0, degJ = 0, surAllie = false, bonus = false;
+    if (it.a) {
+      const att = { force: (e.force || 0) + (it.f || 0), affaibli: e.affaibli }, base = Math.round(it.a * e.deg);
+      deg = calculerDegats(base, att, { trempe: trempeJ });
+      bonus = deg > calculerDegats(base, e, j);
+      for (let k = 0; k < (it.n || 1); k++) {
+        if (alliePv > 0) { alliePv -= calculerDegats(base, att, c.allie); surAllie = true; } else degJ += deg;
+      }
+    }
+    res.set(e.uid, { deg, degJ, explo, bonus, surAllie });
+  }
+  return res;
+}
+export function decrireIntention(c, e, prev = null) {
   if (c.mods?.includes('brouillard')) return [{ type: 'malus', txt: '❓' }];
+  const p = (prev || prevoirTour(c)).get(e.uid) || {};
+  if (p.meurt) return [{ type: 'malus', txt: '🔥 va succomber' }];
+  if (p.etourdi || e.etourdi > 0) return [{ type: 'malus', txt: '💫 étourdi' }];
   const it = intention(e), t = [];
-  if (it.a) t.push({ type: 'attaque', txt: `${calculerDegats(Math.round(it.a * e.deg), e, c.joueur)}${it.n > 1 ? `×${it.n}` : ''}` });
+  if (it.a) t.push({ type: 'attaque', txt: `${p.deg ?? calculerDegats(Math.round(it.a * e.deg), e, c.joueur)}${it.n > 1 ? `×${it.n}` : ''}`, bonus: !!p.bonus, allie: !!p.surAllie });
   if (it.d) t.push({ type: 'defense', txt: `${Math.round(it.d * e.deg)}` });
   if (it.f) t.push({ type: 'buff', txt: `+${it.f}` });
   if (it.g) t.push({ type: 'groupe', txt: `${Math.round(it.g * e.deg)}` });
   if (it.s) t.push({ type: 'soin', txt: `${Math.round(it.s * e.deg)}` });
   if (it.e) t.push({ type: 'epines', txt: `${it.e}` });
-  if (it.b || it.t || it.w || it.p || it.m || it.v) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`, it.p && `⚡${it.p}`, it.m && `🎯${it.m}`, it.v && '🩸vol'].filter(Boolean).join(' ') });
+  if (it.b || it.t || it.w || it.p || it.m || it.v) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`, it.p && `⚡${it.p}`, it.m && `🎯${it.m}`, it.v && '🩸vol', p.explo && `💥−${p.explo}`].filter(Boolean).join(' ') });
   if (e.etourdi > 0) return [{ type: 'malus', txt: '💫 étourdi' }];
   return t;
 }

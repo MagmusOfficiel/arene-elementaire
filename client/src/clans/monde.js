@@ -110,7 +110,7 @@ function pixelSol(s, x, y, tx, ty) {
 // ---------- le sol, peint une fois ----------
 // Par bandes de tuiles, en rendant la main au navigateur entre deux bandes (pas d'écran figé),
 // puis gardé sur l'appareil (IndexedDB) : les visites suivantes le relisent en un instant.
-const RENDU_SOL = 5;   // v100 : le désert à gauche, les îles en haut   // v94 : la lisière de la Faille   // à augmenter quand on change la façon de peindre le sol
+const RENDU_SOL = 6;   // v102 : la Faille sur toute la largeur   // v100 : le désert à gauche, les îles en haut   // v94 : la lisière de la Faille   // à augmenter quand on change la façon de peindre le sol
 async function peindreSol(obs, progres) {
   const c = document.createElement('canvas'); c.width = MONDE.l; c.height = MONDE.h;
   const g = c.getContext('2d'), img = g.createImageData(MONDE.l, MONDE.h), d = img.data;
@@ -144,9 +144,9 @@ async function peindreSol(obs, progres) {
         // v87 : la lisière des Terres Brisées — une fissure sombre qui luit en violet
         if (y > FAILLE_Y - 30 && y < FAILLE_Y + 120 && ss !== 'dalle' && ss !== 'chemin') { const e = y - lisiereFaille(x); if (e > -2 && e < 2) col = hex('#0e0818'); else if (e >= 2 && e < 4) col = (x + y) & 1 ? hex('#b080ff') : hex('#6a3ac0'); else if (e <= -2 && e > -6) k *= 0.7; }
         // v96 : la lisière des Cimes — une bande de givre scintillante
-        if (x > CIMES_X - 40 && x < CIMES_X + 120 && ss !== 'dalle_givre' && ss !== 'chemin' && ss !== 'dalle') { const e = x - lisiereCimes(y); if (e > -3 && e < 3) col = (x * 3 + y) % 5 === 0 ? hex('#ffffff') : hex('#cfe6f8'); else if (e <= -3 && e > -10) k *= 0.85; }
+        if (x > CIMES_X - 40 && x < CIMES_X + 120 && y < lisiereFaille(x) - 2 && ss !== 'dalle_givre' && ss !== 'chemin' && ss !== 'dalle') { const e = x - lisiereCimes(y); if (e > -3 && e < 3) col = (x * 3 + y) % 5 === 0 ? hex('#ffffff') : hex('#cfe6f8'); else if (e <= -3 && e > -10) k *= 0.85; }
         // v98 : la lisière du Désert d'Ambre — une ligne de sable doré
-        if (x > AMBRE_X - 100 && x < AMBRE_X + 40 && y > CIEL_Y && ss !== 'dalle_ambre' && ss !== 'chemin' && ss !== 'pont_lumiere') { const e = lisiereAmbre(y) - x;   // v100 : le désert est à gauche
+        if (x > AMBRE_X - 100 && x < AMBRE_X + 40 && y > CIEL_Y && y < lisiereFaille(x) - 2 && ss !== 'dalle_ambre' && ss !== 'chemin' && ss !== 'pont_lumiere') { const e = lisiereAmbre(y) - x;   // v100 : le désert est à gauche
           if (e > -3 && e < 3) col = (x + y * 3) % 4 === 0 ? hex('#fff0b0') : hex('#f0c060'); else if (e <= -3 && e > -9) k *= 0.88; }
         const i = (y * MONDE.l + x) * 4; d[i] = col[0] * k; d[i + 1] = col[1] * k; d[i + 2] = col[2] * k; d[i + 3] = 255;
       }
@@ -557,6 +557,8 @@ export function creerMonde(canvas, rappels) {
   canvas.addEventListener('pointerdown', (e) => {
     if (!actif || !rappels.libre()) return;
     const r = canvas.getBoundingClientRect(), k = canvas.width / r.width;
+    // v101 : un clic sur la mini-carte ouvre la grande carte
+    { const px = (e.clientX - r.left) * k, py = (e.clientY - r.top) * k, mr = miniRect; if (mr && px >= mr.x - 6 && px <= mr.x + mr.w + 6 && py >= mr.y - 6 && py <= mr.y + mr.h + 6) { rappels.carte?.(); return; } }
     const x = ((e.clientX - r.left) * k - ox) / z, y = ((e.clientY - r.top) * k - oy) / z;
     // un clic sur un autre joueur : sa fiche (v60)
     for (const [id, a] of autres) if (Math.abs(x - a.x) < 10 && y > a.y - 30 && y < a.y + 4) { rappels.fiche?.(id); return; }
@@ -1057,5 +1059,7 @@ export function creerMonde(canvas, rappels) {
     for (const p of gens) { ctx.fillStyle = p.moi ? '#ffffff' : COUL[p.clan]; const r = (p.moi ? 4 : 3) * s; ctx.fillRect(R(x0 + p.x * kx - r / 2), R(y0 + p.y * ky - r / 2), R(r), R(r)); }
   }
   requestAnimationFrame(boucle);
-  return { get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  // v101 : ce que la grande carte a besoin de savoir
+  const etatCarte = () => ({ fond, mini, joueur, autres: [...autres.values()], mondial, filons, clan: monClan, maison: posMaison(monClan, maCle), cible, pnj: pnjIci(temps), sanct });
+  return { etatCarte, get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

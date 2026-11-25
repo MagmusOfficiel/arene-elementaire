@@ -40,17 +40,17 @@ export const CENTRES = Object.fromEntries(Object.entries(L_CENTRES).map(([k, c])
 export const CARREFOUR = W(L_CARREFOUR);
 // v100 : le Désert d'Ambre, tout à gauche (x < AMBRE_X), et les Îles Célestes, tout en haut (y < CIEL_Y)
 export const AMBRE_X = OX, NIV_AMBRE = 70;
-export const CENTRE_AMBRE = [330, OY + 1600];
+export const CENTRE_AMBRE = [330, OY + 1250];   // v102 : remonté (la Faille occupe le bas)
 export const CIEL_Y = OY, NIV_CIEL = 90;
-export const CENTRE_CIEL = [1100, 320];
-const MONTEE_CIEL = [330, OY + 80];   // le chemin du désert monte jusqu'ici, puis le pont part vers les îles
+export const CENTRE_CIEL = [OX + 1608, 300];   // v101 : juste au-dessus des Lagons d'Azur
+const PORTAIL_EAU = [OX + 1608, OY + 136];   // le Pont des Étoiles part du portail de l'Azur, tout droit vers le haut
 import { SANCTUAIRES } from './territoires.js';
 export const LIEUX = [
   ...L_LIEUX.map((l) => ({ ...l, x: l.x + OX, y: l.y + OY })),
   // v99 : tout en haut des Îles Célestes, l'Observatoire
-  { id: 'portail_ciel', nom: 'Portail de l’Observatoire', x: 2300, y: 200, r: 40, action: 'expedition', terr: 'ciel' },
+  { id: 'portail_ciel', nom: 'Portail de l’Observatoire', x: 3300, y: 220, r: 40, action: 'expedition', terr: 'ciel' },
   // v98 : au fond du Désert d'Ambre, la porte de la cité ensevelie
-  { id: 'portail_ambre', nom: 'Porte de la Cité ensevelie', x: 300, y: MONDE.h - 240, r: 40, action: 'expedition', terr: 'ambre' },
+  { id: 'portail_ambre', nom: 'Porte de la Cité ensevelie', x: 300, y: OY + 420, r: 40, action: 'expedition', terr: 'ambre' },
 ];
 const L_SANCT = SANCTUAIRES.map((s) => ({ x: s.x - OX, y: s.y - OY }));
 export const alea = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -65,14 +65,16 @@ export const lisiereFaille = (x) => lFaille(x - OX) + OY;   // le y de la lisiè
 export const lisiereCimes = (y) => lCimes(y - OY) + OX;     // le x de la lisière, pour un y donné
 export const lisiereAmbre = (y) => AMBRE_X - 20 + Math.sin(y / 170) * 22 + Math.sin(y / 61 + 2.1) * 8 + bruitL(AMBRE_X, y) * 16;   // x
 export const lisiereCiel = (x) => CIEL_Y - 10 + Math.sin(x / 140) * 18 + bruitL(x, CIEL_Y) * 12;   // y
+// v102 : comme les îles en haut, les Terres Brisées occupent tout le bas de la carte, d'un bord à l'autre
+// (le désert et les Cimes s'arrêtent à la Faille)
 export const dansCiel = (x, y) => y < lisiereCiel(x);
-export const dansAmbre = (x, y) => !dansCiel(x, y) && x < lisiereAmbre(y);
+export const dansFaille = (x, y) => !dansCiel(x, y) && y > lisiereFaille(x);
+export const dansAmbre = (x, y) => !dansCiel(x, y) && !dansFaille(x, y) && x < lisiereAmbre(y);
 const ancien = (x, y) => !dansCiel(x, y) && !dansAmbre(x, y);
-export const dansCimes = (x, y) => ancien(x, y) && x > lisiereCimes(y);
-export const dansFaille = (x, y) => ancien(x, y) && y > lisiereFaille(x) && x <= lisiereCimes(y);
+export const dansCimes = (x, y) => ancien(x, y) && !dansFaille(x, y) && x > lisiereCimes(y);
 // à quel territoire appartient un point (null : le Carrefour ou les régions neutres)
 function territoireL(xl, yl) {
-  if ((yl > lFaille(xl) && xl <= lCimes(yl)) || xl > lCimes(yl)) return null;
+  if (yl > lFaille(xl) || xl > lCimes(yl)) return null;
   if (Math.hypot(xl - L_CARREFOUR[0], yl - L_CARREFOUR[1]) < 290 + bruitL(xl, yl) * 30) return null;
   let best = null, d0 = Infinity;
   for (const [k, [cx, cy]] of Object.entries(L_CENTRES)) { const d = Math.hypot(xl - cx, yl - cy) * (1 + bruitL(xl + cx, yl) * 0.06); if (d < d0) { d0 = d; best = k; } }
@@ -86,11 +88,11 @@ export const MAISONS = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx, 
 export const OUVRAGES = Object.fromEntries(Object.entries(CENTRES).map(([k, [cx, cy]]) => [k, { x: snap(cx), y: snap(cy + 8) }]));
 export const maisonDe = (clan, nom) => MAISONS[clan][[...nom].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 8];
 
-// les chemins : du Carrefour vers chaque village et chaque portail ; v100 : du village du Feu vers le désert,
-// du désert vers les îles (en montant), et à travers les îles jusqu'à l'Observatoire
+// les chemins : du Carrefour vers chaque village et chaque portail ; v100 : du village du Feu vers le désert ;
+// v101 : le Pont des Étoiles monte tout droit du portail de l'Azur vers les îles, puis jusqu'à l'Observatoire
 const CENTRE_DE = (t) => CENTRES[t] || { cimes: CENTRE_CIMES, ambre: CENTRE_AMBRE, ciel: CENTRE_CIEL, brisees: CENTRE_FAILLE }[t];
 export const SEGMENTS = [[CARREFOUR, CENTRES.feu], [CARREFOUR, CENTRES.eau], [CARREFOUR, CENTRES.plante], [CARREFOUR, CENTRE_FAILLE], [CARREFOUR, CENTRE_CIMES],
-  [CENTRES.feu, CENTRE_AMBRE], [CENTRE_AMBRE, MONTEE_CIEL], [MONTEE_CIEL, CENTRE_CIEL]].concat(LIEUX.filter((l) => l.terr).map((l) => [CENTRE_DE(l.terr), [l.x, l.y]]));
+  [CENTRES.feu, CENTRE_AMBRE], [PORTAIL_EAU, CENTRE_CIEL]].concat(LIEUX.filter((l) => l.terr).map((l) => [CENTRE_DE(l.terr), [l.x, l.y]]));
 const L_SEGMENTS = SEGMENTS.map(([a, b]) => [[a[0] - OX, a[1] - OY], [b[0] - OX, b[1] - OY]]);
 function distSeg(px, py, [ax, ay], [bx, by]) { const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - ax - t * dx, py - ay - t * dy); }
 const distChemin = (x, y) => Math.min(...SEGMENTS.map((s) => distSeg(x, y, ...s)));
@@ -99,7 +101,7 @@ export const chemin = (x, y) => distChemin(x, y) < 26;
 // où le chemin franchit la lisière (pour les panneaux « niveau 70 » et « niveau 90 »)
 const croise = ([ax, ay], [bx, by], f) => { for (let k = 0; k <= 200; k++) { const t = k / 200, x = ax + (bx - ax) * t, y = ay + (by - ay) * t; if (f(x, y)) return [Math.round(x), Math.round(y)]; } return [bx, by]; };
 export const PASSE_AMBRE = croise(CENTRES.feu, CENTRE_AMBRE, dansAmbre);
-export const PONT_CIEL = croise(MONTEE_CIEL, CENTRE_CIEL, dansCiel);
+export const PONT_CIEL = croise(PORTAIL_EAU, CENTRE_CIEL, dansCiel);
 const dansVillage = (x, y, k, m = 1) => { const [cx, cy] = CENTRES[k]; return ((x - cx) / (330 * m)) ** 2 + ((y - cy) / (225 * m)) ** 2 < 1; };
 const dansVillageL = (x, y, k, m = 1) => { const [cx, cy] = L_CENTRES[k]; return ((x - cx) / (330 * m)) ** 2 + ((y - cy) / (225 * m)) ** 2 < 1; };
 
@@ -130,13 +132,14 @@ export function sol(tx, ty) {
     if (libre && n > 0.64) return 'sables_mouvants';
     return n > 0.2 ? 'dune' : n > -0.3 ? 'sable_ambre' : 'gres';
   }
+  // v102 : la Faille sous le désert (à gauche) : même sol que la Faille, en coordonnées locales prolongées
   return solL(tx - OTX, ty - OTY);
 }
 // l'ancien monde, dans ses coordonnées d'origine (rien n'y bouge)
 function solL(tx, ty) {
   const x = tx * TUILE + 8, y = ty * TUILE + 8, t = territoireL(x, y);
   if (Math.hypot(x - L_CARREFOUR[0], y - L_CARREFOUR[1]) < 130) return 'paves';
-  const dc = distCheminL(x, y), cimes = x > lCimes(y), faille = !cimes && y > lFaille(x);
+  const dc = distCheminL(x, y), faille = y > lFaille(x), cimes = !faille && x > lCimes(y);   // v102 : la Faille passe avant les Cimes
   if (dc < 26) return cimes ? 'dalle_givre' : faille ? 'dalle' : 'chemin';
   const libreL = (d) => !L_LIEUX.some((l) => Math.hypot(x - l.x, y - l.y) < d);
   // v96 : les Cimes Orageuses — neige, glace, roc gris, et les crevasses (infranchissables)

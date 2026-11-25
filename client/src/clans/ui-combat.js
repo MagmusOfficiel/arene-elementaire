@@ -28,6 +28,15 @@ export function nombre(el, txt, cls, dy = 0) {
 }
 export function banniere(id, html, cls = '', duree = 1150) { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; $(id).replaceChildren(d); if (duree) setTimeout(() => d.remove(), duree); return d; }
 export function secouer(sc, fort) { const c = fort ? 'grosseSecousse' : 'secousse'; sc.classList.remove('secousse', 'grosseSecousse'); void sc.offsetWidth; sc.classList.add(c); setTimeout(() => sc.classList.remove(c), 520); }
+// v105 : arrêt sur image (hit-stop) et coup de zoom sur les gros impacts
+export function impact(sc, fort = false) { const c = fort ? 'punchFort' : 'punch'; sc.classList.remove('punch', 'punchFort'); void sc.offsetWidth; sc.classList.add(c); setTimeout(() => sc.classList.remove(c), 380); }
+let comboN = 0, comboT = 0;
+function combo(sc) {
+  const now = performance.now(); comboN = now - comboT < 1400 ? comboN + 1 : 1; comboT = now;
+  if (comboN < 3) return;
+  let el = sc.querySelector('.combo'); if (!el) { el = document.createElement('div'); el.className = 'combo'; sc.append(el); }
+  el.innerHTML = `<b>${comboN}</b><span>COMBO</span>`; rejouerAnim(el, 'pop'); clearTimeout(el._t); el._t = setTimeout(() => el.remove(), 1500);
+}
 export function flash(sc, couleur) { const f = document.createElement('div'); f.className = 'flash'; f.style.background = couleur; sc.append(f); setTimeout(() => f.remove(), 380); }
 export function dessinerSprite(canvas, clan, classe, dir, app = '') { const g = canvas.getContext('2d'); g.clearRect(0, 0, 24, 26); g.drawImage(feuillePerso(clan, classe || 'combattant', app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 24, 26, 0, 0, 24, 26); }
 export const PAL_AURA = { a_braises: 'feu', a_bulles: 'eau', a_lucioles: 'plante', a_or: 'or' };
@@ -152,23 +161,25 @@ $('cbPioche').onclick = () => voirPile('pioche'); $('cbDefausse').onclick = () =
 $('cbPioche').title = 'Ta pioche — cliquer pour voir ce qu’il reste'; $('cbDefausse').title = 'Ta défausse — cliquer pour la voir';
 // ce que je vais perdre si je finis mon tour maintenant
 function majMenace(c) {
-  let total = 0;
-  for (const e of c.ennemis) if (e.pv > 0) for (const it of C.decrireIntention(c, e)) if (it.type === 'attaque') { const [d, n] = it.txt.split('×').map(Number); if (!Number.isNaN(d)) total += d * (n || 1); }
+  // v103 : on additionne ce que chaque monstre fera vraiment, dans l'ordre (trempé posé avant, force, invocation, marques)
+  const prev = C.prevoirTour(c); let total = 0, explo = 0, surAllie = false;
+  for (const e of c.ennemis) { const p = e.pv > 0 && !c.mods?.includes('brouillard') && prev.get(e.uid); if (!p) continue; total += p.degJ || 0; explo += p.explo || 0; surAllie ||= p.surAllie; }
   const el = $('cbMenace'); if (!el) return;
-  if (!total || c.fini) { el.className = 'menace'; el.textContent = ''; return; }
-  if (c.allie?.pv > 0) { el.className = 'menace vu bloquee'; el.innerHTML = `${c.allie.ico} ${c.allie.nom} encaisse : <b>−${total}</b>`; el.title = 'Ton invocation prend les coups à ta place tant qu’elle tient debout.'; return; }   // v87
-  const perte = Math.max(0, total - c.joueur.bloc);
+  if ((!total && !explo && !surAllie) || c.fini) { el.className = 'menace'; el.textContent = ''; return; }
+  const perte = Math.max(0, total - c.joueur.bloc) + explo;
+  if (!perte && surAllie) { el.className = 'menace vu bloquee'; el.innerHTML = `${c.allie.ico} ${esc(c.allie.nom)} encaisse les coups`; el.title = 'Ton invocation prend les coups à ta place tant qu’elle tient debout.'; return; }
   el.className = `menace vu ${perte ? (perte >= c.joueur.pv ? 'mortelle' : '') : 'bloquee'}`;
-  el.innerHTML = perte ? `${perte >= c.joueur.pv ? '☠ ' : ''}Au prochain tour : <b>−${perte} PV</b>${c.joueur.bloc ? ` <small>(${total} − 🛡${c.joueur.bloc})</small>` : ''}` : `🛡 Tu bloques tout (${total})`;
-  el.title = 'Somme des attaques annoncées par les ennemis, moins ton bouclier actuel.';
+  el.innerHTML = perte ? `${perte >= c.joueur.pv ? '☠ ' : ''}Au prochain tour : <b>−${perte} PV</b>${c.joueur.bloc && total ? ` <small>(${total} − 🛡${c.joueur.bloc})</small>` : ''}${explo ? ` <small>dont 💥${explo} (marques)</small>` : ''}` : `🛡 Tu bloques tout (${total})`;
+  el.title = 'Ce que les ennemis vont vraiment t’infliger, dans l’ordre où ils agissent (un trempé posé par l’un fait plus mal au suivant), moins ton bouclier actuel. Les explosions de marques ignorent le bouclier.';
 }
 export function dessinerCombat(donner = false, entree = false) {
   const c = combat;
   $('cbEnnemis').classList.toggle('beaucoup', c.ennemis.length >= 4);   // v93 : la Tour (5 monstres) tient sur l'écran, même sur téléphone
+  const prev = C.prevoirTour(c);
   $('cbEnnemis').innerHTML = c.ennemis.map((e, n) => {
-    const its = C.decrireIntention(c, e), illus = ILLUS_MONSTRES.has(e.id);
+    const its = C.decrireIntention(c, e, prev), illus = ILLUS_MONSTRES.has(e.id);
     return `<div class="ennemi ${e.rang || ''} ${e.maudit ? 'maudit' : ''} ${typeCombat === 'mondial' ? 'mondial' : ''} ${e.pv <= 0 ? 'parti' : ''} ${e.pv > 0 && e.pv / e.pvMax < 0.35 ? 'blesse' : ''} ${carteChoisie != null ? 'ciblable' : ''} ${entree ? 'entreeD' : ''}" data-e="${e.uid}" style="--respire:${(3 + ((n * 0.7 + e.pvMax) % 1.4)).toFixed(2)}s;--decale:-${((n * 1.3 + e.pvMax * 0.37) % 3).toFixed(2)}s;${entree ? `animation-delay:${150 + n * 120}ms` : ''}">
-      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}" title="${esc(TITRES_INTENTION[it.type](it.txt))}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵', groupe: '🛡️👥', soin: '💚' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
+      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}${it.bonus ? ' renforce' : ''}" title="${esc(TITRES_INTENTION[it.type](it.txt))}${it.bonus ? ' — plus fort à cause d’un trempé ou de la force qu’il gagne juste avant' : ''}${it.allie ? ' — sur ton invocation' : ''}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵', groupe: '🛡️👥', soin: '💚' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
       <div class="corps"><div class="portrait" style="${illus ? `background-image:url(${import.meta.env.BASE_URL}clans/monstres/${e.id}.webp)` : ''}">${illus ? '' : e.ico}</div><div class="ombre"></div></div>
       <div class="nomE">${e.maudit ? '<span class="tagMaudit">MAUDIT</span> ' : ''}${esc(e.nom)}</div>
       <div class="jauge" data-pv="${e.pv}"><span class="bouclier ${e.bloc ? 'vu' : ''}">${e.bloc || ''}</span><div class="barre vie ${e.bloc ? 'protege' : ''}"><i class="fantome" style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><i style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><b>${Math.max(0, e.pv)} / ${e.pvMax}</b></div></div>
@@ -178,6 +189,7 @@ export function dessinerCombat(donner = false, entree = false) {
   majJauge($('cbHeros').querySelector('.jauge'), j.pv, j.pvMax, j.bloc);
   majAllie(c.allie);
   $('cbStatuts').innerHTML = statutsHTML(j);
+  $('combat').classList.toggle('critique', !c.fini && j.pv > 0 && j.pv / j.pvMax < 0.3);   // v105 : PV bas, l'écran pulse en rouge
   majMenace(c); $('cbTour').textContent = c.fini ? '' : `Tour ${c.tour}`;
   $('cbReliques').innerHTML = (c.reliques || []).map((id) => `<i title="${esc(RQ.RELIQUES[id].nom)} : ${esc(RQ.RELIQUES[id].desc)}">${RQ.RELIQUES[id].ico}</i>`).join('');
   $('cbEnergieTxt').textContent = `${c.energie}/${c.energieMax}`;
@@ -274,7 +286,7 @@ export async function jouerEvenements(evs) {
   for (const e of evs) {
     const z = e.a ? corpsDe(e.a) : null;
     switch (e.t) {
-      case 'carte': element = CARTES[e.id]?.element || 'neutre'; coupsCarte = 0; break;
+      case 'carte': element = CARTES[e.id]?.element || 'neutre'; coupsCarte = 0; if (CARTES[e.id]?.type === 'attaque') rejouerAnim($('cbHeros'), 'lance'); break;   // v105 : le héros prend son élan
       case 'invoque': majAllie(e.allie); rejouerAnim($('cbAllie'), 'entreeG'); sfx.bouclier?.(); await pauseCb(320); break;   // v87
       case 'coup': {
         if (!z) break;
@@ -284,15 +296,21 @@ export async function jouerEvenements(evs) {
           const h = centre($('cbSprite')); fx.proj(h.x + 20, h.y - 10, c.x, c.y, PALETTES[element], { r: e.deg >= 15 ? 16 : 11, arc: element === 'eau' ? 60 : element === 'plante' ? 20 : 40 });
           await pauseCb(190);
         }
-        if (e.de === 'j' && e.a !== 'j') fx.signature(element, c.x, c.y, e.deg >= 15);
+        // v105 : un monstre lance une traînée rouge vers sa cible
+        if (e.de !== 'j' && (e.a === 'j' || e.a === 'allie')) { const src = elEnnemi(e.de)?.querySelector('.portrait'); if (src) { const s0 = centre(src); fx.proj(s0.x - 20, s0.y, c.x, c.y, PALETTES.mal, { r: e.deg >= 15 ? 14 : 9, vie: 0.14, arc: 18 }); await pauseCb(120); } }
+        if (e.de === 'j' && e.a !== 'j') { fx.signature(element, c.x, c.y, e.deg >= 15); fx.etincelles(c.x, c.y, PALETTES[element] || PALETTES.neutre, e.deg >= 15 ? 22 : 10); combo(sc); }
+        const grace = e.a !== 'j' && e.a !== 'allie' && e.pv <= 0, gros = e.deg >= 15 || e.double;
+        if (grace) { fx.grace(c.x, c.y, PALETTES[element] || PALETTES.or); flash(sc, 'rgba(255,255,255,.45)'); impact(sc, true); await pauseCb(110); }   // v105 : le coup de grâce (arrêt sur image)
+        else if (gros) { fx.rayons(c.x, c.y, (PALETTES[element] || PALETTES.mal)[1], { n: 10, len: 150 }); fx.onde(c.x, c.y, (PALETTES[element] || PALETTES.mal)[2] || '#fff', 180); impact(sc, false); await pauseCb(60); }
         fx.entaille(c.x, c.y, pal[2] || pal[1], { a: e.de === 'j' ? -0.75 : 2.3, l: e.deg >= 15 ? 210 : 150, n: e.double ? 4 : 3 });
         fx.eclats(c.x, c.y, pal, e.deg >= 15 ? 40 : 22, { vitesse: 280 });
         rejouerAnim(blocDe(e.a), 'touche');
-        if (e.deg > 0) nombre(z, `−${e.deg}`, `deg${e.deg >= 15 || e.double ? ' gros' : ''}`);
+        if (e.deg > 0) nombre(z, `−${e.deg}`, `deg${e.deg >= 15 || e.double ? ' gros' : ''}${e.de === 'j' ? ` el-${element}` : ''}${e.double ? ' crit' : ''}`);
+        if (e.double && e.de === 'j') nombre(z, 'CRITIQUE !', 'critTxt', -46);
         if (e.bloque > 0) nombre(z, `🛡 ${e.bloque}`, 'bloque', 34);
         majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), e.bloc);
         if (e.a === 'allie' && e.pv <= 0) setTimeout(() => $('cbAllie').classList.add('cache'), 450);   // v87 : l'invocation tombe
-        if (e.a === 'j') { secouer(sc, e.deg >= 10); if (e.deg) flash(sc, 'rgba(220,30,20,.32)'); sfx.hurt(); } else { sfx.coup(); if (e.deg >= 15) secouer(sc, false); const el2 = elEnnemi(e.a); if (el2) el2.classList.toggle('blesse', e.pv > 0 && e.pv / pvMaxDe(e.a) < 0.35); if (e.deg >= 15) await pauseCb(70); }
+        if (e.a === 'j') { secouer(sc, e.deg >= 10); if (e.deg) flash(sc, 'rgba(220,30,20,.32)'); if (e.deg >= 12) impact(sc, false); sfx.hurt(); sc.classList.toggle('critique', e.pv > 0 && e.pv / pvMaxDe('j') < 0.3); } else { sfx.coup(); if (e.deg >= 15) secouer(sc, false); const el2 = elEnnemi(e.a); if (el2) el2.classList.toggle('blesse', e.pv > 0 && e.pv / pvMaxDe(e.a) < 0.35); if (e.deg >= 15) await pauseCb(70); }
         await pauseCb(e.de === 'j' ? 210 : 300); break;
       }
       case 'epines': {
@@ -304,6 +322,7 @@ export async function jouerEvenements(evs) {
         const el = elEnnemi(e.a); if (!el) break; const c = centre(el.querySelector('.portrait'));
         fx.eclats(c.x, c.y, PALETTES.mort, 56, { vitesse: 360, g: 90, taille: 5, vie: 1.2 }); fx.anneau(c.x, c.y, '#d8c8ff', 150, { ep: 10, vie: 0.6 }); fx.eclair(c.x, c.y, '#ffffff', 160);
         el.classList.remove('touche'); el.classList.add('mort'); sfx.orb();
+        { const rang = combat?.ennemis.find((x) => x.uid === e.a)?.rang; if (rang === 'boss' || rang === 'elite') { banniere('cbBanniere', rang === 'boss' ? 'K.O. !' : 'Élite vaincue !', 'ko', 1100); fx.rayons(c.x, c.y, '#ffe080', { n: 22, len: 320, vie: 0.8, ep: 6 }); } }   // v105
         setTimeout(() => { const r = el.querySelector('.portrait').getBoundingClientRect(); fx.eclats(r.left + r.width / 2, r.bottom, ['#8a7a6a', '#6a5a4a', '#b0a090', '#4a3e34'], 30, { vitesse: 180, g: 260, taille: 5, angle: -1.57, ecart: 2.6, vie: 1 }); }, 420);   // la poussière quand il s'effondre
         await pauseCb(380); break;
       }

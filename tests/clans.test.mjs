@@ -246,3 +246,15 @@ test('boss mondial : PV communs, manches, anti-triche et récompenses', () => {
   // la saison : du lundi au lundi suivant
   const s = semaineDe(Date.UTC(2026, 10, 18, 12)); assert.equal(s.id, '2026-11-16'); assert.equal(s.fin, Date.UTC(2026, 10, 23));
 });
+
+test('v101 : les fiches du bestiaire se remplissent, et un titre par région', async () => {
+  const GR = await import('../shared/clans/grimoire.js'), HF = await import('../shared/clans/hautsfaits.js');
+  const { MONSTRES, BOSS_CAUCHEMAR } = await import('../shared/clans/monstres.js');
+  const p = P.nouveauProfil('feu', 'Bete', 0), m = MONSTRES.feu.normaux[0];
+  assert.equal(GR.niveauFiche(p, m), 0); GR.vaincre(p, [m.id]); assert.equal(GR.niveauFiche(p, m), 1);
+  GR.vaincre(p, Array(24).fill(m.id)); assert.equal(GR.niveauFiche(p, m), 3); assert.ok(GR.maitrise(p, m));
+  for (const x of [...GR.monstresDe('feu'), BOSS_CAUCHEMAR.feu]) GR.vaincre(p, Array(30).fill(x.id));
+  const r = GR.recompenses(p).find((x) => x.cle === 'b-feu-3'); assert.ok(r.fait);
+  assert.equal(HF.titreValide(p, 'gri:b_feu'), false); assert.ok(GR.reclamer(p, 'b-feu-3').ok);
+  assert.equal(HF.titreValide(p, 'gri:b_feu'), true); assert.equal(HF.nomTitre('gri:b_feu'), 'Dompteur des braises');
+});

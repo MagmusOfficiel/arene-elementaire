@@ -204,6 +204,20 @@ export const CARTES = Object.fromEntries([
   c('faux_etoiles', 'Faux des étoiles', 'neutre', 'epique', 1, 'attaque', '✨', { degats: 5, tous: true, volVie: 0.5 }, null, 'ciel'),
   c('comete_vorace', 'Comète vorace', 'neutre', 'legendaire', 2, 'attaque', '☄️', { degats: 6, fois: 3, volVie: 0.5 }, null, 'ciel'),
   c('festin_etoiles', 'Festin des étoiles', 'neutre', 'legendaire', 2, 'attaque', '🌠', { degats: 14, volVie: 1, epuise: true }, null, 'ciel'),
+  // ---- v102 : les cartes de fusion — un élément (Feu, Eau, Plante) mêlé à une région des chapitres 2 à 5.
+  // Une par élément et par région ; on les forge à l'atelier avec la ressource rare de la région.
+  c('flamme_neant', 'Flamme du Néant', 'feu', 'epique', 1, 'attaque', '🟣', { degats: 6, brulure: 2, affaibli: 1 }, null, 'brisees'),
+  c('maree_neant', 'Marée du Néant', 'eau', 'epique', 1, 'defense', '🌊', { bouclier: 7, affaibli: 1, tous: true }, null, 'brisees'),
+  c('ronces_neant', 'Ronces du Néant', 'plante', 'epique', 1, 'pouvoir', '🥀', { epines: 4, affaibli: 1 }, null, 'brisees'),
+  c('vapeur_orage', 'Vapeur d’orage', 'feu', 'epique', 2, 'attaque', '♨️', { degats: 9, brulure: 2, etourdit: 1 }, null, 'cimes'),
+  c('blizzard', 'Blizzard', 'eau', 'epique', 2, 'attaque', '❄️', { degats: 5, tous: true, trempe: 1 }, null, 'cimes'),
+  c('pin_givre', 'Pin de givre', 'plante', 'epique', 1, 'defense', '🌲', { bouclier: 6, epines: 3 }, null, 'cimes'),
+  c('mirage_ardent', 'Mirage ardent', 'feu', 'epique', 1, 'attaque', '🔥', { degats: 5, brulure: 1, marque: 1 }, null, 'ambre'),
+  c('oasis', 'Oasis', 'eau', 'epique', 1, 'defense', '🏝️', { soin: 6, bouclier: 4 }, null, 'ambre'),
+  c('cactus_geant', 'Cactus géant', 'plante', 'epique', 1, 'pouvoir', '🌵', { epines: 5, marque: 1 }, null, 'ambre'),
+  c('comete_feu', 'Comète de feu', 'feu', 'epique', 2, 'attaque', '☄️', { degats: 10, brulure: 2, volVie: 0.5 }, null, 'ciel'),
+  c('pluie_etoiles', 'Pluie d’étoiles', 'eau', 'epique', 2, 'attaque', '🌠', { degats: 4, fois: 2, tous: true, volVie: 0.25 }, null, 'ciel'),
+  c('seve_etoiles', 'Sève des étoiles', 'plante', 'epique', 1, 'defense', '✨', { soin: 7, regen: 3 }, null, 'ciel'),
   // ---- les cartes de branche (v69) : seulement à l'autel, seulement pour sa branche
   GA('gd_egide', 'Égide', 'rare', 1, 'defense', '🔰', { bouclier: 10, epines: 2 }),
   GA('gd_represailles', 'Représailles', 'rare', 1, 'attaque', '💢', { bouclierEnDegats: true, bouclier: 4 }),

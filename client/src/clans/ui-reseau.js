@@ -118,7 +118,7 @@ export function brancher(room) {
     room.onMessage('filons', (l) => monde.majFilons(l));
     room.onMessage('ramasse', (m) => { sfx.orb(); const r = RARES[m.terr]; toast(`+${m.n} ${ICO_RESS[r.id]} ${r.nom}`); });
     room.onMessage('info', (m) => toast(esc(m.t)));
-    room.onMessage('recale', (m) => { const j = monde.joueur; if (j) { j.x = m.x; j.y = m.y; } if (m.retour) toast('🏠 Te voilà de retour devant ta maison. Reprends des forces !'); });
+    room.onMessage('recale', (m) => { const j = monde.joueur; if (j) { j.x = m.x; j.y = m.y; } if (m.retour) toast('🏠 Défaite : te voilà renvoyé devant ta maison, étourdi 10 secondes. Reprends des forces !'); });
     room.onMessage('duel', afficherDuel);
     room.onMessage('duelResultat', finDuel);
     room.onMessage('mondial', majMondial);
