@@ -11,6 +11,8 @@ export const NOMS_RESS = {
   cristal: 'Cristal de lave (rare, Feu)', perle_noire: 'Perle noire (rare, Eau)', graine_or: 'Graine d’or (rare, Plante)',
   fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (rare, Terres Brisées)',
   plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (rare, Cimes Orageuses)',
+  poussiere_etoile: 'Poussière d’étoile (Îles Célestes)', coeur_etoile: 'Cœur d’étoile (rare, Îles Célestes)',
+  sable_dore: 'Sable doré (Désert d’Ambre)', larme_ambre: 'Larme d’ambre (rare, Désert d’Ambre)',
 };
 const SYMBOLES = `
 <symbol id="ir-essence" viewBox="0 0 24 24">
@@ -87,6 +89,25 @@ const SYMBOLES = `
 <symbol id="ir-cristal_foudre" viewBox="0 0 24 24">
   <path d="M12 2l5 7-5 13-5-13z" fill="#5aa8ff" stroke="#0e2440" stroke-width="1.1"/>
   <path d="M13 6l-3 6h3l-2 6 5-8h-3l2-4z" fill="#fff08a" stroke="#c89a10" stroke-width=".6"/>
+</symbol>
+<symbol id="ir-poussiere_etoile" viewBox="0 0 24 24">
+  <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" fill="#e8dcff" stroke="#6a5aa8" stroke-width=".9"/>
+  <circle cx="6" cy="17" r="1.3" fill="#b090ff"/><circle cx="17" cy="18" r="1.6" fill="#b090ff"/><circle cx="12" cy="20" r=".9" fill="#e8dcff"/>
+</symbol>
+<symbol id="ir-coeur_etoile" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="8" fill="#3a2a90" stroke="#14102e" stroke-width="1.1"/>
+  <path d="M12 6l1.8 4.2L18 12l-4.2 1.8L12 18l-1.8-4.2L6 12l4.2-1.8z" fill="#fff6c0"/>
+  <circle cx="12" cy="12" r="1.6" fill="#ffffff"/>
+</symbol>
+<symbol id="ir-sable_dore" viewBox="0 0 24 24">
+  <path d="M3 19c3-5 6-7 9-7s6 2 9 7z" fill="#f0c060" stroke="#8a5a1a" stroke-width="1.1"/>
+  <path d="M7 16c2-2 4-3 6-3" stroke="#fff0b0" stroke-width="1" fill="none"/>
+  <circle cx="16" cy="7" r="1.2" fill="#ffd040"/><circle cx="11" cy="5" r=".9" fill="#ffd040"/><circle cx="19" cy="10" r=".8" fill="#ffd040"/>
+</symbol>
+<symbol id="ir-larme_ambre" viewBox="0 0 24 24">
+  <path d="M12 2c3 5 6 9 6 13a6 6 0 0 1-12 0c0-4 3-8 6-13z" fill="#f09020" stroke="#6a3a08" stroke-width="1.1"/>
+  <path d="M9 14c0-2 1-4 2-5" stroke="#ffe0a0" stroke-width="1.3" fill="none"/>
+  <circle cx="13" cy="16" r="1.6" fill="#8a4a10" opacity=".6"/>
 </symbol>`;
 // le sprite, posé une seule fois dans la page
 if (typeof document !== 'undefined' && !document.getElementById('spriteRess')) {

@@ -18,8 +18,8 @@ test('la région : 12 monstres + rare/élite/boss, niveau 30, une porte au sud',
   assert.equal(TERRITOIRES.brisees.niv, 30);
   assert.equal(MONSTRES.brisees.normaux.length, 7);
   assert.equal(tousDe('brisees').length, 14);
-  assert.ok(G.dansFaille(1608, 2520)); assert.ok(!G.dansFaille(1608, 1500));
-  assert.equal(G.territoireDe(1608, 2520), null);
+  assert.ok(G.dansFaille(...G.CENTRE_FAILLE)); assert.ok(!G.dansFaille(G.CENTRE_FAILLE[0], 1500 + G.OY));
+  assert.equal(G.territoireDe(...G.CENTRE_FAILLE), null);
   assert.ok(G.LIEUX.some((l) => l.terr === 'brisees' && l.action === 'expedition'));
 });
 test('l’expédition des Terres Brisées est fermée avant le niveau 30', () => {

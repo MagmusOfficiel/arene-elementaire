@@ -1,6 +1,7 @@
 // v91 : la Tour infinie, le deck à 20 cartes, les duels à 300 PV
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { saisonDe } from '../shared/clans/arene.js';
 import * as T from '../shared/clans/tour.js';
 import * as P from '../shared/clans/profil.js';
 import * as C from '../shared/clans/combat.js';
@@ -66,4 +67,19 @@ test('v92 : le classement du mois (le plus haut, puis le premier arrivé)', asyn
   const c = S.classementTour('c');
   assert.deepEqual(c.top.slice(0, 3).map((e) => e.nom), ['Bob', 'Ana', 'Cid']);
   assert.equal(c.rang, 3); assert.ok(c.fin > Date.now());
+});
+
+test('v99 : la Tour continue après 100, sans fin', () => {
+  const p = P.nouveauProfil('feu', 'Haut', 0); p.stats.victoires = 1e6;
+  p.tour = { saison: saisonDe().id, max: 100, record: 100 };
+  assert.equal(T.prochain(p), 101);
+  const r = T.commencer(p, 7); assert.ok(r.ok); assert.equal(r.etage, 101);
+  assert.equal(T.ennemisEtage(101).length, 5); assert.equal(T.ennemisEtage(110).length, 3);
+  assert.equal(T.ennemisEtage(120).length, 5);
+  for (const n of [101, 150, 230, 777]) for (const e of T.ennemisEtage(n)) assert.ok(e && e.pv > 0, `étage ${n}`);
+  assert.ok(T.palierEtage(200).pv > T.palierEtage(100).pv);
+  assert.ok(T.recompense(110, 'feu').larme_ambre >= 2);
+  assert.equal(T.recompense(900, 'feu').essence, T.recompense(300, 'feu').essence + 0 * 1 + (900 - 300) * 10, 'seul le bonus de boss continue de monter');
+  T.finir(p, { fini: 'victoire' }); assert.equal(p.tour.max, 101);
+  p.tour.record = 150; assert.equal(HF.palierDe(p, 'sommet'), 2);
 });

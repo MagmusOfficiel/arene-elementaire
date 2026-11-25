@@ -14,7 +14,7 @@ export function alea(graine) {
   return () => { a += 0x6D2B79F5; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
-const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, etourdi: 0, paralysie: 0 });
+const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, etourdi: 0, paralysie: 0, marque: 0 });
 
 // deck : [{ id, niv }] ; joueur : { pv, pvMax } ; ennemis : modèles de monstres.js ; palier : { pv, deg }
 // classe : son talent s'applique pendant le combat (Endurci, Arcanes, Visée, Enchaînement)
@@ -108,7 +108,7 @@ function blesser(c, cible, d, direct = false) {
   return [d, b];
 }
 function attaquer(c, att, cible, base, mult = 1) {
-  if (cible.pv <= 0) return;
+  if (cible.pv <= 0) return 0;
   const [d, b] = blesser(c, cible, calculerDegats(base, att, cible) * mult);
   ev(c, { t: 'coup', de: qui(att), a: qui(cible), deg: d, bloque: b, pv: cible.pv, bloc: cible.bloc, double: mult > 1 });
   if (cible.pv <= 0 && cible.uid) ev(c, { t: 'mort', a: cible.uid });
@@ -116,6 +116,26 @@ function attaquer(c, att, cible, base, mult = 1) {
     const [d2] = blesser(c, att, cible.epines);
     ev(c, { t: 'epines', de: qui(cible), a: qui(att), deg: d2, pv: att.pv, bloc: att.bloc });
     if (att.pv <= 0 && att.uid) ev(c, { t: 'mort', a: att.uid });
+  }
+  return d;
+}
+// v99 : le Vol de vie — on se soigne d'une part des dégâts vraiment infligés (pas ceux pris par le bouclier)
+function volerVie(c, qui_, total, part) {
+  const n = Math.floor(total * part); if (n <= 0 || qui_.pv <= 0) return;
+  const avant = qui_.pv; qui_.pv = Math.min(qui_.pvMax, qui_.pv + n);
+  if (qui_.pv > avant) ev(c, { t: 'soin', a: qui(qui_), n: qui_.pv - avant, pv: qui_.pv, vol: true });
+}
+// v98 : la Marque — à 3 marques, elles explosent (dégâts directs, le bouclier ne protège pas)
+export const MARQUES = 3, DETONATION = 20, DETONATION_MONSTRE = 12;
+function marquer(c, t, n, deg = DETONATION) {
+  if (t.pv <= 0) return;
+  t.marque = (t.marque || 0) + n; ev(c, { t: 'statut', a: qui(t), k: 'marque', n });
+  while (t.marque >= MARQUES && t.pv > 0) {
+    t.marque -= MARQUES;
+    const [d] = blesser(c, t, deg, true);
+    ev(c, { t: 'brule', a: qui(t), deg: d, pv: t.pv, marque: true });
+    c.journal.push(t.uid ? `Les marques explosent sur ${t.nom} : −${d} PV !` : `Les marques explosent sur toi : −${d} PV !`);
+    if (t.pv <= 0 && t.uid) ev(c, { t: 'mort', a: t.uid });
   }
 }
 function verifierFin(c) {
@@ -134,7 +154,7 @@ export const jouable = (c, i) => { const k = c.main[i]; return !!k && !c.fini &&
 // Visée (Tireur) : la prochaine attaque sera-t-elle doublée ?
 export const periodeVisee = (c) => (c.branche === 'sniper' ? 2 : 3);
 export const viseeProchaine = (c) => c.classe === 'tireur' && (c.tirs + 1) % periodeVisee(c) === 0;
-export const besoinCible = (id) => { const e = CARTES[id].effets; return CARTES[id].type === 'attaque' && !e.tous || ((e.trempe || e.affaibli || e.brulure || e.etourdit) && !e.tous && !e.degats && !e.degatsParBrulure && !e.bouclierEnDegats); };
+export const besoinCible = (id) => { const e = CARTES[id].effets; return CARTES[id].type === 'attaque' && !e.tous || ((e.trempe || e.affaibli || e.brulure || e.etourdit || e.marque) && !e.tous && !e.degats && !e.degatsParBrulure && !e.bouclierEnDegats); };
 
 // jouer la carte n° i de la main, sur l'ennemi « cible » (uid) si elle vise quelqu'un
 export function jouerCarte(c, i, cible) {
@@ -159,7 +179,9 @@ export function jouerCarte(c, i, cible) {
     c.attaquesTour++;
   }
   if (e.sacrifice) { const d = Math.min(e.sacrifice, j.pv - 1); j.pv -= d; ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv, sang: true }); }
-  if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) attaquer(c, j, t, e.degats + bonus, mult);
+  let inflige = 0;
+  if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) inflige += attaquer(c, j, t, e.degats + bonus, mult) || 0;
+  if (e.volVie) volerVie(c, j, inflige, e.volVie);   // v99
   if (e.degatsParBrulure) for (const t of cibles) attaquer(c, j, t, Math.floor(t.brulure * e.degatsParBrulure) + bonus, mult);
   if (e.bouclierEnDegats) for (const t of cibles) attaquer(c, j, t, j.bloc + bonus, mult);
   if (e.degatsParAffaibli) for (const t of cibles) attaquer(c, j, t, t.affaibli * e.degatsParAffaibli + bonus, mult);
@@ -169,6 +191,7 @@ export function jouerCarte(c, i, cible) {
     if (e.trempe) { t.trempe += e.trempe; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'trempe', n: e.trempe }); }
     if (e.affaibli) { t.affaibli += e.affaibli; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: e.affaibli }); }
     // v96 : étourdi — mais un monstre qui vient de l'être résiste au tour suivant (pas d'étourdissement en boucle)
+    if (e.marque && vu) marquer(c, t, e.marque);   // v98
     if (e.etourdit && vu) { if (t.resiste > 0 || t.etourdi > 0) ev(c, { t: 'resiste', a: t.uid }); else { t.etourdi = 1; ev(c, { t: 'statut', a: t.uid, k: 'etourdi', n: 1 }); } }
   }
   if (e.doubleBouclier && j.bloc > 0) { const n = j.bloc; j.bloc += n; ev(c, { t: 'bloc', a: 'j', n, bloc: j.bloc }); }
@@ -231,9 +254,10 @@ export function finTour(c) {
     if (it.b) { j.brulure += it.b; ev(c, { t: 'statut', a: 'j', k: 'brulure', n: it.b }); }
     if (it.t) { j.trempe += it.t; ev(c, { t: 'statut', a: 'j', k: 'trempe', n: it.t }); }
     if (it.w) { j.affaibli += it.w; ev(c, { t: 'statut', a: 'j', k: 'affaibli', n: it.w }); }
+    if (it.m) marquer(c, j, it.m, Math.round(DETONATION_MONSTRE * e.deg));   // v98 : les monstres du désert te marquent
     if (it.p) { j.paralysie = (j.paralysie || 0) + it.p; ev(c, { t: 'statut', a: 'j', k: 'paralysie', n: it.p }); }   // v96 : moins d'énergie au prochain tour
     // v87 : l'allié invoqué encaisse les coups à ta place tant qu'il tient debout
-    if (it.a) for (let k = 0; k < (it.n || 1); k++) attaquer(c, e, c.allie?.pv > 0 ? c.allie : j, Math.round(it.a * e.deg));
+    { let vol = 0; if (it.a) for (let k = 0; k < (it.n || 1); k++) vol += attaquer(c, e, c.allie?.pv > 0 ? c.allie : j, Math.round(it.a * e.deg)) || 0; if (it.v) volerVie(c, e, vol, it.v); }   // v99 : v = vol de vie du monstre
     e.i++;
     if (c.mods?.includes('vitalite') && e.pv > 0 && e.pv < e.pvMax) { const avant = e.pv; e.pv = Math.min(e.pvMax, e.pv + 3); ev(c, { t: 'soin', a: e.uid, n: e.pv - avant, pv: e.pv }); }
     if (e.trempe > 0) e.trempe--;
@@ -253,7 +277,7 @@ export function decrireIntention(c, e) {
   if (it.g) t.push({ type: 'groupe', txt: `${Math.round(it.g * e.deg)}` });
   if (it.s) t.push({ type: 'soin', txt: `${Math.round(it.s * e.deg)}` });
   if (it.e) t.push({ type: 'epines', txt: `${it.e}` });
-  if (it.b || it.t || it.w || it.p) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`, it.p && `⚡${it.p}`].filter(Boolean).join(' ') });
+  if (it.b || it.t || it.w || it.p || it.m || it.v) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`, it.p && `⚡${it.p}`, it.m && `🎯${it.m}`, it.v && '🩸vol'].filter(Boolean).join(' ') });
   if (e.etourdi > 0) return [{ type: 'malus', txt: '💫 étourdi' }];
   return t;
 }

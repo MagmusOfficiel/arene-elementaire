@@ -81,6 +81,10 @@ const ART = {
   // v96 : le Lynx du vide (Chapitre 2) et le Griffon des tempêtes (Chapitre 3)
   lynx_vide: { pal: { B: '#4a2a8a', b: '#2a1450', e: '#c8a0ff', k: '#80e0ff', d: '#1a0a30', w: '#8a60e0', g: '#e0c8ff' }, poses: [[...LOUP, ...PAS], [...LOUP, ...GALOP]], selle: 6, lueur: 'rgba(160,110,255,.2)' },
   griffon: { pal: { R: '#e8f0f8', O: '#8ab8e0', Y: '#ffffff', y: '#ffe060', k: '#1a3050', t: '#4a90d8', T: '#ffe060' }, poses: [[...PHENIX_A, ...ETINCELLES_A], [...PHENIX_B, ...ETINCELLES_B]], selle: 9, flotte: true, lueur: 'rgba(140,200,255,.2)' },
+  // v99 : le Pégase des étoiles (Chapitre 5) — blanc, crinière violette, ailes
+  pegase_etoiles: { pal: { B: '#f4f2ff', b: '#c8c0e8', m: '#b090ff', t: '#b090ff', d: '#6a5aa8', k: '#2a1a5a' }, poses: [[...CHEVAL, ...PAS], [...CHEVAL, ...GALOP]], selle: 6, lueur: 'rgba(190,160,255,.28)' },
+  // v98 : le Lion des sables (Chapitre 4) — doré, crinière brune
+  lion_sables: { pal: { B: '#e0b060', b: '#a87830', e: '#7a4a1a', k: '#2a1a0a', d: '#5a3a14', w: '#f8e0a0', g: '#7a4a1a' }, poses: [[...LOUP, ...PAS], [...LOUP, ...GALOP]], selle: 6, lueur: 'rgba(255,200,100,.2)' },
   // v97 : le Kirin (Chapitre 1, aux couleurs des trois clans) et le Wyrm de la Tour (étage 100)
   kirin: { pal: { B: '#f2ead8', b: '#c8b890', d: '#3a2414', a: '#ff8a30', t: '#40b8e8', k: '#2a8a3a' }, poses: [[...CERF, ...PAS], [...CERF, ...GALOP]], selle: 6, lueur: 'rgba(255,220,150,.18)' },
   wyrm_tour: { pal: { R: '#e8c050', o: '#fff4c0', w: '#6a3ab0', h: '#ffffff', d: '#3a2a0a', k: '#80f0ff', t: '#e8c050' }, poses: [[...DRAGON, ...PAS.map((l) => l.replace(/b/g, 'R'))], [...DRAGON, ...GALOP.map((l) => l.replace(/b/g, 'R'))]], selle: 6, lueur: 'rgba(255,220,120,.22)' },

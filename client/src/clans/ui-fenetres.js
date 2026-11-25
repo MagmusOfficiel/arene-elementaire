@@ -18,7 +18,7 @@ import { feuillePerso, dessinerAura } from './monde.js';
 import { sfx } from '../sfx.js';
 import { lancerCombat } from './ui-combat.js';
 import { $, ICO_RESS, ILLUS, carteHTML, coutHTML, esc, etoiles, nf, p, statut, texteCarte, toast } from './ui-commun.js';
-import { dansMonde, fermer, guide, ouvrir } from './ui-monde.js';
+import { dansMonde, fermer, guide, ouvrir, monde } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
 import { groupe, panneauGroupe, brancherGroupe, suisChef } from './ui-groupe.js';
 import { room } from './ui-commun.js';
@@ -31,6 +31,13 @@ import { annonceFamilier, placerVignettes } from './ui-familiers.js';
 import * as PJ from '../../../shared/clans/projets.js';
 
 export const DECOR_PARCELLE = { feu: ['🌋', '🏠', '🔥', '⚒️'], eau: ['🏝️', '🛖', '🐚', '🌊'], plante: ['🌳', '🏡', '🌻', '🌿'] };
+// v97 : la vie se garde entre les expéditions ; on la remonte d'un coup en se reposant chez soi
+function blocVie() {
+  const v = P.vie(p), m = P.pvMax(p), pct = Math.round((v / m) * 100);
+  const m0 = monde.maison(), j = monde.joueur, ici = !!j && Math.hypot(j.x - m0.x, j.y - (m0.y + 30)) < 140;
+  return `<div class="parcVie ${v < m ? 'blesse' : ''}"><span>❤️ <b>${v} / ${m}</b> PV</span><div class="vieJauge"><i style="width:${pct}%"></i></div>
+    ${v >= m ? '<small>En pleine forme</small>' : ici ? '<button class="bouton pulse" id="btReposer">🛌 Se reposer (PV au max)</button>' : '<small>Rentre devant ta maison pour te reposer</small>'}</div>`;
+}
 export function fenetreParcelle() {
   guide.vu('parcelle');
   statut('parcelle');
@@ -40,6 +47,7 @@ export function fenetreParcelle() {
   const coutLisible = (c) => Object.entries(c).map(([k, v]) => `<span class="${(p.ress[k] || 0) >= v ? '' : 'manque'}">${nf(v)} ${ICO_RESS[k] || k}</span>`).join(' ');
   ouvrir(`<h2>🏠 Ta parcelle <small class="parcLieu">${esc(TERRITOIRES[p.clan].nom)}</small></h2>
     <div class="parcActions"><span>🏡 ${p.maisonPos ? 'Maison posée sur ta terre' : 'Maison au village'}</span><button class="lien" id="btDeplacerMaison">${p.maisonPos ? 'Déménager (1 000 ✨)' : 'La poser où tu veux (gratuit la 1re fois)'}</button><button class="lien" id="btDecorer">🎨 Décorer</button></div>
+    ${blocVie()}
     <div class="parcelleScene ${p.clan}">${DECOR_PARCELLE[p.clan].map((e, i) => `<span style="font-size:${[70, 96, 48, 56][i]}px">${e}</span>`).join('')}
 
     </div>
@@ -54,6 +62,7 @@ export function fenetreParcelle() {
         ${max ? '<p class="batMax">★ Niveau maximum</p>' : `<p class="batSuiv"><small>Niveau ${n + 1}</small>${b.desc(n + 1, p.clan)}</p><div class="batCout">${coutLisible(cout)}</div><button class="bouton" data-b="${k}" ${ok ? '' : 'disabled title="Ressources insuffisantes"'}>⬆️ Améliorer</button>`}</div>`;
     }).join('')}</div>`, () => {
     $('btDecorer').onclick = () => import('./ui-deco.js').then((m) => m.fenetreDeco());
+    const br = $('btReposer'); if (br) br.onclick = async () => { const r = await faire('seReposer'); if (!r.ok) return r.raison && toast(esc(r.raison)); sfx.orb(); toast(`🛌 Bien reposé : <b>+${r.res.soin} PV</b>, te voilà en pleine forme !`); fenetreParcelle(); };
     $('btDeplacerMaison').onclick = () => { fermer(); import('./ui-maison.js').then((m) => m.commencerPlacement()); };
     $('btRecolter').onclick = async () => { const r = await faire('recolter'); if (!r.ok) return r.raison && toast(esc(r.raison)); const g = r.res; sfx.orb(); toast(`+${nf(g.essence)} ${ICO_RESS.essence} · +${nf(g[el.materiau])} ${ICO_RESS[el.materiau]}${g.bonus ? ` (dont +${Math.round(g.bonus * 100)} % de bonus)` : ''}`); fenetreParcelle(); };
     $('fenetreCorps').querySelectorAll('[data-b]').forEach((b) => b.onclick = async () => { const r = await faire('construire', { bat: b.dataset.b }); if (!r.ok) return r.raison && toast(esc(r.raison)); sfx.niveau(); toast(`${P.BATIMENTS[b.dataset.b].nom} : niveau ${r.res.niv} !`); fenetreParcelle(); });
@@ -209,7 +218,7 @@ export function fenetreExpedition(terr) {
   if (!x) {
     const max = p.paliers[terr], T = TERRITOIRES[terr];
     return ouvrir(`<h2>${T.ico} ${esc(T.nom)}</h2><p class="sousTitre">Six étages de salles à choisir, puis le boss du territoire. Tes PV se gardent d'un combat à l'autre. Mourir fait perdre la moitié du butin. ${terr === p.clan ? 'C’est ton territoire.' : `Ici, tu récoltes des ${ELEMENTS[terr].nomMat.toLowerCase()} ${ICO_RESS[ELEMENTS[terr].materiau]}, introuvables chez toi.`}</p>
-      ${selecteurDeck()}<p class="cout">${p.deck.length} cartes · ${P.pvMax(p)} PV — le deck choisi reste le même pendant toute l'expédition.</p>
+      ${selecteurDeck()}<p class="cout">${p.deck.length} cartes · ❤️ ${P.vie(p)} / ${P.pvMax(p)} PV${P.blesse(p) ? ' <b class="rouge">(blessé : repose-toi chez toi 🏠 avant de partir)</b>' : ''} — le deck choisi reste le même pendant toute l'expédition.</p>
       <div class="paliers">${PALIERS.map((pa) => `<button class="bouton ${pa.n > max ? 'second' : ''} ${pa.cauchemar ? 'boutonCauchemar' : ''}" data-p="${pa.n}" ${pa.n > max ? 'disabled' : ''}>${pa.cauchemar ? '💀 ' : ''}${pa.nom}${pa.n > max ? ' 🔒' : ` — butin ×${pa.butin}`}</button>`).join('')}</div>
       <p class="cout">Bats le boss d'un palier pour débloquer le suivant.</p>
       ${panneauGroupe(terr)}
@@ -292,6 +301,7 @@ export function bilanExpedition(r) {
     <p>${r.fin === 'victoire' ? 'Le boss est tombé.' : 'Tu rentres au village en boitant, avec la moitié de ton butin.'}</p>
     <p class="recolte">Tu ramènes <b>${nf(r.gainTotal.essence)} ${ICO_RESS.essence}</b> et <b>${nf(r.gainTotal[mat])} ${ICO_RESS[mat]}</b>${r.gainTotal[RARES[r.territoire].id] ? ` et <b>${r.gainTotal[RARES[r.territoire].id]} ${ICO_RESS[RARES[r.territoire].id]}</b>` : ''}${r.bonus ? ` <small>(dont +${Math.round(r.bonus * 100)} % du ${PJ.PROJETS.eau.ico} ${PJ.PROJETS.eau.nom})</small>` : ''}</p>
     ${annonceFamilier(r.familier)}
+    ${r.pv < r.pvMax ? `<p class="cout">❤️ Tu rentres avec <b>${r.pv} / ${r.pvMax} PV</b>. Ils ne remontent pas tout seuls : repose-toi devant ta maison 🏠 (bouton 🛌).</p>` : ''}
     ${r.debloque ? `<p>🔓 <b>${PALIERS[r.debloque - 1].nom}</b> débloqué dans les ${esc(TERRITOIRES[r.territoire].nom)} !</p>` : ''}
     <button class="bouton" id="btOk">Retour au monde</button>`, () => { placerVignettes(); $('btOk').onclick = fermer; });
 }

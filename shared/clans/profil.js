@@ -4,6 +4,7 @@
 //  et les règles qui les font évoluer : tirages, amélioration des cartes,
 //  production et construction de la parcelle, butin des expéditions.
 // =====================================================================
+import { OX, OY } from './decalage.js';
 import { BRANCHES, CARTES, CLANS, CLASSES, ELEMENTS, RARETES, RARES, RECETTES, deckDepart, NIV_MAX } from './cartes.js';
 import { alea } from './combat.js';
 
@@ -17,19 +18,23 @@ export function nouveauProfil(clan, nom = 'Joueur', maintenant = Date.now(), cla
   if (!CLASSES[classe]) throw new Error('classe inconnue');
   const deck = deckDepart(clan, classe), collection = {};
   for (const id of deck) collection[id] = { n: (collection[id]?.n || 0) + 1, niv: 1 };
-  return {
+  return { geoV: 1,   // v100 : déjà dans le monde décalé
     v: 2, clan, classe, nom: String(nom).slice(0, 16) || 'Joueur', creeLe: maintenant,
-    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0, fragments: 0, eclat_vide: 0, plumes: 0, cristal_foudre: 0 },
+    ress: { essence: 300, braises: 0, perles: 0, seve: 0, eclats: 0, cristal: 0, perle_noire: 0, graine_or: 0, fragments: 0, eclat_vide: 0, plumes: 0, cristal_foudre: 0, sable_dore: 0, larme_ambre: 0, poussiere_etoile: 0, coeur_etoile: 0 },
     duels: { gagnes: 0, perdus: 0 },
     collection, deck,
     parcelle: { maison: 1, autel: 1, atelier: 1, recolte: maintenant },
     tirages: { total: 0, depuisLegendaire: 0 },
-    paliers: { feu: 1, eau: 1, plante: 1, brisees: 1, cimes: 1 },   // le palier max débloqué dans chaque territoire
+    paliers: { feu: 1, eau: 1, plante: 1, brisees: 1, cimes: 1, ambre: 1, ciel: 1 },   // le palier max débloqué dans chaque territoire
     stats: { combats: 0, victoires: 0, boss: 0, expeditions: 0 },
     expedition: null,
   };
 }
 export const pvMax = (p) => 60 + (p.parcelle.maison - 1) * 6 + (CLASSES[p.classe]?.pv || 0);
+// v97 : la vie se garde entre les expéditions ; on la remet au max en se reposant chez soi (p.vie absent = vie pleine)
+export const vie = (p) => { const m = pvMax(p); return p.vie == null ? m : Math.max(1, Math.min(m, Math.round(+p.vie || 1))); };
+export const blesse = (p) => vie(p) < pvMax(p);
+export function seReposer(p) { if (p.expedition) return { ok: false, raison: 'Finis d’abord ton expédition.' }; if (!blesse(p)) return { ok: false, raison: 'Tu es déjà en pleine forme.' }; const avant = vie(p); delete p.vie; return { ok: true, soin: pvMax(p) - avant, pv: pvMax(p) }; }
 // un profil d'avant les classes : on lui donne sa classe et ses deux cartes de départ
 export function choisirClasse(p, classe) {
   if (p.classe || !CLASSES[classe]) return false;
@@ -114,9 +119,11 @@ export function fabriquer(p, id, remise = 0) {
 export const BUTIN_DUEL = (essencePerdant) => Math.min(300, Math.floor(Math.max(0, essencePerdant) * 0.15));
 // un profil plus ancien : les champs ajoutés depuis
 export function completer(p) {
-  for (const k of ['cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre']) p.ress[k] ??= 0;
+  // v100 : l'ancien monde a été décalé (désert à gauche, îles en haut) — on décale une seule fois la maison posée
+  if (!p.geoV) { if (p.maisonPos && Number.isFinite(p.maisonPos.x)) p.maisonPos = { x: p.maisonPos.x + OX, y: p.maisonPos.y + OY }; p.geoV = 1; }
+  for (const k of ['cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre', 'sable_dore', 'larme_ambre', 'poussiere_etoile', 'coeur_etoile']) p.ress[k] ??= 0;
   p.duels ??= { gagnes: 0, perdus: 0 };
-  if (p.paliers) { p.paliers.brisees ??= 1; p.paliers.cimes ??= 1; }   // v87, v96
+  if (p.paliers) { p.paliers.brisees ??= 1; p.paliers.cimes ??= 1; p.paliers.ambre ??= 1; p.paliers.ciel ??= 1; }   // v87, v96, v98, v99
   if (p.amis !== undefined) p.amis = Array.isArray(p.amis) ? p.amis.filter((x) => x && typeof x.pid === 'string' && typeof x.nom === 'string').slice(0, 30).map((x) => ({ pid: x.pid.slice(0, 16), nom: x.nom.slice(0, 20) })) : [];   // v93
   p.parcours ??= (p.stats?.combats || 0) > 0 ? 6 : 0;   // v79 : les anciens joueurs ont déjà fait leurs premiers pas
   // v83 : decks remis aux nouvelles limites (2 par carte, 1 par légendaire), puis complétés si besoin
@@ -287,7 +294,7 @@ export function assainir(x) {
   if (deck.length >= DECK_MIN) p.deck = deck; else { p.deck = deckDepart(p.clan, p.classe || 'combattant'); for (const id of p.deck) p.collection[id] ||= { n: copiesMax(id), niv: 1 }; }
   for (const k of ['maison', 'autel', 'atelier']) p.parcelle[k] = Math.max(1, Math.min(5, num(x.parcelle?.[k], 5)));
   p.parcelle.recolte = Math.min(Date.now(), +x.parcelle?.recolte || Date.now());
-  for (const k of [...CLANS, 'brisees', 'cimes']) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
+  for (const k of [...CLANS, 'brisees', 'cimes', 'ambre', 'ciel']) p.paliers[k] = Math.max(1, Math.min(4, num(x.paliers?.[k], 3)));
   for (const k of Object.keys(p.stats)) p.stats[k] = num(x.stats?.[k], 1e6);
   p.tirages = { total: num(x.tirages?.total, 1e6), depuisLegendaire: Math.min(59, num(x.tirages?.depuisLegendaire, 59)) };
   p.duels = { gagnes: num(x.duels?.gagnes, 1e6), perdus: num(x.duels?.perdus, 1e6) };

@@ -12,7 +12,9 @@ import { RARES } from './cartes.js';
 import * as F from './familiers.js';
 import { saisonDe } from './arene.js';
 
-export const NIV_TOUR = 10, ETAGES = 100;
+// v99 : la Tour ne s'arrête plus à 100 — au-delà, elle continue sans fin (les monstres des Cimes et du Désert,
+// des boss qui tournent, une difficulté qui monte toujours). 100 reste le palier des récompenses « fixes ».
+export const NIV_TOUR = 10, ETAGES = 100, SANS_FIN = true;
 export const estBoss = (n) => n % 10 === 0;
 
 // un petit hasard fixe par étage (le même pour tous les joueurs)
@@ -22,6 +24,7 @@ const TERRES = ['feu', 'eau', 'plante'];
 
 // les monstres qu'on peut croiser selon la hauteur
 function reserve(n) {
+  if (n > ETAGES) return reserveHaut(n);   // v99
   const terres = n > 88 ? [...TERRES, 'brisees', 'cimes'] : n > 75 ? [...TERRES, 'brisees'] : TERRES;   // v96 : les monstres des Cimes en haut de la Tour
   const l = terres.flatMap((t) => MONSTRES[t].normaux);
   if (n > 30) for (const t of terres) l.push(MONSTRES[t].rare);
@@ -34,13 +37,22 @@ const BOSS = () => [
   MONSTRES.brisees.elite, MONSTRES.brisees.boss, MONSTRES.brisees.autres.elite, MONSTRES.brisees.autres.boss,
 ];
 
+// v99 : au-delà de 100, tous les monstres du monde (avec leurs rares et élites), et des boss qui tournent
+const TOUTES = ['feu', 'eau', 'plante', 'brisees', 'cimes', 'ambre'];
+function reserveHaut(n) {
+  const l = TOUTES.flatMap((t) => MONSTRES[t].normaux);
+  for (const t of TOUTES) l.push(MONSTRES[t].rare, MONSTRES[t].autres?.rare || MONSTRES[t].rare);
+  if (n > 150) for (const t of TOUTES) l.push(MONSTRES[t].elite);
+  return l;
+}
+const BOSS_HAUT = () => TOUTES.flatMap((t) => [MONSTRES[t].boss, MONSTRES[t].autres?.boss, MONSTRES[t].elite, MONSTRES[t].autres?.elite].filter(Boolean));
 // la difficulté monte doucement : les monstres sont plus faibles qu'en expédition au début (ils sont 5)
 export const palierEtage = (n) => ({ n: 1, nom: `Tour · étage ${n}`, pv: +(0.6 + 0.024 * n).toFixed(3), deg: +(0.65 + 0.015 * n).toFixed(3), butin: 1 });
 
 export function ennemisEtage(n) {
   const l = reserve(n);
   if (!estBoss(n)) return Array.from({ length: 5 }, (_, k) => choisir(l, n, k));
-  const b = BOSS()[(n / 10 - 1) % BOSS().length], gardes = (n / 10) % 2 === 0 ? 4 : 2;
+  const b = n > ETAGES ? BOSS_HAUT()[(n / 10 - 11) % BOSS_HAUT().length] : BOSS()[(n / 10 - 1) % BOSS().length], gardes = (n / 10) % 2 === 0 ? 4 : 2;
   // le boss au milieu, ses gardes autour ; le boss est un peu plus solide que dans les expéditions
   const g = Array.from({ length: gardes }, (_, k) => choisir(l, n, k + 10));
   const moitie = gardes / 2;
@@ -50,8 +62,8 @@ export function ennemisEtage(n) {
 // ---------- les récompenses ----------
 export const COSMETIQUES = { 25: 't_tour', 50: 'k_tour', 75: 'r_tour', 100: 'l_tour' };
 export function recompense(n, clan) {
-  const r = { essence: 40 + n * 6, eclats: n % 5 === 0 ? 5 + Math.floor(n / 5) * 2 : 0 };
-  if (estBoss(n)) { r.essence += 150 + n * 10; r.rare = { id: RARES[clan]?.id || 'cristal', n: 1 + Math.floor(n / 20) }; if (n >= 70) r.eclat_vide = Math.floor(n / 30); }
+  const r = { essence: 40 + Math.min(n, 300) * 6, eclats: n % 5 === 0 ? 5 + Math.floor(Math.min(n, 300) / 5) * 2 : 0 };
+  if (estBoss(n)) { r.essence += 150 + n * 10; r.rare = { id: RARES[clan]?.id || 'cristal', n: 1 + Math.floor(Math.min(n, 300) / 20) }; if (n >= 70) r.eclat_vide = Math.floor(Math.min(n, 300) / 30); if (n > ETAGES) r.larme_ambre = Math.floor(n / 50); }   // v99 : récompenses plafonnées à l'étage 300
   if (COSMETIQUES[n]) r.piece = COSMETIQUES[n];
   return r;
 }
@@ -70,11 +82,10 @@ export function majSaison(p, t = Date.now()) {
 export const record = (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0);
 export const finSaison = (t = Date.now()) => saisonDe(t).fin;
 export const etageMax = (p) => p.tour?.max || 0;
-export const prochain = (p) => Math.min(ETAGES, etageMax(p) + 1);
+export const prochain = (p) => etageMax(p) + 1;   // v99 : sans fin
 export function commencer(p, graine) {
   if (niveau(p) < NIV_TOUR) return { ok: false, raison: `La Tour s'ouvre au niveau ${NIV_TOUR}.` };
   if (p.tour) majSaison(p);
-  if (etageMax(p) >= ETAGES) return { ok: false, raison: 'Tu as conquis les 100 étages ce mois-ci ! La Tour se remet à zéro au début du mois prochain.' };
   if (p.expedition) return { ok: false, raison: 'Termine ton expédition d’abord.' };
   p.tour ||= { saison: saisonDe().id, max: 0, record: 0 };
   majSaison(p);
@@ -95,5 +106,6 @@ export function finir(p, c) {
   p.ress.essence += rec.essence; p.ress.eclats = (p.ress.eclats || 0) + rec.eclats;
   if (rec.rare) p.ress[rec.rare.id] = (p.ress[rec.rare.id] || 0) + rec.rare.n;
   if (rec.eclat_vide) p.ress.eclat_vide = (p.ress.eclat_vide || 0) + rec.eclat_vide;
+  if (rec.larme_ambre) p.ress.larme_ambre = (p.ress.larme_ambre || 0) + rec.larme_ambre;
   return { ok: true, victoire: true, etage: e.etage, rec };
 }

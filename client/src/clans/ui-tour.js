@@ -1,6 +1,6 @@
 // =====================================================================
 //  LES CLANS ÉLÉMENTAIRES — la Tour infinie (v91)
-//  100 étages de 5 monstres ; un boss et ses gardes tous les 10 étages.
+//  Des étages sans fin (v99) de 5 monstres ; un boss et ses gardes tous les 10 étages.
 // =====================================================================
 import * as T from '../../../shared/clans/tour.js';
 import { PIECES } from '../../../shared/clans/apparence.js';
@@ -36,14 +36,15 @@ export function fenetreTour(demander = true) {
   if (!p) return;
   if (demander) room?.send('tourClassement');
   T.majSaison(p);
-  const max = T.etageMax(p), n = T.prochain(p), fini = max >= T.ETAGES, ok = niveau() >= T.NIV_TOUR;
+  const max = T.etageMax(p), n = T.prochain(p), fini = false, ok = niveau() >= T.NIV_TOUR;
   const ens = T.ennemisEtage(n), boss = T.estBoss(n);
   // la frise : les 10 étages de la dizaine en cours
   const base = Math.floor((n - 1) / 10) * 10;
   const frise = Array.from({ length: 10 }, (_, k) => { const e = base + 10 - k; return `<div class="tourEtage ${e <= max ? 'fait' : e === n ? 'actuel' : ''} ${T.estBoss(e) ? 'boss' : ''}"><b>${e}</b>${T.estBoss(e) ? ' 👑' : ''}${T.COSMETIQUES[e] ? ' 👕' : ''}</div>`; }).join('');
-  const rec = T.record(p), cosm = Object.entries(T.COSMETIQUES).map(([e, id]) => `<li class="${rec >= +e ? 'fait' : ''}">${rec >= +e ? '✅' : '🔒'} Étage <b>${e}</b> : ${esc(PIECES[id].nom)}</li>`).join('') + `<li class="${rec >= 100 ? 'fait' : ''}">${rec >= 100 ? '✅' : '🔒'} Étage <b>100</b> : monture 🐲 <b>Wyrm de la Tour</b></li>`;
+  const rec = T.record(p), cosm = Object.entries(T.COSMETIQUES).map(([e, id]) => `<li class="${rec >= +e ? 'fait' : ''}">${rec >= +e ? '✅' : '🔒'} Étage <b>${e}</b> : ${esc(PIECES[id].nom)}</li>`).join('') + `<li class="${rec >= 100 ? 'fait' : ''}">${rec >= 100 ? '✅' : '🔒'} Étage <b>100</b> : monture 🐲 <b>Wyrm de la Tour</b></li>`
+    + [[125, 'Au-delà du ciel'], [150, 'Gardien de l’Infini'], [200, 'Légende de la Tour']].map(([e, t]) => `<li class="${rec >= e ? 'fait' : ''}">${rec >= e ? '✅' : '🔒'} Étage <b>${e}</b> : titre 🌌 « ${t} »</li>`).join('');
   ouvrir(`<div class="tour">
-    <h2>🗼 Tour infinie <small>· ce mois-ci : étage ${max} / ${T.ETAGES} · record : ${T.record(p)}</small></h2>
+    <h2>🗼 Tour infinie <small>· ce mois-ci : étage ${max}${max >= 100 ? ' 🌌 au-delà du sommet' : ''} · record : ${T.record(p)}</small></h2>
     <p class="sousTitre">Chaque étage, <b>5 monstres</b> à la fois : les cartes qui touchent <b>tous les ennemis</b> font la différence. Tous les 10 étages, un <b>boss</b> et ses gardes. PV pleins à chaque étage, essais illimités. Les étages sont les mêmes pour tout le monde. <b>La Tour se remet à zéro chaque mois</b> : on regrimpe et on regagne les récompenses d’étage (les cosmétiques débloqués restent à toi).</p>
     <div class="tourCorps">
       <div class="tourFrise">${frise}</div>

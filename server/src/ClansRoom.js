@@ -11,7 +11,7 @@
 // =====================================================================
 import colyseus from 'colyseus';
 import { noterErreur } from './journal.js';
-import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison, posMaison, dansFaille, NIV_FAILLE, CENTRE_FAILLE, dansCimes, NIV_CIMES, CENTRE_CIMES } from '../../shared/clans/geo.js';
+import { territoireDe, obstacles, praticable, CENTRES, MONDE as GEO, cleMaison, posMaison, dansFaille, NIV_FAILLE, CENTRE_FAILLE, dansCimes, NIV_CIMES, CENTRE_CIMES, dansAmbre, NIV_AMBRE, CENTRE_AMBRE, dansCiel, NIV_CIEL, CENTRE_CIEL } from '../../shared/clans/geo.js';
 import { nouveauDuel, jouer as jouerDuel, finTour as finTourDuel, vue as vueDuel, deckValide, PV_DUEL } from '../../shared/clans/duel.js';
 import { BUTIN_DUEL } from '../../shared/clans/profil.js';
 import * as TO from '../../shared/clans/tour.js';
@@ -72,6 +72,8 @@ export class ClansRoom extends Room {
       const x = Math.max(0, Math.min(MONDE.l, num(m.x, j.x))), y = Math.max(0, Math.min(MONDE.h, num(m.y, j.y)));
       if (dansFaille(x, y) && !dansFaille(j.x, j.y) && (j.niv || 1) < NIV_FAILLE) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v87
       if (dansCimes(x, y) && !dansCimes(j.x, j.y) && (j.niv || 1) < NIV_CIMES) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v96
+      if (dansCiel(x, y) && !dansCiel(j.x, j.y) && (j.niv || 1) < NIV_CIEL) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v99
+      if (dansAmbre(x, y) && !dansAmbre(j.x, j.y) && (j.niv || 1) < NIV_AMBRE) { c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); return; }   // v98
       if (Math.hypot(x - j.x, y - j.y) < 200) { j.x = x; j.y = y; }
       // un saut trop grand est refusé : on ramène le joueur là où le serveur le voit (sinon il resterait « coincé » ailleurs)
       else if (Date.now() - (j.recale || 0) > 1500) { j.recale = Date.now(); c.send('recale', { x: Math.round(j.x), y: Math.round(j.y) }); }
@@ -242,6 +244,8 @@ export class ClansRoom extends Room {
       if (!g || g.chef !== c.sessionId || g.parti) return;
       const terr = String(m.terr || ''), palier = Math.floor(Number(m.palier)) || 1;
       if (g.membres.length < 2) return refus('Invite au moins un compagnon d’abord.');
+      if (terr === 'ciel') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_CIEL) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_CIEL}.`); }   // v99
+      if (terr === 'ambre') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_AMBRE) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_AMBRE}.`); }   // v98
       if (terr === 'cimes') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_CIMES) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_CIMES}.`); }   // v96
       if (terr === 'brisees') for (const sid of g.membres) { const k = this.joueurs.get(sid); if ((k?.niv || 1) < NIV_FAILLE) return refus(`${k?.nom || 'Un membre'} n’a pas encore le niveau ${NIV_FAILLE}.`); }   // v87
       for (const sid of g.membres) { const k = this.joueurs.get(sid); if (!k?.p || k.p.expedition || k.duel || k.manche) return refus(`${k?.nom || 'Un membre'} n’est pas prêt.`); if (palier > (k.p.paliers[terr] || 1)) return refus(`${k.nom} n’a pas encore débloqué ce palier.`); }
@@ -646,13 +650,15 @@ export class ClansRoom extends Room {
     // v90 : un tour sur quatre dans les Terres Brisées, s'il y a quelqu'un d'assez fort pour y aller
     // v96 : les Cimes (1 tour sur 5) seulement si quelqu'un de niveau 50+ est là ; la Faille, de niveau 30+
     const nivMax = Math.max(0, ...[...this.joueurs.values()].map((k) => k.niv || 1));
-    let terr = ['feu', 'eau', 'plante', 'brisees', 'cimes'][this.nMondial++ % 5];
-    if ((terr === 'brisees' && nivMax < NIV_FAILLE) || (terr === 'cimes' && nivMax < NIV_CIMES)) terr = ['feu', 'eau', 'plante'][this.nMondial++ % 3];
-    const neutre = terr === 'brisees' || terr === 'cimes', dedans = terr === 'cimes' ? dansCimes : dansFaille;
-    const [cx, cy] = terr === 'cimes' ? CENTRE_CIMES : terr === 'brisees' ? CENTRE_FAILLE : CENTRES[terr];
+    // v98 : le Désert d'Ambre (1 tour sur 6) seulement si quelqu'un de niveau 70+ est là
+    let terr = ['feu', 'eau', 'plante', 'brisees', 'cimes', 'ambre', 'ciel'][this.nMondial++ % 7];   // v99 : + les Îles Célestes (niveau 90+)
+    if ((terr === 'brisees' && nivMax < NIV_FAILLE) || (terr === 'cimes' && nivMax < NIV_CIMES) || (terr === 'ambre' && nivMax < NIV_AMBRE) || (terr === 'ciel' && nivMax < NIV_CIEL)) terr = ['feu', 'eau', 'plante'][this.nMondial++ % 3];
+    const neutre = ['brisees', 'cimes', 'ambre', 'ciel'].includes(terr), dedans = terr === 'ciel' ? dansCiel : terr === 'ambre' ? dansAmbre : terr === 'cimes' ? dansCimes : dansFaille;
+    const [cx, cy] = terr === 'ciel' ? CENTRE_CIEL : terr === 'ambre' ? CENTRE_AMBRE : terr === 'cimes' ? CENTRE_CIMES : terr === 'brisees' ? CENTRE_FAILLE : CENTRES[terr];
     let x = cx, y = cy + (neutre ? 180 : 300);
     for (let essai = 0; essai < 300; essai++) {
-      const a = Math.random() * Math.PI * 2, d = neutre ? 160 + Math.random() * 260 : 420 + Math.random() * 380, px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
+      const a = Math.random() * Math.PI * 2, d = terr === 'ciel' ? 90 + Math.random() * 60 : neutre ? 160 + Math.random() * 260 :   // v99 : sur la grande place, pas sur une île coupée du reste
+        420 + Math.random() * 380, px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
       if ((neutre ? !dedans(px, py - 40) || !dedans(px - 40, py) || py > GEO.h - 60 || px > GEO.l - 60 : territoireDe(px, py) !== terr) || ![[0, 0], [40, 0], [-40, 0], [0, 40], [0, -30]].every(([dx, dy]) => praticable(px + dx, py + dy, this.obs))) continue;
       x = Math.round(px); y = Math.round(py); break;
     }

@@ -18,6 +18,8 @@ const THEMES = {
   eau: { ciel: ['#04122a', '#0c2a52', '#1a5a8a', '#5ab0c8'], loin: '#0a2440', milieu: '#14385a', sol: ['#c8b080', '#d8c090', '#b89c6c'], accent: '#bff0ff' },
   plante: { ciel: ['#04120a', '#0c2a16', '#1e4a24', '#7aa850'], loin: '#0a2010', milieu: '#08180c', sol: ['#1e3a1a', '#2a4a20', '#36582a'], accent: '#d8ff8a' },
   arene: { ciel: ['#0e0818', '#2a1838', '#5a2a4a', '#c8644a'], loin: '#1a1020', milieu: '#24182a', sol: ['#6a5848', '#7a6650', '#5a4a3c'], accent: '#ffd870' },
+  ciel: { ciel: ['#04041a', '#14104a', '#3a2a8a', '#8a7ae0'], loin: '#2a2a6a', milieu: '#4a4aa0', sol: ['#d8d4e8', '#e4e0f0', '#ccc8de'], accent: '#fff6c0' },   // v99
+  ambre: { ciel: ['#2a1408', '#7a3a10', '#d8782a', '#f8d080'], loin: '#8a5a2a', milieu: '#b07a3a', sol: ['#e8b860', '#f0c470', '#d8a050'], accent: '#ffe080' },   // v98
   cimes: { ciel: ['#0a1428', '#1a3050', '#3a6090', '#a8d0f0'], loin: '#24364e', milieu: '#3a4a62', sol: ['#c8d4e4', '#dce6f2', '#b0bed2'], accent: '#ffe060' },   // v96
   brisees: { ciel: ['#06030e', '#1a0a30', '#3a1a5a', '#8a60e0'], loin: '#120820', milieu: '#1c0e2e', sol: ['#2a2234', '#363042', '#221a2c'], accent: '#c8a0ff' },   // v87
 };

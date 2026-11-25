@@ -424,6 +424,7 @@ body.tactile #bandeauSanct { bottom: 180px; }
 #menuBarre { position: relative; }
 #menuListe { position: absolute; right: 0; top: calc(100% + 6px); min-width: 210px; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: rgba(14,10,22,.97); border: 1px solid rgba(232,192,96,.5); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.6); z-index: 20; }
 #menuListe.cache { display: none; }
+#menuListe { overflow-y: auto; overscroll-behavior: contain; }
 #barre #menuListe button { text-align: left; border: none; background: none; padding: 9px 12px; border-radius: 6px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 #barre #menuListe button:hover { background: rgba(232,192,96,.16); }
 #menuListe small { color: #8a8070; font-size: 11px; border: 1px solid #5a5040; border-radius: 4px; padding: 0 5px; }
@@ -442,7 +443,7 @@ body.tactile #menuListe small { display: none; }
   #menuListe { position: fixed; right: 8px; top: calc(var(--hautBarre, 80px) + 4px); }
 }
 #moi .nomClan { font-style: normal; }
-#barre.menuOuvert { z-index: 40; }   /* le menu passe au-dessus d'une fenêtre ouverte */
+#barre.menuOuvert { z-index: 85; }   /* le menu passe au-dessus d’une fenêtre ouverte et des messages (v97) */
 
 /* ---------- marchand ambulant (v58) ---------- */
 .marchand { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
@@ -967,3 +968,11 @@ body.tactile #guide.replie #guideEtape::after { content: ' ▸ (toucher pour lir
   #ressources::-webkit-scrollbar { display: none; }
   #ressources span { white-space: nowrap; flex: none; }
 }
+/* v97 : la vie gardée entre les expéditions */
+.parcVie { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 8px; border-radius: 8px; background: rgba(60,20,20,.25); border: 1px solid rgba(255,120,120,.2); font-size: 14px; }
+.parcVie .vieJauge { flex: 1 1 120px; height: 10px; border-radius: 5px; background: rgba(0,0,0,.4); overflow: hidden; }
+.parcVie .vieJauge i { display: block; height: 100%; background: linear-gradient(90deg, #e04848, #ff8a6a); }
+.parcVie:not(.blesse) .vieJauge i { background: linear-gradient(90deg, #3aa860, #7ae08a); }
+.parcVie small { color: #b8a890; }
+.vieBarre { color: #ff9a8a; font-weight: 600; }
+.rouge { color: #ff8a7a; }

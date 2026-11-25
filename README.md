@@ -793,3 +793,43 @@ D'après `/api/clans/equilibrage` (543 combats, 171 duels depuis la v89 ; peu de
 - **Wyrm de la Tour** (vitesse 1,7) : gagné en atteignant l'étage 100 de la Tour infinie. C'est le record qui compte, donc la monture reste après la remise à zéro mensuelle.
 - La fenêtre de la Tour affiche maintenant le Wyrm dans ses récompenses.
 - Chaque chapitre a désormais sa monture : Kirin (1), Lynx du vide (2), Griffon des tempêtes (3).
+- Petits écrans : le menu « Plus » se place toujours sous son bouton sans sortir de l'écran (même quand la barre se replie et que le bouton passe à gauche). Il défile s'il est trop haut et passe au-dessus des messages.
+- **La vie se garde entre les expéditions.** On part avec ses PV actuels et on rentre avec ce qu'il en reste (au moins 1 PV, même après une défaite). Pour remonter d'un coup au maximum, il faut se reposer devant sa maison : fenêtre de la parcelle (🏠), bouton 🛌 « Se reposer ». Le serveur vérifie qu'on est bien devant la maison. Un cœur ❤️ s'affiche dans la barre quand on est blessé, et la fenêtre d'expédition prévient avant de partir. La Tour, l'arène, le boss mondial et l'épreuve d'ascension partent toujours avec les PV pleins.
+
+## Chapitre 4 : le Désert d'Ambre (v98)
+
+- **La région.** La carte s'agrandit encore vers l'est (4 800 × 2 880). Au-delà des Cimes, le Désert d'Ambre s'ouvre au **niveau 70** par la *Passe des Sables*, au bout du chemin qui part du centre des Cimes. On y trouve des dunes, du sable rouge, du grès et des sables mouvants infranchissables. Le décor ajoute des cactus, des rochers de grès, des colonnes brisées et des ossements géants. Au sud du désert se dresse la *Porte de la Cité ensevelie* (expéditions).
+- **La mécanique : la Marque 🎯.** Les cartes du désert marquent l'ennemi. À 3 marques, elles explosent pour **20 dégâts directs**, que le bouclier n'arrête pas. Les monstres du désert font la même chose au joueur : à 3 marques, il subit 12 × la force du monstre. En duel, une explosion inflige aussi 20 dégâts à l'adversaire.
+- **Les monstres.** 7 normaux, 2 rares, 2 élites et 2 boss (le Pharaon maudit, la Reine-scorpion), plus le **Soleil noir** en Cauchemar. Ils sont plus forts que ceux des Cimes. Le nouveau boss mondial est le **Sphinx d'ambre**, qui n'apparaît que si un joueur de niveau 70 ou plus est en ligne (1 tour sur 6).
+- **Les ressources.** Le *sable doré* sert de matériau et la *larme d'ambre* de ressource rare.
+- **Les cartes.** 4 cartes à forger à l'atelier avec des larmes d'ambre : *Sable aveuglant*, *Flèche du scarabée*, *Œil du soleil* et *Jugement du pharaon*.
+- **L'histoire.** 5 quêtes aux niveaux 70, 80 et 90, avec Kesh, Neferet, Hakim, Saïa et Imhet. Le titre final est « Seigneur des Sables ».
+- **Les récompenses.** Les cosmétiques *Robe des sables*, *Cape du pharaon* et *Ailes du scarabée d'or*, un haut fait « Le Désert », et la monture **Lion des sables** (vitesse 1,8, la plus rapide du jeu).
+
+## Tour sans fin et Chapitre 5 : les Îles Célestes (v99)
+
+**La Tour infinie ne s'arrête plus à l'étage 100.**
+- Au-delà, on croise les monstres de toutes les régions (Cimes et Désert compris), et des boss qui tournent avec leurs gardes. La difficulté continue de monter.
+- Récompenses : essence, éclats et larmes d'ambre. Elles sont plafonnées à l'étage 300, sauf le bonus de boss.
+- Un nouveau haut fait, « Au-delà du sommet », donne des titres aux étages 125, 150 et 200 : « Au-delà du ciel », « Gardien de l'Infini » et « Légende de la Tour ».
+- Le classement mensuel ne change pas.
+
+**Les Îles Célestes (niveau 90).**
+- **La région.** La carte s'agrandit encore vers l'est (5 600 px). Au-delà du désert, des îles flottent sur un vide étoilé infranchissable. On y entre par le *Pont des Étoiles*. On y trouve de l'herbe astrale, du roc de lune et des nuages solides, ainsi qu'une grande place de marbre céleste. Le décor ajoute des arbres astraux, des cristaux d'étoile, des colonnes de lune et des sphères armillaires. Les expéditions partent du *Portail de l'Observatoire*, au nord.
+- **La mécanique : le Vol de vie 🩸.** Les cartes des étoiles soignent d'une part des dégâts vraiment infligés (ceux absorbés par le bouclier ne comptent pas). Les monstres des îles font pareil sur le joueur (intention `v`). Le vol de vie marche aussi en duel.
+- **Les monstres.** 7 normaux, 2 rares et 2 élites, l'Archange d'argent, la Dévoreuse d'étoiles, et l'**Étoile mère** en Cauchemar. Le nouveau boss mondial est la **Baleine des étoiles** (s'il y a un joueur de niveau 90 ou plus ; elle apparaît sur la grande place).
+- **Les ressources.** La *poussière d'étoile* sert de matériau et le *cœur d'étoile* de ressource rare.
+- **Les cartes.** 4 cartes à forger avec des cœurs d'étoile : *Morsure astrale*, *Faux des étoiles*, *Comète vorace* et *Festin des étoiles*.
+- **L'histoire.** 5 quêtes aux niveaux 90, 95 et 100, avec Elio, Astrée, Corvin, Séléné et Ysolde. Le titre final est « Gardien des Étoiles ».
+- **Les récompenses.** Les cosmétiques Habit des étoiles, Cape de la voûte céleste et Ailes d'astre, un haut fait « Le Ciel », et la monture **Pégase des étoiles** (vitesse 1,85).
+
+## Nouvelle disposition de la carte (v100)
+
+- Le **Désert d'Ambre** est maintenant **à gauche** de la carte, à l'ouest des Terres de Braise. On y va par la *Passe des Sables*, au bout d'un chemin qui part du village du Feu.
+- Les **Îles Célestes** sont maintenant **en haut**, sur toute la largeur. On y monte depuis le désert (le chemin remonte vers le nord), puis par le *Pont des Étoiles*. L'Observatoire flotte au-dessus des Lagons d'Azur.
+- **Le décalage.** L'« ancien monde » (les trois terres, le Carrefour, la Faille et les Cimes) est décalé de (640, 640) (`shared/clans/decalage.js`). Son relief, son décor et ses sanctuaires sont calculés dans leurs coordonnées d'origine, donc **rien n'y change**. Seul s'ajoute le nouveau chemin vers le désert.
+- **Les maisons déjà posées sont déplacées automatiquement**, une seule fois :
+  - côté profils : `p.geoV` dans `completer` ;
+  - côté registre des maisons : les entrées `[clan, x, y]` sans 4e élément sont lues décalées.
+- La carte fait maintenant 4 640 × 3 520.
+- 10 illustrations des Îles Célestes sont arrivées (les monstres de la Méduse stellaire au Chevalier de l'aube).

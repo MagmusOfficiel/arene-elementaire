@@ -6,7 +6,7 @@
 //  et les ressources rares pour les plus belles.
 // =====================================================================
 import { niveau } from './profil.js';
-import { histoireFaille, histoireCimes, amiDe } from './quetesPnj.js';
+import { histoireFaille, histoireCimes, histoireAmbre, histoireCiel, amiDe } from './quetesPnj.js';
 
 // vit : multiplicateur de vitesse sur la carte ; niv : niveau de compte requis
 export const MONTURES = {
@@ -25,6 +25,10 @@ MONTURES.griffon = { nom: 'Griffon des tempêtes', ico: '🦅', vit: 1.75, niv: 
 // v97 : le Chapitre 1 et la Tour infinie ont aussi la leur
 MONTURES.kirin = { nom: 'Kirin des trois clans', ico: '🦄', vit: 1.55, niv: 1, desc: 'Braise, lagon et sève : il porte les trois villages sur son dos.', gagnee: { txt: 'Deviens « Ami » des trois villages (les 18 quêtes des habitants du Chapitre 1).', test: (p) => ['feu', 'eau', 'plante'].every((c) => amiDe(p, c)) } };
 MONTURES.wyrm_tour = { nom: 'Wyrm de la Tour', ico: '🐲', vit: 1.7, niv: 1, desc: 'Il dormait au sommet de la Tour. Il t’a attendu cent étages.', gagnee: { txt: 'Atteins l’étage 100 de la Tour infinie.', test: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) >= 100 } };
+// v99 : la monture du Chapitre 5
+MONTURES.pegase_etoiles = { nom: 'Pégase des étoiles', ico: '🪽', vit: 1.85, niv: 1, desc: 'Né de la dernière lumière de l’Étoile mère. Il galope sur le vide.', gagnee: { txt: 'Termine l’histoire des Îles Célestes (éteins l’Étoile mère).', test: (p) => histoireCiel(p) >= 5 } };
+// v98 : la monture du Chapitre 4
+MONTURES.lion_sables = { nom: 'Lion des sables', ico: '🦁', vit: 1.8, niv: 1, desc: 'Le gardien de la cité ensevelie. Il court plus vite que le vent du désert.', gagnee: { txt: 'Termine l’histoire du Désert d’Ambre (éteins le Soleil noir).', test: (p) => histoireAmbre(p) >= 5 } };
 export const IDS = Object.keys(MONTURES);
 export const valide = (id) => typeof id === 'string' && Object.hasOwn(MONTURES, id);
 export const gagnees = (p) => IDS.filter((id) => MONTURES[id].gagnee?.test(p || {}));

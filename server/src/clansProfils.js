@@ -35,7 +35,7 @@ import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
 import { lireProfilClans, ecrireProfilClans, jetonValide, maisonsPosees, ecrireMaison, tourEnregistrer } from './stats.js';
-import { emplacementMaison } from '../../shared/clans/geo.js';
+import { emplacementMaison, posMaison, cleMaison } from '../../shared/clans/geo.js';
 
 const SECRET = process.env.CLANS_SECRET || 'clans-elementaires-secret-par-defaut';
 if (!process.env.CLANS_SECRET) console.warn('⚠️  CLANS_SECRET non défini : les copies de profil sont signées avec la clé par défaut.');
@@ -108,7 +108,7 @@ export const ACTIONS = {
   construire(p, m) { if (typeof m.bat !== 'string' || !Object.hasOwn(P.BATIMENTS, m.bat)) return { ok: false }; const r = P.construire(p, m.bat); return r.ok ? { ok: true, res: r } : r; },
   expeCommencer(p, m, ctx) {
     if (p.expedition) return { ok: false, raison: 'Une expédition est déjà en cours.' };
-    const r = ['feu', 'eau', 'plante', 'brisees', 'cimes'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
+    const r = ['feu', 'eau', 'plante', 'brisees', 'cimes', 'ambre', 'ciel'].includes(m.terr) && X.commencerExpedition(p, m.terr, Math.max(1, Math.min(4, m.palier | 0)), graine());
     if (r?.ok) { const b = PJ.bonusDe(ctx?.projets, p.clan, 'butin'); if (b) p.expedition.bonusButin = b; }
     return r?.ok ? { ok: true } : (r || { ok: false });
   },
@@ -162,6 +162,12 @@ export const ACTIONS = {
     const c = rejouer(AS.defEpreuve(p), m.coups);
     if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
     const r = AS.finir(p, c); return r.ok ? { ok: true, res: { victoire: r.victoire } } : { ok: false };
+  },
+  // v97 : se reposer chez soi remet la vie au max (il faut être devant sa maison)
+  seReposer(p, m, ctx) {
+    const h = posMaison(p.clan, cleMaison(p));
+    if (!ctx?.pos || Math.hypot(ctx.pos.x - h.x, ctx.pos.y - (h.y + 30)) > 140) return { ok: false, raison: 'Rentre chez toi pour te reposer.' };
+    const r = P.seReposer(p); return r.ok ? { ok: true, res: r } : r;
   },
   // poser sa maison où l'on veut sur la terre de son clan (v72) : la 1re fois gratuite, ensuite 1 000 essence
   maisonPoser(p, m, ctx) {

@@ -27,7 +27,10 @@ export const HAUTS_FAITS = {
   projet: { nom: 'Bâtisseur', ico: '🏗️', txt: 'points donnés aux projets du clan', n: [100, 1500, 8000], titres: ['Bâtisseur', 'Architecte du clan', 'Bienfaiteur légendaire'], val: (p) => v(p).projet || 0 },
   faille: { nom: 'La Faille', ico: '🌀', txt: 'parties de l’histoire des Terres Brisées finies', n: [1, 3, 5], titres: ['Voyageur de la Faille', 'Arpenteur du vide', 'Sauveur des trois clans'], val: (p) => QP.histoireFaille(p) },   // v90
   cimes: { nom: 'Les Cimes', ico: '⚡', txt: 'parties de l’histoire des Cimes Orageuses finies', n: [1, 3, 5], titres: ['Voyageur des cimes', 'Chasseur d’orages', 'Celui qui ferma l’Œil'], val: (p) => QP.histoireCimes(p) },   // v96
+  ciel: { nom: 'Le Ciel', ico: '🌌', txt: 'parties de l’histoire des Îles Célestes finies', n: [1, 3, 5], titres: ['Marcheur des nuées', 'Chevalier des étoiles', 'Celui qui éteignit l’Étoile mère'], val: (p) => QP.histoireCiel(p) },   // v99
+  ambre: { nom: 'Le Désert', ico: '🏜️', txt: 'parties de l’histoire du Désert d’Ambre finies', n: [1, 3, 5], titres: ['Voyageur des sables', 'Briseur de malédictions', 'Celui qui éteignit le Soleil noir'], val: (p) => QP.histoireAmbre(p) },   // v98
   tour: { nom: 'La Tour', ico: '🗼', txt: 'meilleur étage de la Tour infinie', n: [10, 50, 100], titres: ['Grimpeur', 'Conquérant de la Tour', 'Maître de la Tour'], val: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) },   // v91
+  sommet: { nom: 'Au-delà du sommet', ico: '🌌', txt: 'meilleur étage au-delà de 100 dans la Tour infinie', n: [125, 150, 200], titres: ['Au-delà du ciel', 'Gardien de l’Infini', 'Légende de la Tour'], val: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) },   // v99
   familiers: { nom: 'Ami des bêtes', ico: '🐾', txt: 'familiers', n: [1, 3, 6], titres: ['Ami des bêtes', 'Dresseur', 'Gardien de la ménagerie'], val: (p) => familiers(p).length },
 };
 export const IDS = Object.keys(HAUTS_FAITS);

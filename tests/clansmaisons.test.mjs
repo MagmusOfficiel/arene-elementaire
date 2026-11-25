@@ -51,3 +51,11 @@ test('poser sa maison : sur sa terre, au bon endroit, la 1re fois gratuite puis 
   assert.match(G.emplacementMaison('feu', 2600, 2600).raison || G.emplacementMaison('feu', b.x + 40, b.y, [b]).raison, /terre|maison|libre|village|lieu/);
   assert.match(G.emplacementMaison('feu', b.x + 40, b.y, [b]).raison, /maison|libre/);
 });
+
+test('v100 : une maison posée avant le décalage du monde est décalée une seule fois', async () => {
+  const P = await import('../shared/clans/profil.js'), { OX, OY } = await import('../shared/clans/decalage.js');
+  const p = P.nouveauProfil('feu', 'Vieux', 0); delete p.geoV; p.maisonPos = { x: 1000, y: 1500 };
+  P.completer(p); assert.deepEqual(p.maisonPos, { x: 1000 + OX, y: 1500 + OY });
+  P.completer(p); assert.deepEqual(p.maisonPos, { x: 1000 + OX, y: 1500 + OY }, 'pas deux fois');
+  const q = P.nouveauProfil('eau', 'Neuf', 0); q.maisonPos = { x: 2000, y: 1200 }; P.completer(q); assert.deepEqual(q.maisonPos, { x: 2000, y: 1200 });
+});

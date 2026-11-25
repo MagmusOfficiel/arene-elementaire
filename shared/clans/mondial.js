@@ -16,6 +16,8 @@ export const BOSS_MONDIAUX = {
   eau: { id: 'leviathan_abyssal', nom: 'Léviathan abyssal', ico: '🐋', pv: 210, rang: 'boss', intentions: [{ a: 9, n: 2 }, { t: 2, d: 10 }, { a: 18 }, { f: 2, d: 10 }, { a: 5, n: 4 }] },
   brisees: { id: 'gardien_neant', nom: 'Gardien du Néant', ico: '🌀', pv: 240, rang: 'boss', intentions: [{ a: 9, n: 2, b: 1 }, { g: 14 }, { a: 20, w: 1 }, { d: 14, e: 2 }, { a: 6, n: 4, t: 1 }] },   // v90 : il n'apparaît que si quelqu'un de niveau 30+ est en ligne
   cimes: { id: 'colosse_orage', nom: 'Colosse de l’orage', ico: '🌩️', pv: 280, rang: 'boss', intentions: [{ a: 11, n: 2, p: 1 }, { g: 16 }, { a: 24, t: 1 }, { d: 16, w: 2 }, { a: 7, n: 4, p: 1 }] },   // v96 : seulement si quelqu'un de niveau 50+ est en ligne
+  ciel: { id: 'baleine_etoiles', nom: 'Baleine des étoiles', ico: '🐋', pv: 340, rang: 'boss', intentions: [{ a: 13, n: 2, v: 0.5 }, { g: 20 }, { a: 28, w: 1 }, { s: 18, d: 18 }, { a: 9, n: 4, v: 0.5 }] },   // v99 : seulement si quelqu'un de niveau 90+ est en ligne
+  ambre: { id: 'sphinx_ambre', nom: 'Sphinx d’ambre', ico: '🦁', pv: 320, rang: 'boss', intentions: [{ a: 12, n: 2, m: 1 }, { g: 18 }, { a: 26, w: 1 }, { d: 18, m: 2 }, { a: 8, n: 4, m: 1 }] },   // v98 : seulement si quelqu'un de niveau 70+ est en ligne
   plante: { id: 'ancien_sylvain', nom: 'Ancien sylvain', ico: '🌳', pv: 205, rang: 'boss', intentions: [{ a: 11, e: 3 }, { d: 16 }, { a: 6, n: 3 }, { w: 2, a: 10 }, { a: 19 }] },
 };
 export const PALIER_MONDIAL = { pv: 1, deg: 1.15, butin: 1, nom: 'Boss mondial' };
@@ -65,4 +67,4 @@ export function semaineDe(t = Date.now()) {
   return { id: new Date(lundi).toISOString().slice(0, 10), fin: lundi + 7 * 864e5 };
 }
 export const NOMS_CLANS = { feu: 'Clan du Feu', eau: "Clan de l'Eau", plante: 'Clan de la Plante' };
-export const LIEU_MONDIAL = { feu: 'les Terres de Braise', eau: "les Lagons d'Azur", plante: "la Sylve d'Émeraude", brisees: 'les Terres Brisées', cimes: 'les Cimes Orageuses' };
+export const LIEU_MONDIAL = { feu: 'les Terres de Braise', eau: "les Lagons d'Azur", plante: "la Sylve d'Émeraude", brisees: 'les Terres Brisées', cimes: 'les Cimes Orageuses', ambre: 'le Désert d’Ambre', ciel: 'les Îles Célestes' };

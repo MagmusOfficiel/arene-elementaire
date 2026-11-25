@@ -56,7 +56,7 @@ export function fenetreFiche(f, moi = false) {
           ${moi && n ? `<select data-hf="${id}"><option value="">Afficher un titre…</option>${h.titres.slice(0, n).map((t, i) => `<option value="${id}:${i + 1}" ${p.titre === `${id}:${i + 1}` ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>`;
       }).join('') || '<p>Pas encore de haut fait.</p>'}</div>
       ${moi && p.branche ? `<p class="cout">${p.titre === `br:${p.branche}` ? '' : `<button class="lien" id="btTitreBranche">Afficher le titre « ${esc(BRANCHES[p.branche].titre)} »</button>`}</p>` : ''}
-      ${moi ? ['feu', 'eau', 'plante', 'brisees', 'cimes'].filter((c) => QP.amiDe(p, c) && p.titre !== `vil:${c}`).map((c) => `<p class="cout"><button class="lien" data-titrevil="${c}">Afficher le titre « ${esc(QP.TITRES[c])} »</button></p>`).join('') : ''}
+      ${moi ? ['feu', 'eau', 'plante', 'brisees', 'cimes', 'ambre', 'ciel'].filter((c) => QP.amiDe(p, c) && p.titre !== `vil:${c}`).map((c) => `<p class="cout"><button class="lien" data-titrevil="${c}">Afficher le titre « ${esc(QP.TITRES[c])} »</button></p>`).join('') : ''}
       ${moi ? Object.keys(GR.TITRES).filter((n) => GR.aTitre(p, n) && p.titre !== `gri:${n}`).map((n) => `<p class="cout"><button class="lien" data-titre="gri:${n}">Afficher le titre « ${esc(GR.TITRES[n])} »</button></p>`).join('') : ''}
       ${moi && p.titre ? '<p class="cout"><button class="lien" id="btSansTitre">Ne plus afficher de titre</button></p>' : ''}
       ${moi ? '' : boutonAmi(f)}

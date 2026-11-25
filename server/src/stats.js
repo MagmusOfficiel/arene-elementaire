@@ -4,6 +4,7 @@
 //  - Base Upstash Redis (gratuite) si UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN sont définis :
 //    les classements survivent aux redémarrages et redéploiements de Render.
 //  - Sinon, un fichier local data/stats.json (effacé à chaque redémarrage sur l'offre gratuite de Render).
+import { OX, OY } from '../../shared/clans/decalage.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { semaineDe } from '../../shared/clans/mondial.js';
@@ -178,8 +179,9 @@ export function ecrireSanctuaires(props) { data.clansSanctuaires = { ...props };
 // ---------- Les Clans Élémentaires : les projets de clan de la semaine (v52) ----------
 // ---------- Les Clans Élémentaires : les maisons posées par les joueurs (v72) ----------
 // { empreinte du jeton : [clan, x, y] } : pour qu'on ne pose pas deux maisons au même endroit
-export function maisonsPosees(clan, sauf = null) { return Object.entries(data.clansMaisons || {}).filter(([k, v]) => k !== sauf && v[0] === clan).map(([, v]) => ({ x: v[1], y: v[2] })); }
-export function ecrireMaison(cle, clan, x, y) { (data.clansMaisons ||= {})[cle] = [clan, x, y]; dirty = true; }
+// v100 : [clan, x, y, 1] — sans le 4e élément, la maison date d'avant le décalage de l'ancien monde (OX, OY)
+export function maisonsPosees(clan, sauf = null) { return Object.entries(data.clansMaisons || {}).filter(([k, v]) => k !== sauf && v[0] === clan).map(([, v]) => (v[3] ? { x: v[1], y: v[2] } : { x: v[1] + OX, y: v[2] + OY })); }
+export function ecrireMaison(cle, clan, x, y) { (data.clansMaisons ||= {})[cle] = [clan, x, y, 1]; dirty = true; }
 export function lireProjets() { return data.clansProjets || null; }
 export function ecrireProjets(e) { data.clansProjets = e; dirty = true; }
 

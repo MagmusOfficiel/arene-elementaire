@@ -66,8 +66,10 @@ def creer(pg, nom, clan, classe):
 
 def etat(pg, js): return pg.evaluate(f'(() => {{ const c = window.__clans, p = c.p; return {js}; }})()')
 
-def aller(pg, x, y, pas=60):
-    """marcher jusqu'à (x, y) par petits pas (comme un joueur pressé, sans se téléporter)"""
+OX, OY = 640, 640   # v100 : l'ancien monde est décalé (désert à gauche, îles en haut) — voir shared/clans/decalage.js
+def aller(pg, x, y, pas=60, ancien=True):
+    """marcher jusqu'à (x, y) par petits pas (comme un joueur pressé, sans se téléporter) ; x, y dans l'ancien monde"""
+    if ancien: x, y = x + OX, y + OY
     pg.bring_to_front()
     for _ in range(200):
         j = etat(pg, '({ x: c.monde.joueur.x, y: c.monde.joueur.y })'); d = math.hypot(x - j['x'], y - j['y'])
@@ -156,7 +158,7 @@ def scenario(b):
     fermer(A)
 
     etape('Parcelle')
-    m = etat(A, 'c.monde.maison()'); aller(A, m['x'], m['y'] + 30); A.keyboard.press('e'); A.wait_for_selector('[data-b]', timeout=5000)
+    m = etat(A, 'c.monde.maison()'); aller(A, m['x'], m['y'] + 30, ancien=False); A.keyboard.press('e'); A.wait_for_selector('[data-b]', timeout=5000)
     niv = etat(A, 'p.parcelle.maison'); A.click('[data-b="maison"]')
     A.wait_for_function(f'__clans.p.parcelle.maison > {niv}', timeout=8000)
     verifier(True, f'maison améliorée au niveau {niv + 1}')
@@ -174,7 +176,7 @@ def scenario(b):
 
     etape('Marchand ambulant')
     m = etat(A, '({ x: c.monde.marchand.x, y: c.monde.marchand.y, slot: c.monde.marchand.slot })')
-    aller(A, m['x'], m['y'] + 20); A.keyboard.press('e'); A.wait_for_selector('[data-offre]', timeout=5000)
+    aller(A, m['x'], m['y'] + 20, ancien=False); A.keyboard.press('e'); A.wait_for_selector('[data-offre]', timeout=5000)
     verifier(A.locator('.offre').count() == 3, 'le marchand propose 3 échanges')
     A.click('[data-offre="0"]'); A.wait_for_function(f"__clans.p.marchand?.slot === {m['slot']} && __clans.p.marchand.l.includes(0)", timeout=8000)
     verifier(A.locator('.offre.prise').count() == 1, 'un échange conclu, il ne se refait pas avant le prochain passage')

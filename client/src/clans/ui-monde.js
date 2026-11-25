@@ -33,8 +33,9 @@ export function majBarre() {
   if (!p) return;
   const el = ELEMENTS[p.clan];
   $('moi').innerHTML = `${esc(p.nom)} <span class="badge ${p.clan}" title="${el.clan}">${el.ico}<i class="nomClan"> ${el.clan}</i></span> ${p.classe ? `<span title="${esc(CLASSES[p.classe].talent)} : ${esc(CLASSES[p.classe].desc)}">${CLASSES[p.classe].ico} ${CLASSES[p.classe].nom}</span>` : ''} <small title="${(() => { const n = niveau(), x = P.xpDe(p); return n >= P.NIVEAU_MAX ? `Niveau maximum (${x} XP)` : `XP : ${x} / ${P.xpPourNiveau(n + 1)} pour le niveau ${n + 1} — 1 XP par combat gagné, ${P.XP_BOSS} par boss`; })()}">niv. ${niveau()}</small>`;
-  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
-    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)', plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (ressource rare des Cimes)' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
+  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre', 'sable_dore', 'larme_ambre', 'poussiere_etoile', 'coeur_etoile'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
+    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)', plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (ressource rare des Cimes)', poussiere_etoile: 'Poussière d’étoile (matériau des Îles Célestes)', coeur_etoile: 'Cœur d’étoile (ressource rare des Îles Célestes)', sable_dore: 'Sable doré (matériau du Désert d’Ambre)', larme_ambre: 'Larme d’ambre (ressource rare du Désert)' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
+    + (P.blesse(p) ? `<span class="vieBarre" title="Tu es blessé : repose-toi devant ta maison pour remonter tes PV">❤️ ${P.vie(p)}/${P.pvMax(p)}</span>` : '')
     + `<span title="Duels gagnés / perdus">⚔️ ${p.duels?.gagnes || 0}/${p.duels?.perdus || 0}</span>`;
 }
 export const DESC_CLANS = {
@@ -114,6 +115,8 @@ export let derniereTerr = undefined;
 export const monde = creerMonde($('monde'), {
   // v87 : les Terres Brisées s'ouvrent au niveau 30
   niveau: () => niveau(),
+  ciel: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🌌 Les Îles Célestes flottent au-dessus de tout : il faut être <b>niveau 90</b> pour traverser le Pont des Étoiles.'); } }; })(),   // v99
+  ambre: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🏜️ Le Désert d’Ambre est le lieu le plus dangereux du monde : il faut être <b>niveau 70</b> pour franchir la passe.'); } }; })(),   // v98
   cimes: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('⚡ Les Cimes Orageuses sont mortelles : il faut être <b>niveau 50</b> pour franchir le col.'); } }; })(),   // v96
   faille: (() => { let vu = 0; return () => { if (Date.now() - vu > 4000) { vu = Date.now(); toast('🌀 Les Terres Brisées sont trop dangereuses : il faut être <b>niveau 30</b> pour y entrer.'); } }; })(),
   libre: () => Date.now() >= etourdiJusqua && $('fenetre').classList.contains('cache') && $('combat').classList.contains('cache') && $('duel').classList.contains('cache') && document.activeElement !== $('chatTexte'),
@@ -129,11 +132,13 @@ export const monde = creerMonde($('monde'), {
     else if (l.action === 'defier') { if (p.expedition) return toast('Termine d’abord ton expédition.'); room?.send('defier', { cible: l.id }); }
   },
   position: (j) => {
-    const t = G.dansCimes(j.x, j.y) ? 'cimes' : G.dansFaille(j.x, j.y) ? 'brisees' : monde.territoire();   // v87, v96
+    const t = G.dansCiel(j.x, j.y) ? 'ciel' : G.dansAmbre(j.x, j.y) ? 'ambre' : G.dansCimes(j.x, j.y) ? 'cimes' : G.dansFaille(j.x, j.y) ? 'brisees' : monde.territoire();   // v87, v96
     if (t !== derniereTerr) {
       derniereTerr = t;
       const b = $('bandeau');
-      if (t === 'cimes') { b.className = ''; b.textContent = '⚡ Les Cimes Orageuses — neige, foudre et monstres redoutables'; }
+      if (t === 'ciel') { b.className = ''; b.textContent = '🌌 Les Îles Célestes — îles flottantes, vide sans fond et monstres qui volent la vie'; }
+      else if (t === 'ambre') { b.className = ''; b.textContent = '🏜️ Le Désert d’Ambre — dunes, cité ensevelie et monstres qui marquent'; }
+      else if (t === 'cimes') { b.className = ''; b.textContent = '⚡ Les Cimes Orageuses — neige, foudre et monstres redoutables'; }
       else if (t === 'brisees') { b.className = ''; b.textContent = '🌀 Les Terres Brisées — terre sans clan, monstres fusionnés'; }
       else if (!t) { b.className = ''; b.textContent = 'Le Carrefour — terre neutre'; }
       else if (t === p.clan) { b.className = ''; b.textContent = `${TERRITOIRES[t].ico} ${TERRITOIRES[t].nom} — ton territoire`; }
@@ -215,7 +220,21 @@ $('btSon').onclick = () => fenetreSon();
 export function menuBarre(ouvert) {
   const l = $('menuListe'); ouvert ??= l.classList.contains('cache');
   l.classList.toggle('cache', !ouvert); $('barre').classList.toggle('menuOuvert', ouvert); $('btMenu').setAttribute('aria-expanded', String(ouvert));
+  if (ouvert) placerMenu();
 }
+// v97 : sur un petit écran, le bouton « Plus » peut passer à gauche (la barre se replie) ;
+// on place la liste sous le bouton, sans jamais sortir de l'écran, et elle défile si elle est trop haute.
+function placerMenu() {
+  const l = $('menuListe'), b = $('btMenu').getBoundingClientRect(), m = 8;
+  l.style.position = 'fixed'; l.style.right = 'auto';
+  const larg = Math.min(l.offsetWidth, innerWidth - 2 * m);
+  l.style.maxWidth = `${innerWidth - 2 * m}px`;
+  l.style.left = `${Math.max(m, Math.min(b.right - larg, innerWidth - larg - m))}px`;
+  const haut = Math.min(b.bottom + 6, innerHeight - 160);
+  l.style.top = `${Math.max(m, haut)}px`;
+  l.style.maxHeight = `${innerHeight - Math.max(m, haut) - m}px`;
+}
+addEventListener('resize', () => { if (!$('menuListe').classList.contains('cache')) placerMenu(); });
 $('btMenu').onclick = (e) => { e.stopPropagation(); menuBarre(); };
 $('menuListe').addEventListener('click', (e) => { if (e.target.closest('button')) menuBarre(false); });
 addEventListener('pointerdown', (e) => { if (!e.target.closest('#menuBarre')) menuBarre(false); });

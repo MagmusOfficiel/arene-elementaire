@@ -9,7 +9,7 @@ import { actif as actifFamilier } from './familiers.js';
 import { MONSTRES, PALIERS, TERRITOIRES, MALEDICTIONS, BOSS_CAUCHEMAR, variante } from './monstres.js';
 import { ELEMENTS, RARES } from './cartes.js';
 import { alea } from './combat.js';
-import { pvMax, deckCombat, niveau } from './profil.js';
+import { pvMax, deckCombat, niveau, vie } from './profil.js';
 import * as RQ from './reliques.js';
 import * as MY from './mystere.js';
 import { vaincre } from './grimoire.js';
@@ -59,7 +59,7 @@ export function commencerExpedition(p, territoire, palier = 1, graine = Date.now
   if (!TERRITOIRES[territoire]) return { ok: false };
   if (TERRITOIRES[territoire].niv && niveau(p) < TERRITOIRES[territoire].niv) return { ok: false, raison: `Il faut être niveau ${TERRITOIRES[territoire].niv} pour les ${TERRITOIRES[territoire].nom}.` };   // v87
   if (palier > (p.paliers[territoire] || 1)) return { ok: false, raison: 'Palier pas encore débloqué.' };
-  p.expedition = { territoire, palier, graine, carte: genererCarte(graine), position: null, pv: pvMax(p), pvMax: pvMax(p), butin: { essence: 0, mat: 0 }, salles: 0, fini: null, reliques: [], choixRelique: null };
+  p.expedition = { territoire, palier, graine, carte: genererCarte(graine), position: null, pv: vie(p), pvMax: pvMax(p), butin: { essence: 0, mat: 0 }, salles: 0, fini: null, reliques: [], choixRelique: null };
   const fam = actifFamilier(p); if (fam) p.expedition.familier = fam;   // fixé pour toute l'expédition
   if (PALIERS[palier - 1]?.cauchemar) p.expedition.mods = tirerMaledictions(graine);
   p.stats.expeditions++;
@@ -124,7 +124,7 @@ export function apresCombat(p, combat) {
   p.stats.combats++; x.combatEnCours = null;
   if (combat.fini === 'defaite') {
     if (x.groupe) { x.aTerre = true; x.pv = 0; return { ok: true, aTerre: true, gain: { essence: 0, mat: 0 } }; }   // v78 : en groupe, on tombe sans tout perdre
-    return terminer(p, 'defaite');
+    x.pv = 0; return terminer(p, 'defaite');
   }
   p.stats.victoires++;
   vaincre(p, (combat.ennemis || []).map((e) => e.id));   // v80 : le bestiaire du grimoire
@@ -160,7 +160,8 @@ export function terminer(p, issue) {
   let debloque = null;
   if (issue === 'victoire' && x.palier === p.paliers[x.territoire] && x.palier < PALIERS.length) { p.paliers[x.territoire]++; debloque = p.paliers[x.territoire]; }
   x.fini = issue;
-  const bilan = { ok: true, groupe: x.groupe?.n || 1, fin: issue, gainTotal: gain, debloque, territoire: x.territoire, palier: x.palier, bonus: x.bonusButin || 0, reliques: x.reliques || [] };
+  { const v = Math.max(1, Math.min(pvMax(p), Math.round(x.pv || 0))); if (v >= pvMax(p)) delete p.vie; else p.vie = v; }   // v97 : on rentre avec ses PV ; repos à la maison pour les remonter
+  const bilan = { ok: true, groupe: x.groupe?.n || 1, fin: issue, gainTotal: gain, debloque, territoire: x.territoire, palier: x.palier, bonus: x.bonusButin || 0, reliques: x.reliques || [], pv: vie(p), pvMax: pvMax(p) };
   p.expedition = null;
   return bilan;
 }

@@ -314,17 +314,18 @@ export async function jouerEvenements(evs) {
       }
       case 'soin': {
         if (!z || !e.n) break; const c = centre(z);
-        fx.monte(c.x, c.y + 20, PALETTES.soin, 22, 70); nombre(z, `+${e.n}`, 'soin'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); sfx.heal(); await pauseCb(240); break;
+        fx.monte(c.x, c.y + 20, PALETTES.soin, 22, 70); nombre(z, `${e.vol ? '🩸' : ''}+${e.n}`, 'soin'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); sfx.heal(); await pauseCb(240); break;
       }
       case 'statut': {
         if (!z) break; const c = centre(z), st = STATUTS[e.k];
-        const pal = { brulure: PALETTES.feu, trempe: PALETTES.eau, affaibli: PALETTES.mort, epines: PALETTES.plante, regen: PALETTES.soin, force: PALETTES.or }[e.k] || PALETTES.neutre;
+        const pal = { brulure: PALETTES.feu, trempe: PALETTES.eau, affaibli: PALETTES.mort, epines: PALETTES.plante, regen: PALETTES.soin, force: PALETTES.or, marque: PALETTES.or }[e.k] || PALETTES.neutre;
         if (e.k === 'force' || e.k === 'regen') fx.monte(c.x, c.y + 20, pal, 14, 60); else fx.eclats(c.x, c.y, pal, 12, { vitesse: 140, g: -40 });
         nombre(z, `${st?.ico || ''}+${e.n}`, 'statut', -10); await pauseCb(170); break;
       }
       case 'brule': {
         if (!z) break; const c = centre(z);
-        fx.eclats(c.x, c.y + 10, PALETTES.feu, 24, { vitesse: 160, g: -260, angle: -1.57, ecart: 1.4 }); nombre(z, `${e.sang ? '🩸' : '🔥'} −${e.deg}`, 'brule');
+        if (e.marque) fx.eclats(c.x, c.y, PALETTES.or, 40, { vitesse: 260, g: 0, ecart: 6.3 });
+        fx.eclats(c.x, c.y + 10, PALETTES.feu, 24, { vitesse: 160, g: -260, angle: -1.57, ecart: 1.4 }); nombre(z, `${e.marque ? '💥🎯' : e.sang ? '🩸' : '🔥'} −${e.deg}`, 'brule');
         rejouerAnim(blocDe(e.a), 'touche'); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); if (e.a === 'j') sfx.hurt(); await pauseCb(300); break;
       }
       case 'energie': rejouerAnim($('cbEnergie'), 'change'); break;

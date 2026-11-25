@@ -4,6 +4,8 @@
 //  a : dégâts (n : nombre de coups), d : bouclier, f : force,
 //  b : brûlure, t : trempé, w : affaibli (sur le joueur), e : épines,
 //  s : soigne tous ses alliés (lui compris), g : bouclier à tous ses alliés (v80).
+//  p : paralysie (v96), m : pose des marques sur le joueur — à 3, elles explosent (v98).
+//  v : vol de vie, le monstre se soigne de cette part des dégâts qu'il t'inflige (v99).
 // =====================================================================
 export const TERRITOIRES = {
   feu: { nom: 'Terres de Braise', element: 'feu', ico: '🌋' },
@@ -13,6 +15,10 @@ export const TERRITOIRES = {
   brisees: { nom: 'Terres Brisées', element: 'brisees', ico: '🌀', niv: 30 },
   // v96 (Chapitre 3) : les Cimes Orageuses, à l'est, ouvertes au niveau 50 — le plus dur du jeu
   cimes: { nom: 'Cimes Orageuses', element: 'cimes', ico: '⚡', niv: 50 },
+  // v99 (Chapitre 5) : les Îles Célestes, au-delà du désert, ouvertes au niveau 90
+  ciel: { nom: 'Îles Célestes', element: 'ciel', ico: '🌌', niv: 90 },
+  // v98 (Chapitre 4) : le Désert d'Ambre, tout à l'est, ouvert au niveau 70
+  ambre: { nom: 'Désert d’Ambre', element: 'ambre', ico: '🏜️', niv: 70 },
 };
 
 const m = (id, nom, ico, pv, intentions, rang = 'normal') => ({ id, nom, ico, pv, intentions, rang });
@@ -98,6 +104,46 @@ export const MONSTRES = {
       boss: m('reine_blizzard', 'La Reine du Blizzard', '❄️', 180, [{ g: 18 }, { a: 11, n: 3, t: 1 }, { w: 3, p: 1, a: 14 }, { a: 28 }, { s: 14, f: 2 }, { a: 8, n: 4 }], 'boss'),
     },
   },
+  // v99 : les monstres des Îles Célestes — v : ils VOLENT TA VIE (ils se soignent en frappant)
+  ciel: {
+    normaux: [
+      m('meduse_stellaire', 'Méduse stellaire', '🪼', 56, [{ a: 9, n: 2, v: 0.5 }, { w: 2, d: 12 }, { a: 15 }]),
+      m('chouette_astre', 'Chouette d’astre', '🦉', 50, [{ a: 7, n: 3 }, { a: 14, v: 0.5 }, { f: 2, d: 10 }]),
+      m('feu_follet', 'Feu follet céleste', '✨', 46, [{ b: 3, a: 8 }, { a: 16, v: 1 }, { s: 12 }]),
+      m('golem_nuage', 'Golem de nuage', '☁️', 74, [{ d: 20, g: 8 }, { a: 18 }, { a: 10, n: 2, v: 0.5 }]),
+      m('raie_nuees', 'Raie des nuées', '🐟', 54, [{ a: 12, v: 0.5 }, { t: 2, a: 8 }, { a: 7, n: 3 }]),
+      m('pegase_noir', 'Pégase noir', '🐎', 60, [{ a: 15 }, { a: 8, n: 2, v: 0.5 }, { f: 2, d: 12 }]),
+      m('gargouille_etoile', 'Gargouille d’étoile', '🗿', 66, [{ d: 18, e: 3 }, { a: 14, v: 0.5 }, { a: 20 }]),
+    ],
+    rare: m('constellation', 'Constellation vivante', '🌌', 96, [{ a: 10, n: 3, v: 0.5 }, { s: 18, g: 10 }, { a: 24 }], 'rare'),
+    elite: m('chevalier_aube', 'Chevalier de l’aube', '⚔️', 144, [{ a: 24, v: 0.5 }, { d: 24, f: 2 }, { a: 11, n: 3 }, { g: 16, s: 12 }], 'elite'),
+    boss: m('archange_argent', 'L’Archange d’argent', '😇', 210, [{ a: 12, n: 3, v: 0.5 }, { g: 20, s: 14 }, { a: 30 }, { w: 2, a: 16, v: 1 }, { f: 2, d: 22 }, { a: 9, n: 4 }], 'boss'),
+    autres: {
+      rare: m('vampire_astral', 'Vampire astral', '🦇', 90, [{ a: 14, v: 1 }, { w: 2, a: 9, n: 2 }, { a: 20, v: 0.5 }], 'rare'),
+      elite: m('seraphin_dechu', 'Séraphin déchu', '👼', 150, [{ a: 10, n: 3, v: 0.5 }, { b: 4, a: 14 }, { a: 28 }, { g: 18, f: 1 }], 'elite'),
+      boss: m('devoreuse_etoiles', 'La Dévoreuse d’étoiles', '🌑', 220, [{ g: 22 }, { a: 14, n: 3, v: 0.5 }, { w: 3, a: 18, v: 1 }, { a: 32 }, { s: 18, f: 2 }, { a: 10, n: 4, v: 0.5 }], 'boss'),
+    },
+  },
+  // v98 : les monstres du Désert d'Ambre — m : ils te MARQUENT (à 3 marques, explosion qui ignore le bouclier)
+  ambre: {
+    normaux: [
+      m('scorpion_ambre', 'Scorpion d’ambre', '🦂', 52, [{ a: 8, n: 2, m: 1 }, { d: 12 }, { a: 14 }]),
+      m('momie', 'Momie errante', '🧟', 66, [{ a: 12, w: 1 }, { s: 10, d: 10 }, { a: 7, n: 2, m: 1 }]),
+      m('chacal_dunes', 'Chacal des dunes', '🐕', 48, [{ a: 7, n: 2 }, { a: 13, m: 1 }, { f: 2 }]),
+      m('serpent_sables', 'Serpent des sables', '🐍', 50, [{ a: 10, m: 1, w: 1 }, { e: 3, d: 10 }, { a: 6, n: 3 }]),
+      m('scarabee_sacre', 'Scarabée sacré', '🪲', 58, [{ d: 16, e: 2 }, { a: 12, m: 1 }, { g: 8 }]),
+      m('djinn_mirage', 'Djinn des mirages', '🧞', 44, [{ w: 2, m: 2 }, { a: 16 }, { s: 10, g: 8 }]),
+      m('vautour_os', 'Vautour d’os', '🦅', 46, [{ a: 6, n: 3 }, { a: 12, m: 1 }, { d: 10, f: 1 }]),
+    ],
+    rare: m('sphinge_doree', 'Sphinge dorée', '🦁', 88, [{ a: 9, n: 3, m: 1 }, { d: 18, f: 1 }, { a: 22 }], 'rare'),
+    elite: m('gardien_obsidienne', 'Gardien d’obsidienne', '🗿', 138, [{ a: 22, m: 1 }, { d: 22, f: 1 }, { a: 10, n: 3 }, { g: 16, w: 2 }], 'elite'),
+    boss: m('pharaon_maudit', 'Le Pharaon maudit', '👑', 190, [{ a: 11, n: 2, m: 1 }, { g: 18, s: 12 }, { a: 28 }, { w: 2, m: 2, a: 13 }, { f: 2, d: 20 }, { a: 8, n: 4, m: 1 }], 'boss'),
+    autres: {
+      rare: m('mirage_vivant', 'Mirage vivant', '🌫️', 82, [{ s: 16, g: 10 }, { a: 16, m: 2 }, { a: 7, n: 3 }], 'rare'),
+      elite: m('ver_sables', 'Ver des sables', '🪱', 145, [{ a: 9, n: 3, m: 1 }, { d: 20, f: 2 }, { a: 26 }, { g: 14, m: 2 }], 'elite'),
+      boss: m('reine_scorpion', 'La Reine-scorpion', '🦂', 200, [{ g: 20 }, { a: 12, n: 3, m: 1 }, { w: 3, m: 2, a: 15 }, { a: 30 }, { s: 16, f: 2 }, { a: 9, n: 4 }], 'boss'),
+    },
+  },
   brisees: {
     normaux: [
       m('golem_vapeur', 'Golem de vapeur', '♨️', 40, [{ a: 9, t: 1 }, { d: 10 }, { a: 6, n: 1, b: 1 }]),
@@ -144,6 +190,8 @@ export const MALEDICTIONS = {
 export const BOSS_CAUCHEMAR = {
   feu: m('titan_magma', 'Titan primordial', '🌋', 100, [{ a: 12 }, { d: 12, f: 2 }, { a: 5, n: 3 }, { w: 2, a: 7 }, { b: 4, a: 9 }, { a: 16 }], 'boss'),
   eau: m('leviathan_abyssal', 'Léviathan des abysses', '🐋', 102, [{ a: 6, n: 2 }, { t: 2, d: 10 }, { a: 13 }, { f: 1, d: 10 }, { a: 4, n: 3 }, { t: 1, a: 15 }], 'boss'),
+  ciel: m('etoile_mere', 'L’Étoile mère', '⭐', 265, [{ a: 20, v: 0.5 }, { g: 24, w: 2 }, { a: 10, n: 4, v: 0.5 }, { s: 22, f: 2 }, { b: 4, a: 18 }, { a: 40, v: 1 }], 'boss'),
+  ambre: m('soleil_noir', 'Le Soleil noir', '🌑', 240, [{ a: 18, m: 1 }, { g: 22, w: 2 }, { a: 9, n: 4 }, { s: 20, f: 2 }, { b: 4, m: 2, a: 15 }, { a: 36 }], 'boss'),
   cimes: m('oeil_cyclone', 'L’Œil du Cyclone', '🌪️', 220, [{ a: 16, p: 1 }, { g: 20, w: 2 }, { a: 8, n: 4 }, { s: 18, f: 2 }, { b: 4, t: 3, a: 14, p: 1 }, { a: 34 }], 'boss'),
   brisees: m('neant_originel', 'Le Néant originel', '🕳️', 200, [{ a: 14 }, { g: 16, w: 2 }, { a: 7, n: 4 }, { s: 16, f: 2 }, { b: 4, t: 3, a: 12 }, { a: 28 }], 'boss'),
   plante: m('ancien_sylvain', 'Ancien sylvain', '🌳', 124, [{ a: 12, e: 3 }, { d: 14, f: 1 }, { a: 7, n: 3 }, { w: 2, a: 10 }, { a: 19 }, { e: 3, d: 10, f: 1 }], 'boss'),

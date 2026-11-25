@@ -15,7 +15,9 @@ test('6 habitants par terre, chez eux, qui marchent sur des endroits praticables
     for (let t = 0; t < 120; t += 1.7) {
       const q = posPnj(p, t);
       assert.ok(praticable(q.x, q.y, o), `${p.id} bloqué à t=${t}`);
-      if (p.clan === 'cimes') assert.ok(q.x > CIMES_X - 120, `${p.id} loin des Cimes`);   // v96 : Brann garde le col, juste devant
+      if (p.clan === 'ciel') assert.ok(q.y < 640, `${p.id} loin du ciel`);   // v100 : en haut
+      else if (p.clan === 'ambre') assert.ok(q.x < 700, `${p.id} loin du désert`);   // v100 : à gauche ; Kesh garde la passe
+      else if (p.clan === 'cimes') assert.ok(q.x > CIMES_X - 120, `${p.id} loin des Cimes`);   // v96 : Brann garde le col, juste devant
       else if (p.clan === 'brisees') assert.ok(q.y > FAILLE_Y - 120, `${p.id} loin de la Faille`);   // v87 : les gens de la Faille (Orin garde la porte, juste devant)
       else assert.equal(territoireDe(q.x, q.y), p.clan, `${p.id} sort de sa terre`);
     }

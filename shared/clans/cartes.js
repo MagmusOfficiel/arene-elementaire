@@ -18,6 +18,10 @@ export const ELEMENTS = {
   brisees: { nom: 'Faille', couleur: '#8a60e0', fonce: '#1a0e2a', ico: '🌀', materiau: 'fragments', nomMat: 'Fragments de faille' },
   // v96 : les Cimes Orageuses
   cimes: { nom: 'Tempête', couleur: '#4a90d8', fonce: '#0e1a2e', ico: '⚡', materiau: 'plumes', nomMat: 'Plumes d’orage' },
+  // v99 : les Îles Célestes
+  ciel: { nom: 'Étoiles', couleur: '#b090ff', fonce: '#14102e', ico: '🌌', materiau: 'poussiere_etoile', nomMat: 'Poussière d’étoile' },
+  // v98 : le Désert d'Ambre
+  ambre: { nom: 'Ambre', couleur: '#e0a030', fonce: '#3a2008', ico: '🏜️', materiau: 'sable_dore', nomMat: 'Sable doré' },
 };
 export const CLANS = ['feu', 'eau', 'plante'];
 // les ressources rares : une par territoire, ramassée sur les filons ou sur les monstres rares
@@ -27,6 +31,8 @@ export const RARES = {
   plante: { id: 'graine_or', nom: "Graine d'or", ico: '🌰' },
   brisees: { id: 'eclat_vide', nom: 'Éclat du vide', ico: '🔷' },
   cimes: { id: 'cristal_foudre', nom: 'Cristal de foudre', ico: '⚡' },
+  ambre: { id: 'larme_ambre', nom: 'Larme d’ambre', ico: '🟠' },
+  ciel: { id: 'coeur_etoile', nom: 'Cœur d’étoile', ico: '⭐' },
 };
 export const RECETTES = { epique: { rare: 6, essence: 300 }, legendaire: { rare: 15, essence: 800 } };
 // les classes : PV en plus ou en moins, un talent (géré par combat.js) et leurs propres cartes
@@ -188,6 +194,16 @@ export const CARTES = Object.fromEntries([
   c('oeil_tempete', 'Œil de la tempête', 'neutre', 'epique', 1, 'pouvoir', '🌀', { etourdit: 1, pioche: 1 }, null, 'cimes'),
   c('marteau_tonnerre', 'Marteau du tonnerre', 'neutre', 'legendaire', 2, 'attaque', '🔨', { degats: 18, etourdit: 1 }, null, 'cimes'),
   c('avatar_tempete', 'Avatar de la tempête', 'neutre', 'legendaire', 3, 'attaque', '🌩️', { degats: 10, tous: true, etourdit: 1, epuise: true }, null, 'cimes'),
+  // ---- v98 : les cartes du désert (Chapitre 4) — forgées avec des larmes d'ambre ; elles MARQUENT (3 marques = explosion de 20)
+  c('sable_aveuglant', 'Sable aveuglant', 'neutre', 'epique', 1, 'pouvoir', '🌪️', { marque: 1, affaibli: 1, tous: true }, null, 'ambre'),
+  c('fleche_scarabee', 'Flèche du scarabée', 'neutre', 'epique', 1, 'attaque', '🪲', { degats: 6, marque: 2 }, null, 'ambre'),
+  c('oeil_ra', 'Œil du soleil', 'neutre', 'legendaire', 2, 'attaque', '☀️', { degats: 8, tous: true, marque: 1, pioche: 1 }, null, 'ambre'),
+  c('jugement_pharaon', 'Jugement du pharaon', 'neutre', 'legendaire', 2, 'attaque', '⚱️', { degats: 10, marque: 3, epuise: true }, null, 'ambre'),
+  // ---- v99 : les cartes des étoiles (Chapitre 5) — forgées avec des cœurs d'étoile ; elles VOLENT LA VIE
+  c('morsure_astrale', 'Morsure astrale', 'neutre', 'epique', 1, 'attaque', '🌙', { degats: 8, volVie: 0.5 }, null, 'ciel'),
+  c('faux_etoiles', 'Faux des étoiles', 'neutre', 'epique', 1, 'attaque', '✨', { degats: 5, tous: true, volVie: 0.5 }, null, 'ciel'),
+  c('comete_vorace', 'Comète vorace', 'neutre', 'legendaire', 2, 'attaque', '☄️', { degats: 6, fois: 3, volVie: 0.5 }, null, 'ciel'),
+  c('festin_etoiles', 'Festin des étoiles', 'neutre', 'legendaire', 2, 'attaque', '🌠', { degats: 14, volVie: 1, epuise: true }, null, 'ciel'),
   // ---- les cartes de branche (v69) : seulement à l'autel, seulement pour sa branche
   GA('gd_egide', 'Égide', 'rare', 1, 'defense', '🔰', { bouclier: 10, epines: 2 }),
   GA('gd_represailles', 'Représailles', 'rare', 1, 'attaque', '💢', { bouclierEnDegats: true, bouclier: 4 }),
@@ -272,6 +288,8 @@ export function decrire(id, niv = 1) {
   if (e.pioche) t.push(`Pioche ${e.pioche} carte${e.pioche > 1 ? 's' : ''}.`);
   if (e.invoque) t.push(`Invoque ${e.invoque.ico} ${e.invoque.nom} (${e.invoque.pv} PV) : il frappe un ennemi pour ${e.invoque.deg} au début de chacun de tes tours, et encaisse les coups à ta place tant qu’il tient debout.`);
   if (e.etourdit) t.push(`${e.tous ? 'Étourdit tous les ennemis' : 'Étourdit la cible'} : ${e.tous ? 'ils perdent' : 'elle perd'} sa prochaine action (un monstre qui vient d’être étourdi résiste un tour). En duel : une énergie de moins pour l’adversaire au prochain tour.`);
+  if (e.volVie) t.push(e.volVie >= 1 ? 'Tu te soignes de tous les dégâts infligés (vol de vie).' : `Tu te soignes de ${Math.round(e.volVie * 100)} % des dégâts infligés (vol de vie).`);
+  if (e.marque) t.push(`${e.tous ? 'Marque tous les ennemis' : 'Marque la cible'} ${e.marque} fois. À 3 marques, elles explosent : 20 dégâts qui ignorent le bouclier.`);
   if (e.dupliquer) t.push(`Copie ${e.dupliquer > 1 ? `${e.dupliquer} cartes` : 'une carte'} de ta main au hasard (copie éphémère).`);
   if (e.reduction) t.push(`Les cartes de ta main coûtent ${e.reduction} de moins ce tour.`);
   if (e.epuise) t.push('Épuisée.');
@@ -286,6 +304,7 @@ export const STATUTS = {
   force: { nom: 'Force', ico: '💪', desc: 'Ajoute ces dégâts à chaque attaque.' },
   etourdi: { nom: 'Étourdi', ico: '💫', desc: 'Perd sa prochaine action (son intention attend un tour). Ensuite, il résiste à l’étourdissement pendant un tour.' },
   paralysie: { nom: 'Paralysie', ico: '⚡', desc: 'Une énergie de moins au prochain tour (par point).' },
+  marque: { nom: 'Marque', ico: '🎯', desc: 'À 3 marques, elles explosent : 20 dégâts directs (12 × la force du monstre quand c’est toi qui es marqué), le bouclier ne protège pas.' },
   appel: { nom: 'Appel', ico: '🐾', desc: 'Au début de ton tour, ton allié invoqué inflige autant de dégâts à un ennemi.' },
 };
 // le deck de départ selon le clan

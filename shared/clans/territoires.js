@@ -5,6 +5,8 @@
 //  donne +10 % de production à toutes les parcelles du clan et des points
 //  au classement des clans. Au départ, chaque clan tient les siens.
 // =====================================================================
+import { OX, OY } from './decalage.js';
+// v100 : positions d'origine + le décalage de l'ancien monde
 export const SANCTUAIRES = [
   { id: 'cendres', nom: 'Sanctuaire des Cendres', terr: 'feu', x: 1112, y: 1704 },
   { id: 'brasier', nom: 'Sanctuaire du Brasier', terr: 'feu', x: 408, y: 792 },
@@ -12,7 +14,7 @@ export const SANCTUAIRES = [
   { id: 'corail', nom: 'Sanctuaire de Corail', terr: 'eau', x: 2184, y: 616 },
   { id: 'racines', nom: 'Sanctuaire des Racines', terr: 'plante', x: 2120, y: 1880 },
   { id: 'lucioles', nom: 'Sanctuaire des Lucioles', terr: 'plante', x: 2184, y: 1272 },
-];
+].map((s) => ({ ...s, x: s.x + OX, y: s.y + OY }));
 export const CAPTURE = {
   rayon: 70,            // px : il faut être dans le cercle
   base: 5,              // % par seconde pour un joueur seul (20 s)

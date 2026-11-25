@@ -18,9 +18,9 @@ const haut = (p, n) => { p.stats.victoires = P.xpPourNiveau(n); return p; };
 const fini = (p, ids) => { p.pnjQ ||= {}; for (const id of ids) p.pnjQ[id] = { fait: true }; };
 
 test('la région : à l’est, niveau 50, 14 monstres + titan + boss mondial', () => {
-  assert.equal(G.MONDE.l, 4000); assert.equal(TERRITOIRES.cimes.niv, 50);
-  assert.ok(G.dansCimes(3640, 1100) && !G.dansCimes(2568, 1544) && !G.dansFaille(3640, 2600));
-  assert.equal(G.territoireDe(3640, 1100), null);
+  assert.equal(G.MONDE.l, 4000 + G.OX); assert.equal(TERRITOIRES.cimes.niv, 50);
+  assert.ok(G.dansCimes(...G.CENTRE_CIMES) && !G.dansCimes(...G.CENTRES.plante) && !G.dansFaille(G.CENTRE_CIMES[0], 2600 + G.OY));
+  assert.equal(G.territoireDe(...G.CENTRE_CIMES), null);
   assert.equal(tousDe('cimes').length, 14); assert.ok(BOSS_CAUCHEMAR.cimes && BOSS_MONDIAUX.cimes);
   assert.ok(MONSTRES.cimes.boss.pv > MONSTRES.brisees.boss.pv, 'plus dur que la Faille');
   const p = P.nouveauProfil('feu', 'T', 0); haut(p, 45);

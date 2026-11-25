@@ -6,7 +6,7 @@
 //  joueurs les voient au même endroit, sans rien envoyer sur le réseau.
 //  Leur apparence réutilise les tenues, cheveux et coiffes des joueurs.
 // =====================================================================
-import { CENTRES, CENTRE_FAILLE, CENTRE_CIMES, LIEUX, OUVRAGES, obstacles, praticable, alea } from './geo.js';
+import { CENTRES, CENTRE_FAILLE, CENTRE_CIMES, CENTRE_AMBRE, CENTRE_CIEL, LIEUX, OUVRAGES, obstacles, praticable, alea } from './geo.js';
 
 const portail = (t) => LIEUX.find((l) => l.terr === t);
 const pres = ([x, y], dx, dy) => [x + dx, y + dy];
@@ -73,6 +73,28 @@ export const PNJ = [
     dits: ['J’ai vu le Roi des Tempêtes une fois. Une fois suffit.', 'Ici, tout frappe plus fort qu’ailleurs. Viens avec un deck solide.', 'Les sorts de zone, c’est bien. L’étourdissement, c’est mieux.'] },
   { id: 'odra', clan: 'cimes', nom: 'Odra', role: 'vieille du sommet', classe: 'mage', app: 't_cimes.c_blanc.h_fleurs.a_lucioles', ancre: pres(CENTRE_CIMES, -40, 70), r: 15,
     dits: ['J’ai vu trois tempêtes du siècle. Celle-ci est la pire.', 'Au niveau 70, reviens me voir. Pas avant.', 'Le Néant, la Faille, les Cimes… tout est lié, petit.'] },
+  // ---- v99 : les Îles Célestes (Chapitre 5)
+  { id: 'elio', clan: 'ciel', nom: 'Elio', role: 'gardien du pont', classe: 'combattant', app: 't_ciel.c_blond.h_aucun.a_lucioles', ancre: pres(CENTRE_CIEL, -130, 30), r: 15,
+    dits: ['Au-delà du pont, il faut le niveau 90. Le vide ne pardonne pas.', 'Ici, les monstres volent ta vie à chaque coup. Frappe vite, frappe fort.', 'Ne regarde pas en bas. Vraiment.'] },
+  { id: 'astree', clan: 'ciel', nom: 'Astrée', role: 'astronome', classe: 'mage', app: 't_ciel.c_blanc.h_aucun.a_lucioles', ancre: pres(CENTRE_CIEL, 90, -70), r: 20,
+    dits: ['Chaque étoile a un nom. Certaines ont faim.', 'La poussière d’étoile ? Les méduses et les feux follets en sont pleins.', 'D’ici, on voit tout le monde : les trois clans, la Faille, les Cimes, le désert…'] },
+  { id: 'corvin', clan: 'ciel', nom: 'Corvin', role: 'forgeron d’étoiles', classe: 'combattant', app: 't_nuit.c_noir.h_bandeau.a_braises', ancre: pres(CENTRE_CIEL, 110, 60), r: 20,
+    dits: ['Une lame qui boit la vie… c’est mon chef-d’œuvre.', 'Les cœurs d’étoile se forgent à l’atelier, comme les larmes d’ambre.', 'Avec le vol de vie, tu rentres à la maison avec plus de PV qu’en partant. Enfin, parfois.'] },
+  { id: 'selene', clan: 'ciel', nom: 'Séléné', role: 'chevalière de la lune', classe: 'escrimeur', app: 't_ciel.c_noir.h_capuche.a_aucune', ancre: pres(CENTRE_CIEL, -60, -110), r: 25,
+    dits: ['J’ai croisé l’Archange une fois. Il m’a laissé la vie. Je ne sais toujours pas pourquoi.', 'Ici, tout frappe plus fort que dans le désert. Ton meilleur deck, rien d’autre.', 'La Dévoreuse se soigne beaucoup : garde de gros coups pour la fin.'] },
+  { id: 'ysolde', clan: 'ciel', nom: 'Ysolde', role: 'oracle', classe: 'mage', app: 't_ciel.c_blanc.h_fleurs.a_lucioles', ancre: pres(CENTRE_CIEL, 0, 90), r: 10,
+    dits: ['Je t’ai vu venir, il y a longtemps. Tu étais plus petit.', 'Au niveau 100, reviens me voir. Pas avant.', 'Après l’Étoile mère… le monde respirera. Pour un temps.'] },
+  // ---- v98 : le Désert d'Ambre (Chapitre 4)
+  { id: 'kesh', clan: 'ambre', nom: 'Kesh', role: 'caravanière', classe: 'escrimeur', app: 't_ambre.c_noir.h_bandeau.a_aucune', ancre: pres(CENTRE_AMBRE, 220, 20), r: 0,
+    dits: ['Au-delà de la passe, il faut le niveau 70. Le désert ne fait pas de cadeau.', 'Ici, les monstres te marquent. À trois marques, ça explose, et ton bouclier n’y peut rien.', 'Les sables mouvants avalent tout. Reste sur les dalles.'] },
+  { id: 'neferet', clan: 'ambre', nom: 'Neferet', role: 'archéologue', classe: 'mage', app: 't_ambre.c_noir.h_paille.a_aucune', ancre: pres(CENTRE_AMBRE, -140, 40), r: 25,
+    dits: ['Chaque pierre de cette cité a une histoire. La plupart finissent mal.', 'Le sable doré ? Les scorpions et les momies en sont couverts.', 'Le Pharaon voulait voler le soleil. Il a presque réussi.'] },
+  { id: 'hakim', clan: 'ambre', nom: 'Hakim', role: 'forgeron d’ambre', classe: 'combattant', app: 't_nuit.c_noir.h_bandeau.a_braises', ancre: pres(CENTRE_AMBRE, 160, -40), r: 25,
+    dits: ['Une marque, deux marques, trois… boum. J’adore mon métier.', 'Les larmes d’ambre se forgent à l’atelier, comme les cristaux de foudre.', 'Mélange les cartes qui marquent tous les ennemis et celles qui marquent fort : ça fait des feux d’artifice.'] },
+  { id: 'saia', clan: 'ambre', nom: 'Saïa', role: 'pisteuse des dunes', classe: 'tireur', app: 't_ambre.c_roux.h_capuche.a_aucune', ancre: pres(CENTRE_AMBRE, 70, 140), r: 60,
+    dits: ['J’ai suivi la Reine-scorpion trois jours. Elle, elle m’a suivie quatre.', 'Ici, tout frappe encore plus fort que dans les Cimes. Prends ton meilleur deck.', 'Si tu as deux marques sur toi, achève vite le monstre.'] },
+  { id: 'imhet', clan: 'ambre', nom: 'Imhet', role: 'prêtre aveugle', classe: 'mage', app: 't_ambre.c_blanc.h_aucun.a_lucioles', ancre: pres(CENTRE_AMBRE, -40, 80), r: 15,
+    dits: ['Je ne vois plus le soleil depuis longtemps. Mais je le sens devenir noir.', 'Au niveau 90, reviens me voir. Pas avant.', 'Le Néant, la tempête, l’étoile… le monde se défend, et c’est toi son bras.'] },
 ];
 export const PNJ_PAR_ID = Object.fromEntries(PNJ.map((p) => [p.id, p]));
 
@@ -119,4 +141,4 @@ export function posPnj(pnj, t) {
   const [x, y] = ch.etapes[0].a; return { x, y, dir: 'bas', marche: false };
 }
 // ce qu'il dit à un joueur d'un autre clan
-export const DIT_ETRANGER = { feu: 'Tu n’es pas d’ici, toi. Ne touche pas à nos filons.', eau: 'Un étranger… Les Lagons t’observent, voyageur.', plante: 'La Sylve tolère les visiteurs. Pas les pilleurs.' , brisees: 'Ici, il n’y a plus de clans. Seulement ceux qui survivent.' , cimes: 'Ici, ce n’est pas ton clan qui te protège. C’est ton deck.' };
+export const DIT_ETRANGER = { feu: 'Tu n’es pas d’ici, toi. Ne touche pas à nos filons.', eau: 'Un étranger… Les Lagons t’observent, voyageur.', plante: 'La Sylve tolère les visiteurs. Pas les pilleurs.' , brisees: 'Ici, il n’y a plus de clans. Seulement ceux qui survivent.' , cimes: 'Ici, ce n’est pas ton clan qui te protège. C’est ton deck.', ambre: 'Le désert se moque des clans. Il ne retient que les survivants.', ciel: 'Là-haut, les clans n’ont plus de sens. Il n’y a que le ciel et toi.' };

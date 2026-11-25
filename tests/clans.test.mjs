@@ -238,7 +238,7 @@ test('boss mondial : PV communs, manches, anti-triche et récompenses', () => {
   assert.ok(a.essence > b.essence && a.rare.n > b.rare.n && a.rare.id === 'graine_or');
   // chaque boss mondial se joue avec le moteur de combat normal
   for (const k of Object.keys(BOSS_MONDIAUX)) {
-    const deck = P.deckCombat(P.nouveauProfil(['brisees', 'cimes'].includes(k) ? 'feu' : k, 'T', 0, 'combattant'));
+    const deck = P.deckCombat(P.nouveauProfil(['brisees', 'cimes', 'ambre', 'ciel'].includes(k) ? 'feu' : k, 'T', 0, 'combattant'));
     const c = C.nouveauCombat({ deck, joueur: { pv: 75, pvMax: 75 }, ennemis: [{ ...BOSS_MONDIAUX[k], pv: 120 }], palier: PALIER_MONDIAL, graine: 5, classe: 'combattant' });
     for (let t = 0; t < 40 && !c.fini; t++) { for (let i = 0; i < 6; i++) { const j = c.main.findIndex((_, q) => C.jouable(c, q)); if (j < 0) break; C.jouerCarte(c, j, c.ennemis[0].uid); } if (!c.fini) C.finTour(c); }
     assert.ok(c.fini, k); assert.ok(c.ennemis[0].pv < 120, k);
