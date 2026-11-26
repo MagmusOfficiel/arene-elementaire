@@ -81,7 +81,7 @@ export function fenetreAscension() {
 }
 export function apresEpreuve(rep) {
   if (!rep?.ok) { toast(esc(rep?.raison || 'Épreuve refusée par le serveur.')); return fenetreAscension(); }
-  if (rep.res.victoire) { sfx.fanfare?.(); toast('🌟 Épreuve réussie ! Choisis ta branche.'); }
+  if (rep.res.victoire) { sfx.fanfare?.(); import('./crazygames.js').then((m) => m.cg.fete()); toast('🌟 Épreuve réussie ! Choisis ta branche.'); }
   else toast('💀 La Chimère t’a vaincu. Renforce ton deck et retente !');
   setTimeout(fenetreAscension, 400);
 }

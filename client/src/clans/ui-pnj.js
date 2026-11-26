@@ -62,6 +62,7 @@ export async function parlerA(id) {
     if ($('btRendre')) $('btRendre').onclick = async () => {
       const r = await faire('pnjRendre', { id }); if (!r.ok) return toast(esc(r.raison || 'Impossible.'));
       sfx.fanfare?.(); fermer(); monde.parler(id, r.res.merci);
+      if (['nyx', 'odra', 'imhet', 'ysolde'].includes(r.res.id)) import('./crazygames.js').then((m) => m.cg.fete());   // v110 : fin d'une histoire de chapitre
       toast(`✅ Quête de ${esc(n.nom)} terminée : ${lot(r.res.rec)}${r.res.xp ? ` · <b>+${r.res.xp} XP</b>` : ''}${r.res.ami ? `<br>🏅 Tu es désormais « <b>${esc(QP.TITRES[n.clan])}</b> » (titre dans ta fiche).` : ''}`);
     };
   });

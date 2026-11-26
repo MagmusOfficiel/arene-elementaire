@@ -44,11 +44,13 @@ export const cg = {
   salle({ id, ami, joignable }) {
     const cle = `${id}|${ami}|${joignable}`; if (cle === salleActuelle) return; salleActuelle = cle;
     sur((s) => {
+      // v110 : le salon déclaré suffit, CrazyGames affiche lui-même « Inviter » et « Rejoindre » (l'ancien bouton est déprécié)
       s.game.updateRoom?.({ roomId: id, isJoinable: !!joignable, inviteParams: { ami } });
-      if (joignable) s.game.showInviteButton?.({ ami }); else s.game.hideInviteButton?.();
     });
   },
-  quitterSalle() { salleActuelle = ''; sur((s) => { s.game.hideInviteButton?.(); s.game.leftRoom?.(); }); },
+  quitterSalle() { salleActuelle = ''; sur((s) => s.game.leftRoom?.()); },
+  // une grande réussite (fin d'une histoire de chapitre, Épreuve d'ascension) : CrazyGames fait la fête
+  fete() { sur((s) => s.game.happytime?.()); },
   lien(ami) { let l = null; sur((s) => { l = s.game.inviteLink({ ami }); }); return l; },
 };
 

@@ -945,10 +945,11 @@ Le « salon » CrazyGames d'un joueur, c'est son **groupe d'expédition** (3 jou
 
 - **Salon :** seul, un joueur est joignable. En groupe, il l'est tant qu'il reste de la place et que le groupe n'est pas parti.
   - Le jeu le déclare au SDK avec `updateRoom` (`roomId`, `isJoinable`, `inviteParams.ami`).
-  - Le bouton d'invitation de CrazyGames (`showInviteButton` / `hideInviteButton`) suit cet état. `leftRoom` est appelé au retour à l'écran de création.
+  - Le bouton d'invitation de CrazyGames est affiché par CrazyGames d’après ce salon (les anciens `showInviteButton` / `hideInviteButton` sont dépréciés et ne sont plus utilisés). `leftRoom` est appelé au retour à l'écran de création.
 - **Lien :** il porte l'identifiant public du chef du groupe, tiré de son jeton par hachage. Le jeton lui-même ne sort jamais.
 - **Arriver par un lien** (`getInviteParam('ami')`, ou `addJoinRoomListener` si le jeu est déjà ouvert) : une fois dans le monde, le joueur entre **directement** dans le groupe de son ami, sans invitation à accepter. La flèche le guide vers lui. Si l'ami est absent, en expédition ou si son groupe est complet, un message l'explique.
 - **Dans le jeu :** bouton « 🔗 Inviter un ami (lien) » dans le panneau de groupe (fenêtre d'expédition), qui copie le lien.
 - **Pseudo CrazyGames :** il est proposé comme nom de héros à la création, pour que les amis se reconnaissent.
 - **Serveur :** messages `lienAmi`, `groupeLien` et `groupeCreer`. La vue du groupe contient `pubChef` et `taille`.
 - **Fiche CrazyGames :** multijoueur coché, Lobby Size Min 1 / Max 3, private lobbies non coché.
+- **Happytime** (`cg.fete()`) : appelé seulement à la fin d'une histoire de chapitre et à la victoire de l'Épreuve d'ascension, pour rester un moment rare comme le demande CrazyGames.
