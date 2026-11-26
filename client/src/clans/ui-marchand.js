@@ -10,6 +10,8 @@ import { faire } from './ui-reseau.js';
 
 const ICO = ICO_RESS;
 const lot = (o) => Object.entries(o).map(([k, v]) => `<b>${nf(v)}</b> ${ICO[k] || k}`).join(' + ');
+// v119 : ce qu'on donne, avec ce qu'on a (en rouge s'il en manque)
+const lotDonne = (o) => Object.entries(o).map(([k, v]) => { const a = p.ress[k] || 0; return `<span class="${a < v ? 'manque' : ''}"><b>${nf(v)}</b> ${ICO[k] || k}<small class="aDeja">tu as ${nf(a)}</small></span>`; }).join(' + ');
 
 export function fenetreMarchand() {
   guide.vu('a_marchand');
@@ -19,10 +21,10 @@ export function fenetreMarchand() {
     <p class="sousTitre">« Bien le bonjour ! Je ne reste jamais longtemps au même endroit : encore <b>${min} min</b> ${esc(m.place)}, puis je reprends la route avec d'autres affaires. » Chaque échange se fait une fois par passage.</p>
     <div class="marchand">${m.offres.map((o, i) => {
       const fait = pris.includes(i), ok = MA.peutPayer(p, o);
-      return `<div class="offre ${fait ? 'prise' : ''}"><div class="echange"><span>${lot(o.donne)}</span><i>→</i><span>${lot(o.recoit)}</span></div>
+      return `<div class="offre ${fait ? 'prise' : ''}"><div class="echange"><span>${lotDonne(o.donne)}</span><i>→</i><span>${lot(o.recoit)}</span></div>
         ${fait ? '<span class="porte">✓ Échangé</span>' : `<button class="bouton" data-offre="${i}" ${ok ? '' : 'disabled'}>${ok ? 'Échanger' : 'Pas assez'}</button>`}</div>`;
     }).join('')}</div>
-    <p class="cout">Tu as ${['essence', 'eclats', 'braises', 'perles', 'seve', 'cristal', 'perle_noire', 'graine_or'].filter((k) => k === 'essence' || p.ress[k] > 0).map((k) => `${nf(p.ress[k] || 0)} ${ICO[k]}`).join(' · ')}</p>`, () => {
+    <div class="mTuAs"><b>Tu as</b>${Object.keys(ICO).filter((k) => k === 'essence' || p.ress[k] > 0).map((k) => `<span>${ICO[k]} ${nf(p.ress[k] || 0)}</span>`).join('')}</div>`, () => {
     $('fenetreCorps').dataset.vue = 'marchand';
     $('fenetreCorps').querySelectorAll('[data-offre]').forEach((b) => b.onclick = async () => {
       const r = await faire('marchandAcheter', { i: +b.dataset.offre });

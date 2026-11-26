@@ -1,0 +1,119 @@
+/* =====================================================================
+   LES CLANS ÉLÉMENTAIRES — le « nouveau style » (v112, bêta)
+   Tout est préfixé par html.style2 : sans le réglage, rien ne change.
+   ===================================================================== */
+#btStyleCrea { position: fixed; right: 14px; bottom: 12px; z-index: 30; background: rgba(12,8,22,.6); color: #d8cce8; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 6px 14px; font: 600 13px 'Fredoka', 'Nunito', system-ui, sans-serif; cursor: pointer; backdrop-filter: blur(6px); }
+#btStyleCrea:hover { background: rgba(60,40,110,.7); color: #fff; }
+#accueil2.cache { display: none; }
+
+/* ---------- l'accueil ---------- */
+html.style2 #ecranClan.a2 { padding: 0; justify-content: center; background: #0c0a14 url(/clans/accueil/fond.webp) center / cover no-repeat; }
+html.style2 #ecranClan.a2::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,6,24,.15) 0%, rgba(10,6,24,.05) 35%, rgba(10,6,24,.75) 100%); pointer-events: none; }
+html.style2 #ecranClan.a2[data-page="2"]::before { background: rgba(10,6,24,.72); backdrop-filter: blur(6px); }
+html.style2 #ecranClan.a2 > .titreJeu, html.style2 #ecranClan.a2 > .creation, html.style2 #ecranClan.a2 > #dejaCompte { display: none; }
+#accueil2 { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-family: 'Fredoka', 'Nunito', system-ui, sans-serif; }
+.a2Page { display: flex; flex-direction: column; align-items: center; gap: 22px; width: min(1000px, 94vw); max-height: 100%; overflow: auto; padding: 24px 0; }
+.a2Page.cache { display: none; }
+.a2Page[data-a2="1"] { justify-content: flex-end; height: 100%; padding-bottom: 8vh; box-sizing: border-box; }
+.a2Titre { text-align: center; text-shadow: 0 3px 18px rgba(0,0,0,.8); }
+.a2Titre small { letter-spacing: .35em; text-transform: uppercase; color: #ffe6a8; font-size: 14px; font-weight: 600; }
+.a2Titre h1 { margin: 4px 0 6px; font-size: clamp(40px, 7vw, 84px); font-weight: 700; line-height: 1; color: #fff8e8; -webkit-text-stroke: 2px #2a1640; paint-order: stroke fill; text-shadow: 0 0 30px rgba(255,200,120,.55), 0 4px 0 #2a1640; }
+.a2Titre p { margin: 0; font-size: clamp(15px, 1.8vw, 20px); color: #fff4e0; font-weight: 500; }
+.a2Jouer { font: 700 clamp(22px, 2.6vw, 30px) 'Fredoka', 'Nunito', system-ui, sans-serif; color: #2a1206; background: linear-gradient(180deg, #ffe48a, #f0a830 60%, #d67a1a); border: 3px solid #fff3c8; border-radius: 999px; padding: 14px 64px; cursor: pointer; box-shadow: 0 8px 0 #8a4a10, 0 14px 34px rgba(0,0,0,.55), 0 0 40px rgba(255,190,80,.5); transition: transform .12s, box-shadow .12s, filter .12s; animation: a2Respire 2.4s ease-in-out infinite; }
+.a2Jouer:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); filter: brightness(1.06); }
+.a2Jouer:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 3px 0 #8a4a10, 0 8px 20px rgba(0,0,0,.5); }
+.a2Jouer:disabled { filter: grayscale(.8) brightness(.8); cursor: not-allowed; animation: none; }
+@keyframes a2Respire { 50% { box-shadow: 0 8px 0 #8a4a10, 0 14px 34px rgba(0,0,0,.55), 0 0 64px rgba(255,190,80,.8); } }
+#a2Persos { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; color: #e8dcf8; }
+#a2Persos small { width: 100%; text-align: center; font-size: 13px; opacity: .85; }
+.a2Perso { font: 600 14px 'Fredoka', 'Nunito', sans-serif; background: rgba(20,12,40,.7); color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 7px 16px; cursor: pointer; backdrop-filter: blur(6px); }
+.a2Perso:hover { background: rgba(70,40,130,.8); }
+.a2Choix { margin: 0; font-size: clamp(26px, 3.2vw, 40px); font-weight: 700; color: #fff8e8; text-shadow: 0 3px 12px rgba(0,0,0,.7); }
+#a2Clans { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(10px, 2vw, 22px); width: 100%; }
+.a2Clan { --c: #e0552a; position: relative; aspect-ratio: 3 / 4; max-height: 52vh; border-radius: 22px; overflow: hidden; border: 3px solid rgba(255,255,255,.25); background-color: #1a1028; background-image: var(--img); background-position: center top; background-size: cover; background-repeat: no-repeat; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; padding: 16px 12px; color: #fff; font-family: inherit; box-shadow: 0 10px 30px rgba(0,0,0,.5); transition: transform .18s, border-color .18s, box-shadow .18s, filter .18s; }
+.a2Clan.eau { --c: #2a8ae0; } .a2Clan.plante { --c: #3aa84a; }
+.a2Clan::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(8,4,18,.92)); pointer-events: none; }
+.a2Clan > * { position: relative; z-index: 1; }
+.a2Clan .a2Ico { font-size: 30px; filter: drop-shadow(0 0 10px var(--c)); }
+.a2Clan b { font-size: clamp(17px, 1.9vw, 24px); font-weight: 700; text-shadow: 0 2px 6px #000; }
+.a2Clan small { font-size: clamp(13px, 1.3vw, 15px); font-weight: 500; opacity: .92; text-align: center; }
+.a2Clan:hover { transform: translateY(-6px); border-color: var(--c); }
+#a2Clans:has(.choisi) .a2Clan:not(.choisi) { filter: grayscale(.55) brightness(.6); transform: scale(.96); }
+.a2Clan.choisi { border-color: #fff3c8; transform: translateY(-8px) scale(1.03); box-shadow: 0 0 0 3px var(--c), 0 0 40px var(--c), 0 16px 40px rgba(0,0,0,.6); }
+.a2Bas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+#a2Classes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.a2Classe { font: 600 14px 'Fredoka', 'Nunito', sans-serif; display: flex; align-items: center; gap: 6px; color: #e8e0f4; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.18); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.a2Classe span { font-size: 18px; }
+.a2Classe:hover { background: rgba(255,255,255,.16); }
+.a2Classe.choisi { background: rgba(255,214,120,.2); border-color: #ffd878; color: #fff; }
+#a2Nom { font: 600 16px 'Fredoka', 'Nunito', sans-serif; width: 170px; padding: 10px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.4); color: #fff; text-align: center; outline: none; user-select: text; }
+#a2Nom:focus { border-color: #ffd878; }
+#accueil2 .a2Bas .a2Jouer { padding: 10px 40px; font-size: 22px; }
+#accueil2 .mentionConf { margin: 0; font: 500 12px 'Nunito', sans-serif; color: #b8acd0; text-align: center; }
+#accueil2 .mentionConf a { color: #ffd878; }
+@media (max-width: 700px) {
+  #a2Clans { grid-template-columns: 1fr; }
+  .a2Clan { aspect-ratio: auto; height: 22vh; max-height: none; background-position: center 20%; flex-direction: row; justify-content: flex-start; gap: 10px; }
+  .a2Clan::after { background: linear-gradient(90deg, rgba(8,4,18,.9) 10%, transparent 80%); }
+  .a2Clan small { text-align: left; }
+}
+@media (max-height: 560px) { .a2Clan { max-height: 42vh; } .a2Page { gap: 12px; } }
+
+/* ---------- dans le monde : une interface plus aérée ---------- */
+html.style2 #ecranMonde { font-family: 'Fredoka', 'Nunito', system-ui, sans-serif; }
+html.style2 #barre { background: linear-gradient(rgba(10,6,22,.55), transparent); padding: 10px 16px; gap: 10px; }
+html.style2 #barre button { font: 600 15px 'Fredoka', 'Nunito', sans-serif; background: rgba(20,12,40,.62); border: 1.5px solid rgba(255,255,255,.22); border-radius: 999px; padding: 8px 15px; backdrop-filter: blur(8px); box-shadow: 0 4px 14px rgba(0,0,0,.35); transition: transform .12s, background .12s; }
+html.style2 #barre button:hover { background: rgba(70,40,130,.75); transform: translateY(-1px); }
+html.style2 #barre #menuListe { border-radius: 16px; background: rgba(16,10,32,.94); backdrop-filter: blur(10px); }
+html.style2 #barre #menuListe button { box-shadow: none; backdrop-filter: none; background: none; border-radius: 10px; transform: none; }
+html.style2 #barre #menuListe button:hover { background: rgba(255,214,120,.14); }
+html.style2 #moi { background: rgba(20,12,40,.62); padding: 7px 14px; border-radius: 999px; backdrop-filter: blur(8px); font-weight: 600; }
+html.style2 #ressources span { background: rgba(20,12,40,.62); padding: 5px 11px; border-radius: 999px; backdrop-filter: blur(8px); font-weight: 600; }
+html.style2 .a2Verrou { display: none !important; }
+html.style2 .a2Nouveau { animation: a2Debloque 1s ease-in-out 5; border-color: #ffd878 !important; }
+@keyframes a2Debloque { 50% { box-shadow: 0 0 0 3px rgba(255,216,120,.6), 0 0 26px rgba(255,216,120,.8); transform: scale(1.08); } }
+html.style2 #enLigne { border-radius: 16px; background: rgba(16,10,32,.6); backdrop-filter: blur(8px); border-color: rgba(255,255,255,.14); }
+html.style2 #chat { border-radius: 16px; }
+html.style2 #aideMonde { border-radius: 999px; background: rgba(16,10,32,.6); color: #d8cce8; }
+/* l'objectif en cours : une carte compacte en haut au centre */
+html.style2 #guide { left: 16px; width: min(360px, calc(100vw - 32px)); border: none; border-radius: 18px; padding: 10px 16px 12px; background: linear-gradient(135deg, rgba(40,22,80,.92), rgba(20,12,40,.92)); box-shadow: 0 0 0 2px rgba(255,216,120,.7), 0 10px 30px rgba(0,0,0,.45); backdrop-filter: blur(8px); font-size: 15px; }
+html.style2 #guideEtape { font-weight: 700; font-size: 13px; color: #ffd878; letter-spacing: .03em; }
+html.style2 #guideTxt .a2Obj { display: block; font-size: 18px; color: #fff; margin-bottom: 2px; }
+html.style2 #guideTxt .a2Rec { display: block; margin-top: 4px; color: #ffe6a8; font-size: 13px; }
+html.style2 #guideOk { border-radius: 999px; font-family: inherit; }
+html.style2 body.tactile #guide { top: auto; bottom: 170px; }
+
+/* ---------- les fenêtres et les boutons ---------- */
+html.style2 #fenetreBoite { border-radius: 22px; border: 1.5px solid rgba(255,216,120,.35); background: linear-gradient(165deg, #2a1e46 0%, #171028 55%, #120c1e 100%); box-shadow: 0 24px 70px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.08); }
+html.style2 #fenetreBoite h2, html.style2 #fenetreBoite h3 { font-family: 'Fredoka', 'Nunito', system-ui, sans-serif; font-weight: 600; }
+html.style2 #btFermer { border-radius: 999px; }
+html.style2 .bouton { font-family: 'Fredoka', 'Nunito', system-ui, sans-serif; font-weight: 600; border-radius: 999px; padding: 10px 22px; box-shadow: 0 4px 0 #7a5418; }
+html.style2 .bouton:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #7a5418; }
+html.style2 .bouton.second { box-shadow: none; }
+html.style2 #coachBulle { font-family: 'Fredoka', 'Nunito', system-ui, sans-serif; font-size: 17px; border-radius: 18px; }
+
+/* ---------- le combat (v113) : le héros en portrait illustré, un décor adouci ---------- */
+html.style2 .scene .decor { image-rendering: auto; filter: blur(3px) saturate(1.25) brightness(1.06); transform: scale(1.04); }
+html.style2 .scene .voile { background: linear-gradient(115deg, rgba(255,210,140,.16), transparent 45%), radial-gradient(ellipse at 50% 42%, transparent 50%, rgba(6,3,16,.6)), linear-gradient(transparent 60%, rgba(6,3,16,.78)); }
+html.style2 .scene .combattant .sprite { display: none; }
+html.style2 .portraitH { --c: #e0552a; position: relative; z-index: 1; width: calc(var(--e) * 1.15); height: calc(var(--e) * 1.45); border-radius: 18px; background: #1a1420 center 16% / cover no-repeat; border: 3px solid var(--c);
+  box-shadow: 0 0 0 2px #0a0608, 0 14px 30px rgba(0,0,0,.65), 0 0 26px color-mix(in srgb, var(--c) 50%, transparent); animation: respireE 3.4s ease-in-out infinite; transform-origin: bottom center; }
+html.style2 .portraitH[data-clan="eau"] { --c: #2a8ae0; } html.style2 .portraitH[data-clan="plante"] { --c: #3aa84a; }
+html.style2 .portraitH::after { content: ''; position: absolute; inset: 0; border-radius: 15px; background: linear-gradient(160deg, rgba(255,255,255,.2), transparent 40%, rgba(0,0,0,.35)); pointer-events: none; }
+html.style2 .portraitH b { position: absolute; right: -10px; bottom: -10px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; background: #1a1220; border: 2px solid var(--c); box-shadow: 0 3px 8px rgba(0,0,0,.6); }
+html.style2 .adversaire .portraitH { animation-delay: -1.7s; }
+html.style2 .scene .combattant .ombre { width: calc(var(--e) * 1); height: 16px; bottom: -10px; }
+html.style2 .heros .jauge { width: calc(var(--e) * 1.15); min-width: 0; }
+html.style2 .ennemi .portrait { border-radius: 18px; }
+@media (orientation: portrait) { html.style2 .portraitH { width: calc(var(--e) * .95); height: calc(var(--e) * 1.2); } html.style2 .heros .jauge { width: calc(var(--e) * .95); } }
+
+/* ---------- petits écrans (v117 : CrazyGames teste en 800×450) ---------- */
+@media (max-height: 520px) {
+  html.style2 #guide { width: min(290px, calc(100vw - 24px)); padding: 7px 12px 9px; font-size: 13px; }
+  html.style2 #guideTxt .a2Obj { font-size: 15px; }
+  html.style2 #barre { padding: 6px 10px; gap: 6px; }
+  html.style2 #barre button { padding: 5px 11px; font-size: 13px; }
+  html.style2 #moi, html.style2 #ressources span { padding: 4px 10px; font-size: 13px; }
+  html.style2 #aideMonde { display: none; }
+  html.style2 .a2Titre h1 { font-size: 44px; }
+}

@@ -4,6 +4,7 @@
 //  (vert : on peut la poser ; rouge : pas ici, avec la raison). E ou le
 //  bouton « Poser ici » la pose ; Échap annule. La règle est dans geo.js.
 // =====================================================================
+import { toucheFermer, NOM_FERMER } from './touches.js';
 import { $, esc, p, toast } from './ui-commun.js';
 import { faire } from './ui-reseau.js';
 import { monde } from './ui-monde.js';
@@ -15,7 +16,7 @@ export function commencerPlacement() {
   monde.placer(true);
   bandeau ||= Object.assign(document.createElement('div'), { id: 'bandeauMaison' });
   bandeau.innerHTML = `<div><b>🏡 Où poser ta maison ?</b> Marche sur la terre de ton clan : la maison suit tes pas.${p.maisonPos ? ` Déménager coûte ${PRIX} essence.` : ' La première fois, c’est gratuit.'}<br><span id="raisonMaison"></span></div>
-    <button class="bouton" id="btPoserMaison">Poser ici <small>E</small></button><button class="bouton secondaire" id="btAnnulerMaison">Annuler <small>Échap</small></button>`;
+    <button class="bouton" id="btPoserMaison">Poser ici <small>E</small></button><button class="bouton secondaire" id="btAnnulerMaison">Annuler <small>${NOM_FERMER}</small></button>`;
   document.body.append(bandeau);
   $('btPoserMaison').onclick = poser; $('btAnnulerMaison').onclick = finir;
   clearInterval(minuteur);

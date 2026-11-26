@@ -26,11 +26,31 @@
           <label class="champNom">Ton nom <input id="nomJoueur" maxlength="16" placeholder="Ton nom" autocomplete="off"></label>
           <div id="recapCrea"></div>
           <button id="btCreer" class="bouton grand">⚔️ Entrer dans le monde</button>
+          <p class="mentionConf">En jouant, tu acceptes nos règles du jeu. Ton pseudo et ta progression sont gardés sur le serveur du jeu. <a href="#" id="lienConf">Confidentialité et conditions</a></p>
         </div>
         <div class="creaNav"><button id="creaRetour" class="lien cache">← Retour</button></div>
       </div>
     </div>
     <div id="dejaCompte"></div>
+    <button id="btStyleCrea" class="styleCrea">✨ Nouveau style</button>
+    <!-- v112 : le nouvel accueil (réglage « Nouveau style ») : un bouton Jouer, puis un seul écran de choix -->
+    <div id="accueil2" class="cache">
+      <div class="a2Page" data-a2="1">
+        <div class="a2Titre"><small>Feu · Eau · Plante</small><h1>Les Clans Élémentaires</h1><p>Choisis ton clan, collectionne des sorts et pars à l’aventure.</p></div>
+        <button id="a2Jouer" class="a2Jouer">▶ Jouer</button>
+        <div id="a2Persos"></div>
+      </div>
+      <div class="a2Page cache" data-a2="2">
+        <h2 class="a2Choix">Choisis ton clan</h2>
+        <div id="a2Clans"></div>
+        <div class="a2Bas">
+          <div id="a2Classes" role="radiogroup"></div>
+          <input id="a2Nom" maxlength="16" placeholder="Ton nom" autocomplete="off" aria-label="Ton nom">
+          <button id="a2Go" class="a2Jouer" disabled>⚔️ Jouer</button>
+        </div>
+        <p class="mentionConf">En jouant, tu acceptes nos règles du jeu. <a href="#" id="a2Conf">Confidentialité et conditions</a></p>
+      </div>
+    </div>
   </section>
 
   <!-- Le monde -->
@@ -64,6 +84,8 @@
           <button id="btAide" role="menuitem">❓ Comment jouer <small>?</small></button>
           <button id="btSon" role="menuitem">🔊 Son <small>M</small></button>
           <button id="btLangue" role="menuitem" translate="no">🌐 English</button>
+          <button id="btConf" role="menuitem">🔒 Confidentialité</button>
+          <button id="btStyle" role="menuitem">✨ Nouveau style</button>
         </div>
       </div>
     </header>
@@ -76,6 +98,7 @@
     <div id="chat"><div id="chatOnglets"><button data-c="tous" class="actif">Tous</button><button data-c="clan">Mon clan</button></div><div id="chatMsgs"></div><input id="chatTexte" maxlength="140" placeholder="Écrire… (Entrée)"></div>
     <div id="guide" class="cache"><div id="guideEtape"></div><div id="guideTxt"></div><button id="guideOk" class="cache">Compris</button><button id="guidePasser" title="Masquer le guide et ses astuces">Passer</button></div>
     <div id="tactile" class="cache"><div id="joy"><i id="joyBouton"></i></div><button id="btAgir">✋</button><button id="btChatMobile">💬</button></div>
+    <div id="zoomMonde"><button id="btZoomPlus" title="Zoomer (molette ou +)">＋</button><button id="btZoomMoins" title="Dézoomer (molette ou −)">－</button></div>
     <div id="aideMonde">ZQSD / flèches ou clic pour marcher · <b>E</b> pour agir · <b>?</b> aide</div>
   </section>
 

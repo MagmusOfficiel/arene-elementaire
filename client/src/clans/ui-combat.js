@@ -2,10 +2,12 @@
 //  LES CLANS ÉLÉMENTAIRES — la scène de combat, ses animations et le boss mondial
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import { toucheFermer, NOM_FERMER } from './touches.js';
 import * as RQ from '../../../shared/clans/reliques.js';
 import * as F from '../../../shared/clans/familiers.js';
 import { feuilleFamilier } from './familiersArt.js';
 import { BRANCHES, CARTES, CLASSES, RARES, STATUTS } from '../../../shared/clans/cartes.js';
+import { style2 } from './style2.js';
 import { TERRITOIRES, PALIERS, MALEDICTIONS } from '../../../shared/clans/monstres.js';
 import * as C from '../../../shared/clans/combat.js';
 import * as P from '../../../shared/clans/profil.js';
@@ -39,6 +41,19 @@ function combo(sc) {
 }
 export function flash(sc, couleur) { const f = document.createElement('div'); f.className = 'flash'; f.style.background = couleur; sc.append(f); setTimeout(() => f.remove(), 380); }
 export function dessinerSprite(canvas, clan, classe, dir, app = '') { const g = canvas.getContext('2d'); g.clearRect(0, 0, 24, 26); g.drawImage(feuillePerso(clan, classe || 'combattant', app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 24, 26, 0, 0, 24, 26); }
+// v113 (nouveau style) : en combat, le héros est un portrait illustré, comme les monstres (l'illustration de son clan)
+function portraitHeros(canvas, clan, classe, branche) {
+  let el = canvas.parentElement.querySelector('.portraitH');
+  if (!el) { el = document.createElement('div'); el.className = 'portraitH'; canvas.before(el); }
+  el.dataset.clan = clan;
+  // v116 : la classe avancée (Ascension) a son propre portrait ; sinon celui de la classe, sinon l'illustration du clan
+  // (plus tard, une 3e classe se range de la même façon : clans/heros/<clan>_<id>.webp, en tête de liste)
+  const B = import.meta.env.BASE_URL, k = classe || 'combattant';
+  el.style.backgroundImage = [...(branche ? [`${B}clans/heros/${clan}_${branche}.webp`] : []), `${B}clans/heros/${clan}_${k}.webp`, `${B}clans/accueil/${clan}.webp`].map((u) => `url(${u})`).join(', ');
+  const c = (branche && BRANCHES[branche]) || CLASSES[k];
+  el.innerHTML = c ? `<b title="${esc(c.nom)}">${c.ico}</b>` : '';
+}
+export function dessinerHeros(canvas, clan, classe, dir, app = '', branche = null) { dessinerSprite(canvas, clan, classe, dir, app); if (style2) portraitHeros(canvas, clan, classe, branche); }
 export const PAL_AURA = { a_braises: 'feu', a_bulles: 'eau', a_lucioles: 'plante', a_or: 'or' };
 export function lancerAuras(fx, liste) {
   const id = setInterval(() => {
@@ -121,7 +136,7 @@ export function lancerCombat(def, type) {
   $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr]?.nom || 'Boss mondial'}`, ascension: '🌟 Épreuve d’ascension', tour: `🗼 Tour infinie · étage ${p.tour?.essai?.etage || ''}` }[type] || 'Combat';
   $('cbInfo').innerHTML = type === 'tour' ? (p.tour?.essai?.etage % 10 === 0 ? 'Étage du boss : abats-le, ses gardes avec' : 'Cinq monstres : les sorts de zone font merveille') : type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
   sc.classList.toggle('cauchemar', !!PALIERS[p.expedition?.palier - 1]?.cauchemar && type !== 'mondial');
-  dessinerSprite($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p));
+  dessinerHeros($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p), p.branche || null);
   // le familier, à côté du héros (expéditions et boss mondial)
   { const cv = $('cbFam'), g = cv.getContext('2d'), fam = combat.familier; g.clearRect(0, 0, 12, 11); cv.classList.toggle('cache', !fam); if (fam) g.drawImage(feuilleFamilier(fam), 0, 0, 12, 11, 0, 0, 12, 11); cv.title = fam ? `${F.FAMILIERS[fam].nom} : ${F.FAMILIERS[fam].desc}` : ''; }
   stopAuraCb?.(); stopAuraCb = lancerAuras(fxCb, () => [[$('cbHeros').querySelector('.combattant'), AP.portee(p).aura]]);
@@ -206,7 +221,7 @@ export function dessinerCombat(donner = false, entree = false) {
   $('cbPioche').querySelector('b').textContent = c.pioche.length; $('cbDefausse').querySelector('b').textContent = c.defausse.length;
   $('cbEpuisees').textContent = c.epuisees.length ? `🔥 ${c.epuisees.length}` : '';
   $('btFinTour').classList.toggle('invite', !c.fini && !c.main.some((_, i) => C.jouable(c, i)));
-  $('cbAide').textContent = carteChoisie != null ? (monde.tactile ? 'Touche un ennemi pour le viser' : 'Choisis une cible (clic droit ou Échap pour annuler)') : '';
+  $('cbAide').textContent = carteChoisie != null ? (monde.tactile ? 'Touche un ennemi pour le viser' : `Choisis une cible (clic droit ou ${NOM_FERMER} pour annuler)`) : '';
   $('cbMain').querySelectorAll('.carte').forEach((d) => {
     d.onclick = (ev) => { ev.stopPropagation(); if (appuiLong) { appuiLong = false; return; } choisirCarte(+d.dataset.i); };
     // aperçu au survol (souris) ; au doigt : appui long (la carte n'est alors pas jouée en relâchant)
@@ -414,7 +429,7 @@ export async function finCombatAnim() {
 $('combat').addEventListener('contextmenu', (e) => { e.preventDefault(); if (animCb || !combat) return; setCarteChoisie(null); dessinerCombat(); });
 addEventListener('keydown', (e) => {
   if ($('combat').classList.contains('cache') || animCb || !combat || document.getElementById('coachBulle')) return;   // v94 : pas de raccourci pendant le tutoriel
-  if (e.key === 'Escape') { setCarteChoisie(null); dessinerCombat(); }
+  if (toucheFermer(e)) { e.preventDefault(); setCarteChoisie(null); dessinerCombat(); }
   else if (e.key === 'e' || e.key === 'E') $('btFinTour').click();
   else if (/^[1-9]$/.test(e.key)) choisirCarte(+e.key - 1);
 });

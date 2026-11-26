@@ -1,0 +1,84 @@
+/* =====================================================================
+   LES CLANS ÉLÉMENTAIRES — l'ouverture d'un tirage (v119), façon booster
+   ===================================================================== */
+.ouvTirage { --c: #e0552a; --c2: #ffb050; position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Fredoka', 'Nunito', system-ui, sans-serif; color: #fff; animation: ouvEntre .35s ease-out; }
+.ouvTirage.c-eau { --c: #2a8ae0; --c2: #7ad0ff; } .ouvTirage.c-plante { --c: #3aa84a; --c2: #b8f070; }
+.ouvTirage.sortie { animation: ouvSort .3s ease-in forwards; }
+@keyframes ouvEntre { from { opacity: 0; } } @keyframes ouvSort { to { opacity: 0; } }
+.ouvFond { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--c) 30%, #140c22) 0%, #0a0612 70%); }
+.ouvFond::after { content: ''; position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.035) 0 8deg, transparent 8deg 20deg); animation: ouvRayons 40s linear infinite; }
+@keyframes ouvRayons { to { transform: rotate(360deg); } }
+.ouvTirage.flash::before { content: ''; position: absolute; inset: 0; z-index: 3; background: radial-gradient(circle at 50% 45%, #fff, transparent 60%); animation: ouvFlash .6s ease-out forwards; pointer-events: none; }
+@keyframes ouvFlash { from { opacity: 1; } to { opacity: 0; } }
+.ouvCartes.secousse { animation: ouvSecousse .5s; }
+@keyframes ouvSecousse { 20% { transform: translate(-8px, 4px); } 40% { transform: translate(7px, -5px); } 60% { transform: translate(-5px, -3px); } 80% { transform: translate(4px, 4px); } }
+
+/* le paquet */
+.ouvPaquet { position: relative; z-index: 2; width: 220px; height: 310px; border-radius: 20px; cursor: pointer; outline: none; animation: ouvFlotte 2.4s ease-in-out infinite;
+  background: linear-gradient(155deg, var(--c2), var(--c) 45%, color-mix(in srgb, var(--c) 40%, #000));
+  box-shadow: 0 0 0 4px #ffe6a8, 0 0 0 7px #5a3a10, 0 24px 60px rgba(0,0,0,.7), 0 0 60px color-mix(in srgb, var(--c) 70%, transparent); transition: transform .2s; }
+.ouvPaquet:hover, .ouvPaquet:focus-visible { transform: scale(1.05) rotate(-1deg); }
+@keyframes ouvFlotte { 50% { translate: 0 -10px; } }
+.ouvPaquetFace { position: absolute; inset: 12px; border-radius: 12px; border: 2px solid rgba(255,240,200,.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.25), transparent 60%); }
+.ouvEmbleme { font-size: 84px; filter: drop-shadow(0 0 18px #fff); }
+.ouvPaquetFace b { font-size: 34px; text-shadow: 0 3px 8px rgba(0,0,0,.6); }
+.ouvPaquetFace small { font-size: 14px; opacity: .9; animation: ouvClign 1.4s ease-in-out infinite; }
+@keyframes ouvClign { 50% { opacity: .4; } }
+.ouvPaquet.tremble { animation: ouvTremble .75s ease-in forwards; }
+.ouvPaquet.aura1.tremble { box-shadow: 0 0 0 4px #ffe6a8, 0 0 80px 20px #3aa0ff; }
+.ouvPaquet.aura2.tremble { box-shadow: 0 0 0 4px #ffe6a8, 0 0 90px 26px #b050ff; }
+.ouvPaquet.aura3.tremble { box-shadow: 0 0 0 4px #fff3c8, 0 0 110px 34px #ffb020; }
+@keyframes ouvTremble { 0% { transform: scale(1); } 20% { transform: scale(1.06) rotate(-3deg); } 40% { transform: scale(1.08) rotate(3deg); } 60% { transform: scale(1.1) rotate(-4deg); } 80% { transform: scale(1.12) rotate(4deg); } 100% { transform: scale(1.15); } }
+.ouvPaquet.explose { animation: ouvExplose .45s ease-out forwards; }
+@keyframes ouvExplose { to { transform: scale(1.8); opacity: 0; filter: brightness(3); } }
+
+/* les cartes */
+.ouvCartes { position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 18px; max-width: min(1000px, 96vw); }
+.ouvCartes:empty { display: none; }
+.ouvCarte { --aura: transparent; width: 150px; height: 214px; perspective: 900px; cursor: pointer; animation: ouvPose .55s cubic-bezier(.2,.8,.3,1.2) backwards; animation-delay: calc(var(--i) * .07s); }
+@keyframes ouvPose { from { transform: translateY(-40vh) scale(.3) rotate(calc((var(--i) - 4) * 8deg)); opacity: 0; } }
+.ouvCartes.nBeaucoup { max-width: min(900px, 96vw); }
+.ouvCartes.nBeaucoup .ouvCarte { width: 132px; height: 188px; }
+.ouvCartes.nBeaucoup .ouvCarte .carte { transform: scale(.88); transform-origin: top left; }
+.ouvInt { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3,1.4,.5,1); }
+.ouvCarte.face .ouvInt { transform: rotateY(180deg); }
+.ouvCarte:not(.face):hover .ouvInt { transform: translateY(-8px) rotate(-2deg); }
+.ouvDos, .ouvFace { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 12px; }
+.ouvFace { transform: rotateY(180deg); }
+.ouvDos { display: flex; align-items: center; justify-content: center; font-size: 54px; background: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 6px, transparent 6px 12px), linear-gradient(160deg, #3a2650, #1a1028);
+  box-shadow: 0 0 0 3px #c8a050, 0 0 0 5px #3a2410, 0 10px 20px rgba(0,0,0,.6), 0 0 26px 6px var(--aura); }
+.ouvDos span { filter: drop-shadow(0 0 10px var(--c)); opacity: .9; }
+/* les auras : on devine la rareté avant de retourner */
+.ouvCarte.r-rare { --aura: rgba(60,160,255,.85); }
+.ouvCarte.r-epique { --aura: rgba(176,80,255,.95); }
+.ouvCarte.r-legendaire { --aura: rgba(255,176,32,1); }
+.ouvCarte.r-rare .ouvDos, .ouvCarte.r-epique .ouvDos, .ouvCarte.r-legendaire .ouvDos { animation: ouvPulse 1.6s ease-in-out infinite; }
+.ouvCarte.r-epique .ouvDos { animation-duration: 1.2s; }
+.ouvCarte.r-legendaire .ouvDos { animation-duration: .9s; }
+.ouvCarte.r-legendaire .ouvDos::before { content: ''; position: absolute; inset: -40px; border-radius: 50%; background: repeating-conic-gradient(rgba(255,200,80,.5) 0 10deg, transparent 10deg 30deg); animation: ouvRayons 6s linear infinite; z-index: -1; mask: radial-gradient(circle, #000 30%, transparent 70%); }
+@keyframes ouvPulse { 50% { box-shadow: 0 0 0 3px #c8a050, 0 0 0 5px #3a2410, 0 10px 20px rgba(0,0,0,.6), 0 0 44px 14px var(--aura); } }
+.ouvCarte.face.r-epique .ouvFace { box-shadow: 0 0 34px 8px rgba(176,80,255,.7); }
+.ouvCarte.face.r-legendaire .ouvFace { box-shadow: 0 0 50px 14px rgba(255,176,32,.85); animation: ouvBrille 2s ease-in-out infinite; }
+@keyframes ouvBrille { 50% { box-shadow: 0 0 70px 22px rgba(255,200,80,.95); } }
+.ouvFace .ouvNouveau, .ouvFace .ouvEclats, .ouvFace .ouvRarete { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; border-radius: 999px; font-weight: 700; font-size: 12px; padding: 2px 10px; z-index: 3; }
+.ouvFace .ouvNouveau { top: -12px; background: #ffd040; color: #3a2006; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.ouvFace .ouvEclats { bottom: -14px; background: rgba(20,12,40,.92); border: 1px solid rgba(255,255,255,.25); }
+.ouvFace .ouvRarete { bottom: -32px; font-size: 11px; background: none; opacity: 0; transition: opacity .3s .3s; }
+.ouvCarte.face .ouvRarete { opacity: 1; }
+.ouvCarte.r-rare .ouvRarete { color: #7ac0ff; } .ouvCarte.r-epique .ouvRarete { color: #d8a0ff; } .ouvCarte.r-legendaire .ouvRarete { color: #ffd060; }
+.ouvCarte.face.r-legendaire .ouvInt { animation: ouvSaute .5s .1s; }
+@keyframes ouvSaute { 50% { scale: 1.15; } }
+
+.ouvBas { position: relative; z-index: 2; display: flex; gap: 12px; margin-top: 46px; }
+.ouvBas .cache { display: none; }
+.ouvEtincelle { position: fixed; z-index: 210; width: 7px; height: 7px; border-radius: 50%; background: #ffe080; box-shadow: 0 0 10px 3px #ffb020; pointer-events: none; animation: ouvEtinc 1.1s ease-out forwards; }
+@keyframes ouvEtinc { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 60px)) scale(.2); opacity: 0; } }
+
+@media (max-width: 760px), (max-height: 560px) {
+  .ouvPaquet { width: 160px; height: 226px; } .ouvEmbleme { font-size: 60px; }
+  .ouvCartes { gap: 10px; }
+  .ouvCarte, .ouvCartes.nBeaucoup .ouvCarte { width: 96px; height: 137px; }
+  .ouvCarte .carte, .ouvCartes.nBeaucoup .ouvCarte .carte { transform: scale(.64); transform-origin: top left; }
+  .ouvBas { margin-top: 30px; }
+}
+@media (prefers-reduced-motion: reduce) { .ouvTirage *, .ouvTirage { animation: none !important; transition: none !important; } }

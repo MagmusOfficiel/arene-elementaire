@@ -945,10 +945,88 @@ Le « salon » CrazyGames d'un joueur, c'est son **groupe d'expédition** (3 jou
 
 - **Salon :** seul, un joueur est joignable. En groupe, il l'est tant qu'il reste de la place et que le groupe n'est pas parti.
   - Le jeu le déclare au SDK avec `updateRoom` (`roomId`, `isJoinable`, `inviteParams.ami`).
-  - Le bouton d'invitation de CrazyGames (`showInviteButton` / `hideInviteButton`) suit cet état. `leftRoom` est appelé au retour à l'écran de création.
+  - Le bouton d'invitation de CrazyGames est affiché par CrazyGames d’après ce salon (les anciens `showInviteButton` / `hideInviteButton` sont dépréciés et ne sont plus utilisés). `leftRoom` est appelé au retour à l'écran de création.
 - **Lien :** il porte l'identifiant public du chef du groupe, tiré de son jeton par hachage. Le jeton lui-même ne sort jamais.
 - **Arriver par un lien** (`getInviteParam('ami')`, ou `addJoinRoomListener` si le jeu est déjà ouvert) : une fois dans le monde, le joueur entre **directement** dans le groupe de son ami, sans invitation à accepter. La flèche le guide vers lui. Si l'ami est absent, en expédition ou si son groupe est complet, un message l'explique.
 - **Dans le jeu :** bouton « 🔗 Inviter un ami (lien) » dans le panneau de groupe (fenêtre d'expédition), qui copie le lien.
 - **Pseudo CrazyGames :** il est proposé comme nom de héros à la création, pour que les amis se reconnaissent.
 - **Serveur :** messages `lienAmi`, `groupeLien` et `groupeCreer`. La vue du groupe contient `pubChef` et `taille`.
 - **Fiche CrazyGames :** multijoueur coché, Lobby Size Min 1 / Max 3, private lobbies non coché.
+- **Happytime** (`cg.fete()`) : appelé seulement à la fin d'une histoire de chapitre et à la victoire de l'Épreuve d'ascension, pour rester un moment rare comme le demande CrazyGames.
+
+## CrazyGames : groupe gardé et confidentialité (v111)
+
+- **Le groupe reste ensemble après une expédition** (exigence CrazyGames pour le multijoueur entre amis : rejouer avec le même groupe sans repasser par leur interface). À la fin d'une expédition de groupe, le groupe revient « en préparation » avec les mêmes membres, prêt à repartir depuis un portail. S'il ne reste qu'un joueur, le groupe se dissout comme avant.
+- **Confidentialité et conditions** (`client/src/clans/ui-confidentialite.js`) : le jeu garde un pseudo, une progression et un identifiant anonyme sur son serveur, donc CrazyGames demande de le dire aux nouveaux joueurs. Une mention discrète sous le bouton « Entrer dans le monde » ouvre la page, sans fenêtre bloquante. On la retrouve aussi dans le menu ☰ (🔒 Confidentialité). La page dit ce qui est gardé, ce qui ne l'est pas, comment supprimer son personnage, et les règles du jeu. Elle est en français et en anglais.
+
+## Nouveau style (v112)
+
+CrazyGames a refusé le jeu pour sa qualité générale (premières minutes trop chargées, styles visuels qui ne vont pas ensemble). D'abord testé comme réglage, le nouveau style est maintenant **le style par défaut**. L'ancien reste disponible.
+
+- **Changer de style :** menu ☰ → « ↩ Ancien style » (ou « ✨ Nouveau style »), ou l'adresse `?style=ancien` / `?style=nouveau`. Le choix est gardé sur l'appareil (`localStorage.clansStyle = 'ancien'` ; rien = nouveau style). Les tests de bout en bout d'origine jouent dans l'ancien style ; une étape vérifie le nouvel accueil. Code : `client/src/clans/style2.js` et `style2.css` (toutes les règles commencent par `html.style2`).
+- **Accueil :** l'illustration des trois clans en plein écran et un grand bouton **Jouer**. Ensuite, un seul écran : les trois clans en grandes cartes illustrées (une phrase chacun), la classe déjà choisie selon l'illustration (Feu → Combattant, Eau → Mage, Plante → Tireur, modifiable), le nom déjà rempli (pseudo CrazyGames, dernier nom utilisé ou nom tiré au sort), puis **Jouer**. Images : `client/public/clans/accueil/`.
+- **Premiers pas :** l'interface se découvre au fil du guide. Au départ, seul le menu ☰ est en haut ; le Deck apparaît à l'objectif 3, la Parcelle à l'objectif 5, puis les Quêtes, le Passe, les messages et la liste des joueurs en ligne à la fin des premiers pas (ou au niveau 3). Chaque bouton qui apparaît clignote quelques secondes. Le guide devient une carte « 🎯 Objectif » courte. Le tutoriel du premier combat passe de 6 bulles à 3. Le cadeau du jour n'interrompt plus les premiers pas.
+- **Monde :** zoom plus grand (personnages ~40 % plus gros), sol adouci (la partie visible est floutée à sa taille réelle puis posée lissée par-dessus le sol net, couleurs plus vives), lumière chaude en haut et bords assombris, ombres rondes, étiquettes en pastilles arrondies (police Fredoka).
+- **Interface :** boutons en pastilles translucides, fenêtres plus arrondies, boutons dorés en relief, police Fredoka.
+- **Quêtes « ramasse » corrigées :** quand deux objets étaient proches, la touche E ramassait le dernier de la liste au lieu du plus proche (on ramassait le burin devant le marteau, puis il n'y avait plus rien devant le burin). C'est maintenant toujours le plus proche. On peut aussi cliquer sur un objet : le héros y va et le ramasse.
+- **Moins d'XP par quête :** les quêtes donnaient trop d'XP. Elles en donnent maintenant 40 % de moins (`COEF_XP_QUETES = 0.6` dans `shared/clans/quetesPnj.js`, appliqué partout via `xpQuete`). Les quêtes d'une zone apportent environ 60 % de l'XP pour atteindre la zone suivante, les expéditions le reste. Comme l'XP des quêtes est recalculée à partir des quêtes finies, les joueurs existants perdent quelques niveaux d'un coup ; un joueur qui repasse sous le niveau d'une zone devra refaire des combats pour y retourner. Le test de calibrage vérifie qu'aucune zone ne bloque et que la part des quêtes reste entre 50 et 70 %.
+
+## Panneau admin des joueurs (v113)
+
+Page **`/clans/admin-joueurs.html`** (lien aussi depuis `/clans/admin.html`). Code : `server/src/clansAdmin.js`.
+
+- **Accès :** clé `ADMIN_CLE` à définir sur le serveur (Render → Environment). À défaut, c'est `JOURNAL_CLE` qui sert. Sans aucune des deux, le panneau est fermé. La clé est envoyée dans l'en-tête `x-admin-cle` et gardée seulement le temps de l'onglet.
+- **Liste :** tous les joueurs gardés (en base : `SCAN` + `MGET`), les connectés d'abord (point vert), recherche par nom ou début du code.
+- **Fiche :** clan, classe, niveau, XP détaillée (victoires, boss, quêtes) et toutes les ressources.
+- **Niveau :** « Fixer le niveau » (+1, +5, +10, ou 30 / 50 / 70 / 90 / 100). Le niveau vient de l'XP ; le panneau règle le nombre de victoires pour l'atteindre. On ne peut pas descendre sous le niveau que donnent déjà les quêtes et les boss (le panneau le signale).
+- **Ressources :** « Ajouter » (un nombre négatif retire) ou « Fixer la valeur », avec des raccourcis (+1 000 essence, +100 éclats, +200 matériaux de son clan…). Un message facultatif accompagne le cadeau.
+- **Joueur connecté :** modifié en mémoire dans la salle, il voit le changement tout de suite, avec un message dans le chat (« 🎁 L'équipe du jeu : … »), et c'est sauvegardé aussitôt. Pendant les 20 s de reconnexion après une coupure, il compte encore comme connecté. **Joueur absent :** modifié directement dans sa sauvegarde.
+- Chaque modification est écrite dans les journaux du serveur (`🛠️ admin · …`).
+
+## Combat au nouveau style (v114)
+
+- **Le héros en portrait illustré** (`dessinerHeros` dans `ui-combat.js`, utilisé aussi pour les duels et l'arène) : dans le nouveau style, le petit personnage en pixel art est remplacé par un portrait encadré comme ceux des monstres. C'est l'illustration de son clan (`/clans/accueil/<clan>.webp`), bordée de la couleur du clan, avec l'icône de sa classe en médaillon. Le sprite reste dessiné, mais caché : l'ancien style n'a pas changé.
+- **Décor adouci :** l'image de fond du combat est lissée et floutée (effet de profondeur), plus vive, avec une lumière chaude et des bords assombris. Elle va mieux avec les illustrations des cartes et des monstres.
+- Sur téléphone (écran en hauteur), le portrait est un peu plus petit.
+- **Panneau admin :** après une reconnexion, l'ancienne session d'un joueur reste en attente 20 s. Le panneau modifie maintenant toujours la session active (avant, il pouvait modifier l'ancienne, et le joueur ne voyait rien).
+
+## Un portrait par clan et par classe (v115)
+
+- 12 portraits illustrés (`client/public/clans/heros/<clan>_<classe>.webp`, 560×840), générés sur Anifusion dans le style de la couverture (illustration de la couverture en référence).
+- **En combat, en duel et en arène** (nouveau style), le héros apparaît avec le portrait de sa combinaison (par exemple `plante_escrimeur`). Si l'image manque, on retombe sur l'illustration du clan (`clans/accueil/<clan>.webp`).
+- **À l'accueil**, la carte du clan choisi montre le héros de la classe choisie, et change quand on change de classe.
+- Les chemins d'images passent par `import.meta.env.BASE_URL` (la version CrazyGames est servie depuis un sous-dossier).
+
+## Cartes d'élément réservées à leur clan, portraits des classes avancées (v116)
+
+- **Règle :** une carte d'élément (Feu, Eau, Plante) ne peut être jouée que par son clan. Les cartes neutres et les cartes de zone (Terres Brisées, Cimes, Désert, Îles) restent à tous. Fonctions `pourClan(id, clan)` et `jouable(id, p)` dans `shared/clans/profil.js`.
+  - Les tirages ne donnent plus les éléments des autres clans.
+  - « + Deck » refuse (« Cette carte est réservée au Clan de l'Eau. »), la forge des reliques aussi, et la liste des reliques ne montre que celles de son élément.
+  - Le Grimoire ne compte plus les cartes des autres éléments.
+  - Les profils existants : les cartes des autres éléments deviennent des éclats (selon la rareté et le niveau), quittent les decks (qui sont complétés), et le joueur reçoit un message une fois (`avisClasse.elem`).
+- **Portraits des classes avancées :** 24 portraits (`clans/heros/<clan>_<branche>.webp`), chacun généré à partir du portrait de la classe de base, pour garder le même héros en version évoluée. En combat, en duel et en arène, l'ordre est : classe avancée, puis classe de base, puis illustration du clan. Une future 3e classe se range de la même façon (`<clan>_<id>.webp`, en tête de liste).
+
+## Préparation CrazyGames (v117)
+
+- **Échap n'est plus nécessaire :** sur CrazyGames, Échap sert à quitter le plein écran. Partout où Échap fermait ou annulait (fenêtres, menu ☰, grande carte, choix de cible en combat, pose de la maison), Retour arrière (⌫) marche aussi (hors des champs de texte). Les textes affichent « ⌫ » sur CrazyGames et « Échap » ailleurs (`client/src/clans/touches.js`). Les boutons ✕ et le clic à côté d'une fenêtre restent disponibles.
+- **Petit écran (800×450, la taille testée par CrazyGames) :** guide, barre du haut et boutons plus compacts, aide clavier masquée.
+- **Deck :** les filtres ne montrent plus que l'élément de son clan (avec les cartes de classe et neutres).
+- **Nouvelles vidéos** (nouveau style, sans son, 19 s, la couverture en première image) : 1920×1080 et 1080×1620. Elles montrent l'accueil, le choix du clan, le monde, la carte d'expédition et un combat.
+
+## Carte : rendu d'origine et zoom réglable (v118)
+
+- Le zoom plus grand, le sol adouci et la lumière du nouveau style ont été retirés de la carte : elle retrouve son rendu d'origine. Le reste du nouveau style (accueil, interface, combat, portraits) ne change pas.
+- **Zoom réglable :** molette sur la carte, touches + et −, ou boutons ＋ / － à gauche de la mini-carte (à droite en bas sur petit écran). De 2 crans en arrière à 3 crans en avant du zoom de base, gardé sur l'appareil (`localStorage.clansZoom`).
+
+## Ouverture des tirages, ressources, succès du bestiaire (v119)
+
+- **Ouverture des tirages façon booster** (`client/src/clans/ui-ouverture.js`, `ouverture.css`) : après un tirage, un paquet aux couleurs du clan apparaît au centre de l'écran. On clique : il tremble (avec un halo de la couleur de la meilleure carte) et explose en lumière. Les cartes se posent face cachée, chacune avec l'aura de sa rareté (bleue pour rare, violette pour épique, dorée avec des rayons pour légendaire). Un clic retourne une carte ; « Tout retourner » les retourne de la moins rare à la plus rare. Une légendaire fait trembler les cartes, pleuvoir des étincelles et déclenche le « happytime » de CrazyGames. « Continuer » ramène à l'autel avec le récapitulatif. Les animations sont coupées si le système demande moins de mouvement.
+- **Ressources dans la barre :** toujours visibles : essence, éclats et le matériau de son clan. Les autres vont dans le sac 🎒 (avec leur nombre), qui ouvre la liste complète au clic.
+- **Marchand :** sous chaque prix, ce que tu as (en rouge s'il en manque), et la liste de toutes tes ressources sur plusieurs lignes au lieu d'une ligne coupée.
+- **Succès du Grimoire « maîtriser toutes les fiches »** : renommé « maîtriser tous les monstres ★★★, titan compris », avec l'explication : une fiche est maîtrisée après 25 victoires sur un monstre normal, 12 sur un rare ou une élite, 6 sur un boss et 3 sur le titan.
+
+## Quêtes « va voir » réparées (v120)
+
+- **Le bug :** les 14 quêtes où il faut aller voir un lieu (par exemple « La statue oubliée » ou « Ranimer la Flamme éternelle » au Feu) ne se validaient jamais. La liste des lieux à voir (`lieuxAVoir`) recopiait le repère par-dessus l'identifiant de la quête : arrivé sur place, le client envoyait au serveur le nom du lieu (`statue_forgeron`) au lieu de celui de la quête (`feu_statue`), et le serveur refusait sans rien dire.
+- **La correction :** chaque lieu à voir porte maintenant `id` (la quête) et `lieu` (le repère). La grande carte surligne les repères par `lieu`. Les joueurs déjà bloqués n'ont qu'à repasser au lieu : la visite est comptée tout de suite.
+- **Test ajouté :** pour chacune des 14 quêtes de lieu, ce que le client envoie est bien accepté sur place. Une simulation vérifie aussi que les quêtes de lieu et d'objet de toutes les zones peuvent être finies.

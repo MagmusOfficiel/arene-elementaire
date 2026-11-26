@@ -54,7 +54,9 @@ const propre = (t, n) => String(t || '').replace(/[<>]/g, '').replace(/\s+/g, ' 
 export class ClansRoom extends Room {
   maxClients = 80;
 
+  static salles = new Set();   // v112 : pour le panneau admin (modifier un joueur connecté)
   onCreate() {
+    ClansRoom.salles.add(this);
     this.setMetadata({ mode: 'clans' });
     this.joueurs = new Map();
     const sur = (type, f) => this.onMessage(type, (client, m = {}) => {
@@ -598,8 +600,12 @@ export class ClansRoom extends Room {
         const b = X.terminer(k.p, g.bossGagne ? 'victoire' : 'defaite'); k.statut = 'libre'; k.sale = true;
         const cl = this.clients.find((x) => x.sessionId === sid); if (cl) { this.pousserProfil(cl, k); cl.send('groupeBilan', b); }
       }
-      for (const [sid, k] of ks) { k.groupe = null; this.clients.find((x) => x.sessionId === sid)?.send('groupe', null); }
-      this.groupes.delete(g.id); return;
+      // v111 : le groupe reste ensemble, prêt à repartir (exigence CrazyGames : on rejoue avec les mêmes amis)
+      g.membres = ks.map(([sid]) => sid);
+      if (g.membres.length < 2) { for (const [sid, k] of ks) { k.groupe = null; this.clients.find((x) => x.sessionId === sid)?.send('groupe', null); } this.groupes.delete(g.id); return; }
+      if (!g.membres.includes(g.chef)) g.chef = g.membres[0];
+      Object.assign(g, { parti: false, terr: null, palier: null, bossGagne: false }); g.invites = new Set();
+      this.envoyerGroupe(g, { retour: true }); return;
     }
     this.envoyerGroupe(g);
   }
@@ -661,7 +667,21 @@ export class ClansRoom extends Room {
     const f = this.file.find((e) => e.sid === client.sessionId); if (f) client.send('areneFile', { en: true, depuis: f.t });
     if (x && !x.fin) this.majDuel(x);
   }
-  onDispose() { for (const j of this.joueurs.values()) if (j.p) enregistrer(j.jeton, j.p); }
+  // v112 (panneau admin) : le joueur connecté avec ce jeton (et son client), dans n'importe quelle salle
+  static enLigne(jeton) {
+    // après une reconnexion, l'ancienne session peut encore attendre (20 s) : on préfère la session active
+    let repli = null;
+    for (const s of ClansRoom.salles) for (const [sid, j] of s.joueurs) if (j.jeton === jeton && j.p) {
+      const e = { salle: s, j, client: s.clients.find((c) => c.sessionId === sid) };
+      if (!j.absent && !j.remplace && e.client) return e; repli ||= e;
+    }
+    return repli;
+  }
+  static tousEnLigne() { const l = new Map(); for (const s of ClansRoom.salles) for (const j of s.joueurs.values()) if (j.p && (!l.has(j.jeton) || (!j.absent && !j.remplace))) l.set(j.jeton, j); return [...l.values()]; }
+  // après une modification par l'admin : identité, profil renvoyé, message, sauvegarde immédiate
+  apresAdmin(client, j, msg) { this.identite(j); j.sale = false; enregistrer(j.jeton, j.p); if (client) { this.pousserProfil(client, j); if (msg) client.send('chat', { systeme: true, t: msg }); } }
+  onDispose() { ClansRoom.salles.delete(this);
+    for (const j of this.joueurs.values()) if (j.p) enregistrer(j.jeton, j.p); }
 
   // ---------- rivalité des clans ----------
   points(j, n) { if (n > 0) { pointsClan(j.clan, j.nom, n); this.scoresChanges = true; } }

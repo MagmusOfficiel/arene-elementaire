@@ -59,7 +59,7 @@ function tirerCarte(r, clan, rarete, classe, branche) {
   // le pool : l'élément de son clan et les cartes de sa classe sortent bien plus souvent
   // les cartes des autres classes ne sortent jamais (v68)
   const poids = (c) => (c.classe ? 5 : c.element === clan ? 5 : c.element === 'neutre' ? 2 : 1.2);
-  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif && pourClasse(c.id, classe, branche));
+  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif && pourClasse(c.id, classe, branche) && pourClan(c.id, clan));   // v116 : jamais l'élément d'un autre clan
   const tot = pool.reduce((s, c) => s + poids(c), 0);
   let x = r() * tot;
   for (const c of pool) { x -= poids(c); if (x <= 0) return c.id; }
@@ -110,6 +110,7 @@ export function coutFabrication(id, remise = 0) {
   return remiser({ [RARES[c.exclusif].id]: r.rare, essence: r.essence }, remise);
 }
 export function fabriquer(p, id, remise = 0) {
+  if (!pourClan(id, p.clan)) return { ok: false, raison: `Cette carte est réservée au ${ELEMENTS[CARTES[id].element].clan}.` };
   const cout = coutFabrication(id, remise); if (!cout) return { ok: false };
   const c = (p.collection[id] ||= { n: 0, niv: 1 });
   if (c.n >= copiesMax(id)) return { ok: false, raison: `${copiesMax(id)} exemplaire${copiesMax(id) > 1 ? 's' : ''} au plus.` };
@@ -146,18 +147,23 @@ export function completer(p) {
 // une carte sans classe (élément ou neutre) va à tout le monde
 // une carte de branche (v69) ne va qu'à sa branche
 export const pourClasse = (id, classe, branche = null) => { const c = CARTES[id]; return !c?.classe || (c.classe === classe && (!c.branche || c.branche === branche)); };
+// v116 : une carte d'élément (Feu, Eau, Plante) ne va qu'au clan de cet élément ; les cartes neutres et de zone vont à tous
+export const pourClan = (id, clan) => { const c = CARTES[id]; return !c || !CLANS.includes(c.element) || c.element === clan; };
+export const jouable = (id, p) => pourClasse(id, p.classe, p.branche) && pourClan(id, p.clan);
 // un ancien profil qui avait des cartes d'une autre classe : elles partent du deck et deviennent des éclats
 export function convertirAutresClasses(p) {
   if (!p?.classe || !p.collection) return { n: 0, eclats: 0 };
-  let n = 0, eclats = 0;
+  // v116 : aussi les cartes des éléments des autres clans (elem : combien, parmi n)
+  let n = 0, eclats = 0, elem = 0;
   for (const [id, c] of Object.entries(p.collection)) {
-    if (pourClasse(id, p.classe, p.branche) || !(c.n > 0)) continue;
+    if (!CARTES[id] || jouable(id, p) || !(c.n > 0)) continue;
     n += c.n; eclats += c.n * RARETES[CARTES[id].rarete].eclats * (c.niv || 1);
+    if (pourClasse(id, p.classe, p.branche)) elem += c.n;
     delete p.collection[id];
   }
-  if (!n) return { n: 0, eclats: 0 };
+  if (!n) return { n: 0, eclats: 0, elem: 0 };
   p.ress.eclats = (p.ress.eclats || 0) + eclats;
-  p.deck = p.deck.filter((id) => pourClasse(id, p.classe, p.branche));
+  p.deck = p.deck.filter((id) => jouable(id, p));
   // un deck devenu trop petit est complété avec les cartes de base
   for (const id of deckDepart(p.clan, p.classe)) {
     if (p.deck.length >= DECK_MIN) break;
@@ -165,12 +171,13 @@ export function convertirAutresClasses(p) {
     if (p.deck.filter((x) => x === id).length >= Math.min(c.n, copiesMax(id))) { if (c.n < copiesMax(id)) c.n++; else continue; }
     p.deck.push(id);
   }
-  if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = d.cartes.filter((id) => pourClasse(id, p.classe, p.branche));
-  return { n, eclats };
+  if (p.decks?.l) for (const d of p.decks.l) if (Array.isArray(d?.cartes)) d.cartes = d.cartes.filter((id) => jouable(id, p));
+  return { n, eclats, elem };
 }
 
 // ---------- le deck ----------
 export function ajouterAuDeck(p, id) {
+  if (!pourClan(id, p.clan)) return { ok: false, raison: `Cette carte est réservée au ${ELEMENTS[CARTES[id].element].clan}.` };
   if (!pourClasse(id, p.classe, p.branche)) return { ok: false, raison: CARTES[id].branche ? `Cette carte est réservée à la branche ${BRANCHES[CARTES[id].branche].nom}.` : `Cette carte est réservée à la classe ${CLASSES[CARTES[id].classe].nom}.` };
   const possede = p.collection[id]?.n || 0, dedans = p.deck.filter((x) => x === id).length;
   if (dedans >= possede) return { ok: false, raison: 'Tu n’as pas d’autre exemplaire de cette carte.' };

@@ -44,7 +44,7 @@ function vueBestiaire() {
 }
 function vueRecompenses() {
   const l = GR.recompenses(p);
-  const ligne = (x) => `<div class="grRec ${x.recu ? 'recu' : x.fait ? 'pret' : ''}"><span class="grIco">${x.ico}</span><div><b>${esc(x.txt)}</b><small>${texteRec(p, x)}</small>
+  const ligne = (x) => `<div class="grRec ${x.recu ? 'recu' : x.fait ? 'pret' : ''}"><span class="grIco">${x.ico}</span><div><b>${esc(x.txt)}</b>${x.aide ? `<small class="grAide">${esc(x.aide)}</small>` : ''}<small>${texteRec(p, x)}</small>
       <i class="hfBarre"><b style="width:${Math.min(100, (x.v / x.max) * 100)}%"></b></i></div>
       ${x.recu ? '<span class="grOk">✓</span>' : x.fait ? `<button class="bouton" data-rec="${x.cle}">Réclamer</button>` : `<span class="grProg">${x.v} / ${x.max}</span>`}</div>`;
   return `<h3>📖 Les cartes</h3>${l.filter((x) => x.livre === 'cartes').map(ligne).join('')}<h3>🐾 Le bestiaire</h3>${l.filter((x) => x.livre === 'bestiaire').map(ligne).join('')}`;

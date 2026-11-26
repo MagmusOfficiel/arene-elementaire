@@ -22,6 +22,7 @@ import { lancerCombat } from './ui-combat.js';
 import { $, ICO_RESS, ILLUS, carteHTML, coutHTML, esc, etoiles, nf, p, statut, texteCarte, toast } from './ui-commun.js';
 import { dansMonde, fermer, guide, ouvrir, monde } from './ui-monde.js';
 import { faire } from './ui-reseau.js';
+import { ouvrirTirage } from './ui-ouverture.js';
 import { groupe, panneauGroupe, brancherGroupe, suisChef } from './ui-groupe.js';
 import { room } from './ui-commun.js';
 import { propsSanct } from './ui-social.js';
@@ -123,7 +124,7 @@ export function fenetreDeck() {
     <p class="sousTitre">Clique sur <b>+ Deck</b> pour jouer une carte en combat, sur une ligne du deck pour la retirer. <b>Améliore</b> tes cartes avec des éclats ${ICO_RESS.eclats} (tes doublons) et des matériaux : elles deviennent plus fortes partout (expéditions, arène, duels).${remise ? ` <b>${PJ.PROJETS[p.clan].ico} Forge géante : −${Math.round(remise * 100)} % cette semaine.</b>` : ''}</p>
     ${selecteurDeck(true)}
     ${statsDeck()}
-    <div class="filtres">${['tous', 'classe', 'feu', 'eau', 'plante', 'neutre'].map((f) => `<button data-f="${f}" class="${f === filtreDeck ? 'actif' : ''}">${f === 'tous' ? 'Toutes' : f === 'classe' ? `${CLASSES[p.classe].ico} Classes` : `${ELEMENTS[f].ico} ${ELEMENTS[f].nom}`}</button>`).join('')}${nbAmeliorables ? `<span class="pastilleAm">⬆ ${nbAmeliorables} carte${nbAmeliorables > 1 ? 's' : ''} améliorable${nbAmeliorables > 1 ? 's' : ''}</span>` : ''}</div>
+    <div class="filtres">${['tous', 'classe', p.clan, 'neutre'].map((f) =>   /* v117 : seulement l'élément de son clan */ `<button data-f="${f}" class="${f === filtreDeck ? 'actif' : ''}">${f === 'tous' ? 'Toutes' : f === 'classe' ? `${CLASSES[p.classe].ico} Classes` : `${ELEMENTS[f].ico} ${ELEMENTS[f].nom}`}</button>`).join('')}${nbAmeliorables ? `<span class="pastilleAm">⬆ ${nbAmeliorables} carte${nbAmeliorables > 1 ? 's' : ''} améliorable${nbAmeliorables > 1 ? 's' : ''}</span>` : ''}</div>
     <div class="deckZone"><div class="grilleCartes">${ids.map((id) => {
       const c = p.collection[id], cout = c.niv < NIV_MAX ? P.coutAmelioration(id, c.niv, remise) : null, k = dansDeck(id), raison = raisonAjout(id), ok = cout && peutPayer(cout);
       return `<div class="carteCol ${k ? 'enDeck' : ''}">${carteHTML(id, c.niv, `<span class="cnb" title="Exemplaires possédés">×${c.n}</span>${k ? `<span class="ruban">Deck ×${k}</span>` : ''}${ok ? '<span class="amPossible" title="Tu peux l’améliorer">⬆</span>' : ''}`)}
@@ -207,9 +208,10 @@ export function fenetreTirages(resultat = null) {
       <button class="bouton" id="bt10" ${p.ress.essence < P.PRIX_TIRAGE_10 ? 'disabled' : ''}>Tirer ×10 — ${P.PRIX_TIRAGE_10} ${ICO_RESS.essence} <small>(une épique au moins)</small></button>
       <p class="taux">Commune 62 % · Rare 27 % · Épique 9 % · Légendaire 2 %</p></div>
     <h3>🏺 Reliques des territoires${bonusProjet('remise') ? ` <small>(${PJ.PROJETS[p.clan].ico} −${Math.round(bonusProjet('remise') * 100)} % cette semaine)</small>` : ''}</h3><p class="sousTitre">Ces cartes ne sortent jamais aux tirages : on les forge avec les ressources rares d'un territoire (filons sur la carte, monstres rares 🌟 et boss en expédition).</p>
-    <div class="reliques">${Object.values(CARTES).filter((c) => c.exclusif).map((c) => { const cout = P.coutFabrication(c.id, bonusProjet('remise')), n = p.collection[c.id]?.n || 0; return `<div class="carteCol">${carteHTML(c.id, p.collection[c.id]?.niv || 1, n ? `<span class="cnb">×${n}</span>` : '')}<small class="cout">${coutHTML(cout)}</small><button class="bouton" data-fab="${c.id}">Forger</button></div>`; }).join('')}</div>
+    <div class="reliques">${Object.values(CARTES).filter((c) => c.exclusif && P.pourClan(c.id, p.clan)).map((c) => { const cout = P.coutFabrication(c.id, bonusProjet('remise')), n = p.collection[c.id]?.n || 0; return `<div class="carteCol">${carteHTML(c.id, p.collection[c.id]?.niv || 1, n ? `<span class="cnb">×${n}</span>` : '')}<small class="cout">${coutHTML(cout)}</small><button class="bouton" data-fab="${c.id}">Forger</button></div>`; }).join('')}</div>
     ${resultat ? `<div class="grilleCartes resultatTirage">${resultat.map((x, i) => `<div style="position:relative;animation-delay:${i * 0.12}s" class="carteCol">${carteHTML(x.id, p.collection[x.id].niv)}${x.nouveau ? '<span class="nouveau">NOUVEAU</span>' : ''}${x.eclats ? `<small>+${x.eclats} ${ICO_RESS.eclats}</small>` : ''}</div>`).join('')}</div>` : ''}`, () => {
-    const t = async (n) => { const rep = await faire('tirer', { n }); if (!rep.ok) return rep.raison && toast(esc(rep.raison)); const r = rep.res; const meilleur = r.cartes.map((x) => CARTES[x.id].rarete).find((x) => x === 'legendaire') || r.cartes.map((x) => CARTES[x.id].rarete).find((x) => x === 'epique'); sfx.tirage(meilleur || (r.cartes.some((x) => CARTES[x.id].rarete === 'rare') ? 'rare' : 'commune')); if (meilleur) toast(meilleur === 'legendaire' ? '🌟 <b>LÉGENDAIRE !</b>' : '💜 Une carte épique !'); fenetreTirages(r.cartes); };
+    // v119 : le résultat s'ouvre comme un paquet (ui-ouverture.js), puis la fenêtre montre le récapitulatif
+    const t = async (n) => { const rep = await faire('tirer', { n }); if (!rep.ok) return rep.raison && toast(esc(rep.raison)); const r = rep.res; ouvrirTirage(r.cartes, () => fenetreTirages(r.cartes)); };
     $('bt1').onclick = () => t(1); $('bt10').onclick = () => t(10);
     $('fenetreCorps').querySelectorAll('[data-fab]').forEach((b) => b.onclick = async () => { const r = await faire('fabriquer', { id: b.dataset.fab }); if (!r.ok) return toast(esc(r.raison || 'Impossible.')); toast(`🏺 ${CARTES[b.dataset.fab].nom} forgée ! Ajoute-la à ton deck.`); fenetreTirages(); });
   });

@@ -38,18 +38,26 @@ test('v108 : les lieux à visiter sont dans leur zone, praticables autour et pas
   }
 });
 
-test('v108 : finir les quêtes d’une zone amène au niveau de la suivante (ou un en dessous), sans blocage', () => {
+test('v112 : les quêtes d’une zone donnent environ 60 % de l’XP vers la zone suivante, les expéditions le reste, sans blocage', () => {
   const ZONES = { feu: [1, 30], eau: [1, 30], plante: [1, 30], brisees: [30, 50], cimes: [50, 70], ambre: [70, 90], ciel: [90, 100] };
   for (const [z, [d, f]] of Object.entries(ZONES)) {
-    const ids = QP.QUETES_ZONE[z], fait = new Set(); let x = d === 1 ? 0 : P.xpPourNiveau(d);
+    const ids = QP.QUETES_ZONE[z], fait = new Set(); let x = d === 1 ? 0 : P.xpPourNiveau(d), farm = 0, qx = 0;
     while (fait.size < ids.length) {
-      const p = { clan: z, stats: {}, pnjQ: Object.fromEntries([...fait].map((i) => [i, { fait: true }])) };
-      p.stats.victoires = Math.max(0, x - QP.xpQuetes(p));   // le niveau du joueur simulé = x
-      const dispo = ids.filter((i) => !fait.has(i) && QP.etat(p, i) === 'libre');
-      assert.ok(dispo.length, `${z} : bloqué au niveau ${niv(x)} (${ids.filter((i) => !fait.has(i)).join(', ')})`);
-      const q = QP.QUETES[dispo[0]]; fait.add(dispo[0]); x += q.xp + naturel(q);
+      const pnjQ = Object.fromEntries([...fait].map((i) => [i, { fait: true }]));
+      const p = { clan: z, stats: { victoires: Math.max(0, x - QP.xpQuetes({ clan: z, pnjQ })) }, pnjQ };
+      const rest = ids.filter((i) => !fait.has(i)), dispo = rest.filter((i) => QP.etat(p, i) === 'libre');
+      if (!dispo.length) {   // le joueur fait des expéditions jusqu'au niveau de la prochaine quête
+        const ouvertes = rest.filter((i) => QP.etat({ ...p, stats: { victoires: 1e6 } }, i) === 'libre');
+        assert.ok(ouvertes.length, `${z} : bloqué (${rest.join(', ')})`);
+        const besoin = P.xpPourNiveau(Math.min(...ouvertes.map((i) => QP.QUETES[i].niv || 1))) - x;
+        assert.ok(besoin > 0, `${z} : boucle`); farm += besoin; x += besoin; continue;
+      }
+      const q = QP.QUETES[dispo[0]], g = QP.xpQuete({ clan: z }, dispo[0]); fait.add(dispo[0]); qx += g; x += g + naturel(q);
     }
-    assert.ok(niv(x) >= f - 1 && niv(x) <= f, `${z} : niveau ${niv(x)} à la fin (visé ${f})`);
+    assert.ok(niv(x) < f, `${z} : les quêtes seules ne doivent plus amener au niveau ${f} (niveau ${niv(x)})`);
+    farm += Math.max(0, P.xpPourNiveau(f) - x);
+    const part = qx / (qx + farm);
+    assert.ok(part > 0.5 && part < 0.7, `${z} : part des quêtes ${Math.round(part * 100)} %`);
   }
 });
 
@@ -57,7 +65,7 @@ test('v108 : l’XP des quêtes compte dans le niveau (village : seulement le si
   const p = P.nouveauProfil('feu', 'Test');
   assert.equal(P.niveau(p), 1);
   p.pnjQ = { ignis: { fait: true }, feu_gardien: { fait: true }, nerea: { fait: true } };
-  assert.equal(P.xpDe(p), 20 + 22);   // la quête de Néréa (village de l'Eau) ne rapporte rien à un joueur du Feu
+  assert.equal(P.xpDe(p), 12 + 13);   // v112 : × 0,6   // la quête de Néréa (village de l'Eau) ne rapporte rien à un joueur du Feu
   assert.ok(P.niveau(p) > 1);
 });
 
@@ -70,7 +78,7 @@ test('v108 : un habitant propose ses quêtes l’une après l’autre', () => {
   assert.equal(QP.queteDe(p, 'mordred'), 'feu_statue');
   assert.equal(QP.etatPnj(p, 'mordred'), 'libre');
   QP.accepter(p, 'feu_statue'); QP.visiter(p, 'feu_statue', REPERE.statue_forgeron.x + 40, REPERE.statue_forgeron.y + 40);
-  const r = QP.rendre(p, 'feu_statue'); assert.ok(r.ok); assert.equal(r.xp, 16);
+  const r = QP.rendre(p, 'feu_statue'); assert.ok(r.ok); assert.equal(r.xp, 10);
   assert.equal(QP.queteDe(p, 'mordred'), null); assert.equal(QP.etatPnj(p, 'mordred'), 'faite');
 });
 
@@ -114,4 +122,42 @@ test('v108 : la maison grandit avec les chapitres (niveaux 6 à 13)', () => {
   p.pnjQ.odra = { fait: true }; assert.ok(P.construire(p, 'maison').ok); assert.equal(p.parcelle.maison, 8);
   assert.equal(P.nivMax(p, 'autel'), 5);
   assert.equal(P.stockageHeures(p), 14);   // le stockage ne bouge plus après le niveau 5
+});
+
+test('v116 : les cartes d’élément ne vont qu’à leur clan (tirages, deck, forge, grimoire, anciens profils)', async () => {
+  const { CARTES, CLANS } = await import('../shared/clans/cartes.js');
+  const G = await import('../shared/clans/grimoire.js');
+  const autre = (clan, id) => CLANS.includes(CARTES[id].element) && CARTES[id].element !== clan;
+  for (const clan of CLANS) {
+    const p = P.nouveauProfil(clan, 'T', 0, 'combattant'); p.ress.essence = 1e7;
+    for (let i = 0; i < 40; i++) for (const x of P.tirer(p, 10, i + 11).cartes) assert.ok(!autre(clan, x.id), `${clan} a tiré ${x.id}`);
+    assert.ok(G.cartesDe(p).every((id) => !autre(clan, id)), 'le grimoire ne demande pas les autres éléments');
+    assert.ok(G.cartesDe(p).some((id) => CARTES[id].element === clan) && G.cartesDe(p).some((id) => CARTES[id].element === 'neutre'));
+  }
+  // un ancien profil du Feu qui avait des cartes Eau et Plante : elles deviennent des éclats et quittent le deck
+  const p = P.nouveauProfil('feu', 'Vieux', 0, 'combattant');
+  const eau = Object.keys(CARTES).find((id) => CARTES[id].element === 'eau' && !CARTES[id].exclusif && !CARTES[id].classe);
+  const plante = Object.keys(CARTES).find((id) => CARTES[id].element === 'plante' && !CARTES[id].exclusif && !CARTES[id].classe);
+  p.collection[eau] = { n: 2, niv: 2 }; p.collection[plante] = { n: 1, niv: 1 }; p.deck.push(eau, eau, plante);
+  const e0 = p.ress.eclats || 0;
+  P.completer(p);
+  assert.ok(!p.collection[eau] && !p.collection[plante]); assert.ok(!p.deck.includes(eau) && !p.deck.includes(plante));
+  assert.ok(p.ress.eclats > e0); assert.equal(p.avisClasse.elem, 3);
+  assert.ok(p.deck.length >= 20, 'le deck est complété');
+  // et on ne peut plus en ajouter
+  p.collection[eau] = { n: 1, niv: 1 };
+  const r = P.ajouterAuDeck(p, eau); assert.equal(r.ok, false); assert.match(r.raison, /Clan de l/);
+});
+
+test('v120 : les lieux à voir portent l’id de la quête (pour la visite) et celui du repère', () => {
+  for (const [id, q] of Object.entries(QP.QUETES)) {
+    if (!q.lieux) continue;
+    const p = { clan: QP.zoneDe(id), stats: { victoires: 1e6 }, pnjQ: { [id]: { n: 0 } } };
+    const l = QP.lieuxAVoir(p);
+    assert.equal(l.length, q.lieux.length, id);
+    l.forEach((x, i) => { assert.equal(x.id, id); assert.equal(x.lieu, q.lieux[i]); assert.ok(Number.isFinite(x.x) && Number.isFinite(x.y)); });
+    // ce que le client envoie (x.id) est bien accepté par visiter, sur place
+    for (const x of l) assert.ok(QP.visiter(p, x.id, x.x, x.y + 20).ok, `${id} : visite de ${x.lieu}`);
+    assert.ok(p.pnjQ[id].n === q.lieux.length);
+  }
 });

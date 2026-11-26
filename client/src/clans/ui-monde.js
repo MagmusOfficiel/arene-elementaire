@@ -2,6 +2,7 @@
 //  LES CLANS ÉLÉMENTAIRES — le choix du clan, la carte, la barre du haut, le son, le guide et les commandes tactiles
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
+import { toucheFermer, NOM_FERMER } from './touches.js';
 import * as G from '../../../shared/clans/geo.js';
 import { cleMaison } from '../../../shared/clans/geo.js';
 import * as QP from '../../../shared/clans/quetesPnj.js';
@@ -16,11 +17,13 @@ import { creerMonde } from './monde.js';
 import { cg, pret } from './crazygames.js';
 import { RAYON_VISITE } from '../../../shared/clans/reperes.js';
 import { langue, changerLangue } from './i18n.js';
+import { style2, basculerStyle } from './style2.js';
 const estMuetCG = () => document.body.dataset.cgMuet === '1';
 import { initAudio, setMusic, setAmbiance, setDoux, setVolume, estMuet, volumes, sfx, toggleMute } from '../sfx.js';
 import { musique } from './musique.js';
 import { lancerCombat, typeCombat } from './ui-combat.js';
 import { $, ICO_RESS, esc, nf, niveau, p, room, statut, toast } from './ui-commun.js';
+import { NOMS_RESS } from './ui-icones.js';
 import { fenetreDeck, fenetreExpedition, fenetreParcelle, fenetreTirages } from './ui-fenetres.js';
 import { etatChargement, faire, majPastille } from './ui-reseau.js';
 import { cibleAlerte } from './ui-social.js';
@@ -37,10 +40,24 @@ export function majBarre() {
   if (!p) return;
   const el = ELEMENTS[p.clan];
   $('moi').innerHTML = `${esc(p.nom)} <span class="badge ${p.clan}" title="${el.clan}">${el.ico}<i class="nomClan"> ${el.clan}</i></span> ${p.classe ? `<span title="${esc(CLASSES[p.classe].talent)} : ${esc(CLASSES[p.classe].desc)}">${CLASSES[p.classe].ico} ${CLASSES[p.classe].nom}</span>` : ''} <small title="${(() => { const n = niveau(), x = P.xpDe(p); return n >= P.NIVEAU_MAX ? `Niveau maximum (${x} XP)` : `XP : ${x} / ${P.xpPourNiveau(n + 1)} pour le niveau ${n + 1} — 1 XP par combat gagné, ${P.XP_BOSS} par boss`; })()}">niv. ${niveau()}</small>`;
-  $('ressources').innerHTML = ['essence', 'braises', 'perles', 'seve', 'eclats', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre', 'sable_dore', 'larme_ambre', 'poussiere_etoile', 'coeur_etoile'].filter((k) => k === 'essence' || p.ress[k] > 0 || ELEMENTS[p.clan].materiau === k)
-    .map((k) => `<span title="${{ essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)', plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (ressource rare des Cimes)', poussiere_etoile: 'Poussière d’étoile (matériau des Îles Célestes)', coeur_etoile: 'Cœur d’étoile (ressource rare des Îles Célestes)', sable_dore: 'Sable doré (matériau du Désert d’Ambre)', larme_ambre: 'Larme d’ambre (ressource rare du Désert)' }[k] || 'Matériau élémentaire'}">${ICO_RESS[k]} ${nf(p.ress[k])}</span>`).join('')
+  // v119 : toujours visibles : essence, éclats, le matériau de son clan, et le matériau rare de la zone où l'on est ;
+  // tout le reste (dès qu'on a beaucoup de ressources, la barre débordait) va dans le sac 🎒, qui s'ouvre au clic
+  const TITRES_RESS = { essence: 'Essence : pour les tirages et les constructions', eclats: 'Éclats : pour améliorer les cartes', cristal: 'Cristal de lave (ressource rare)', perle_noire: 'Perle noire (ressource rare)', graine_or: "Graine d'or (ressource rare)", fragments: 'Fragments de faille (Terres Brisées)', eclat_vide: 'Éclat du vide (ressource rare des Terres Brisées)', plumes: 'Plumes d’orage (Cimes Orageuses)', cristal_foudre: 'Cristal de foudre (ressource rare des Cimes)', poussiere_etoile: 'Poussière d’étoile (matériau des Îles Célestes)', coeur_etoile: 'Cœur d’étoile (ressource rare des Îles Célestes)', sable_dore: 'Sable doré (matériau du Désert d’Ambre)', larme_ambre: 'Larme d’ambre (ressource rare du Désert)' };
+  const ORDRE = ['essence', 'eclats', 'braises', 'perles', 'seve', 'cristal', 'perle_noire', 'graine_or', 'fragments', 'eclat_vide', 'plumes', 'cristal_foudre', 'sable_dore', 'larme_ambre', 'poussiere_etoile', 'coeur_etoile'];
+  const principales = ['essence', 'eclats', ELEMENTS[p.clan].materiau];
+  const autres = ORDRE.filter((k) => !principales.includes(k) && p.ress[k] > 0);
+  const puce = (k) => `<span title="${esc(TITRES_RESS[k] || NOMS_RESS[k] || k)}">${ICO_RESS[k]} ${nf(p.ress[k] || 0)}</span>`;
+  $('ressources').innerHTML = principales.map(puce).join('')
+    + (autres.length ? `<span class="sacRess" role="button" tabindex="0" title="Toutes tes ressources">🎒 ${autres.length}<div class="sacListe">${ORDRE.filter((k) => p.ress[k] > 0 || principales.includes(k)).map((k) => `<div><i>${ICO_RESS[k]}</i><span>${esc(NOMS_RESS[k] || k)}</span><b>${nf(p.ress[k] || 0)}</b></div>`).join('')}</div></span>` : '')
     + (P.blesse(p) ? `<span class="vieBarre" title="Tu es blessé : repose-toi devant ta maison pour remonter tes PV">❤️ ${P.vie(p)}/${P.pvMax(p)}</span>` : '')
     + `<span title="Duels gagnés / perdus">⚔️ ${p.duels?.gagnes || 0}/${p.duels?.perdus || 0}</span>`;
+  // v112 (nouveau style) : l'interface se découvre au fil des premiers pas, au lieu de tout montrer d'un coup
+  if (style2) {
+    const e = PC.etape(p), fini = e >= PC.ETAPES.length || niveau() >= 3;
+    const montrer = { btDeck: fini || e >= 2, btParcelle: fini || e >= 4, btQuetes: fini, btPasse: fini, btNotifs: fini, enLigne: fini };
+    for (const [id, v] of Object.entries(montrer)) { const b = $(id); if (b && b.classList.contains('a2Verrou') === v) { b.classList.toggle('a2Verrou', !v); if (v && b.tagName === 'BUTTON' && b.dataset.vu !== '1') { b.dataset.vu = '1'; if (e > 0) { b.classList.add('a2Nouveau'); setTimeout(() => b.classList.remove('a2Nouveau'), 6000); } } } }
+    document.body.classList.toggle('a2Debut', !fini);
+  }
 }
 export const DESC_CLANS = {
   feu: ['Gros dégâts et brûlure qui ronge les ennemis tour après tour.', 'Ta parcelle : une forge au pied du volcan, qui produit des braises.'],
@@ -57,8 +74,60 @@ export function classesHTML() {
   return LISTE_CLASSES.map((k) => { const c = CLASSES[k]; return `<button class="classeCarte" data-c="${k}"><span class="gros">${c.ico}</span><h3>${c.nom}</h3><p>${DESC_CLASSES[k]}</p><p><b>${c.talent}</b> : ${c.desc}</p><p>PV : ${60 + c.pv}</p></button>`; }).join('');
 }
 // ---------- v85 : la création du héros, en 3 étapes (clan, classe, nom) avec un aperçu vivant ----------
+// v112 : le nouvel accueil — « Jouer », puis un seul écran (clan illustré, classe déjà choisie, nom déjà rempli)
+const CLASSE_ILLU = { feu: 'combattant', eau: 'mage', plante: 'tireur' };
+const RESUME_CLAN = { feu: 'Frappe fort et brûle tout.', eau: 'Protège-toi et contrôle le combat.', plante: 'Soigne-toi et épuise l’ennemi.' };
+function accueilNouveau() {
+  const ec = $('ecranClan'); ec.classList.add('a2'); $('accueil2').classList.remove('cache');
+  let clan = null, classe = null;
+  const page = (n) => { document.querySelectorAll('#accueil2 .a2Page').forEach((x) => x.classList.toggle('cache', +x.dataset.a2 !== n)); ec.dataset.page = n; };
+  // un nom tout prêt : celui de CrazyGames, le dernier utilisé, ou un nom tiré au sort
+  const nomAuHasard = () => `${['Braise', 'Ondine', 'Sylve', 'Orage', 'Cendre', 'Écume', 'Ronce', 'Étoile'][Math.floor(Math.random() * 8)]}${100 + Math.floor(Math.random() * 900)}`;
+  const nom0 = (() => { try { return localStorage.getItem('pseudo'); } catch { return null; } })();
+  $('a2Nom').value = p?.nom || nom0 || nomAuHasard();
+  pret.then(() => { if (cg.pseudo && !nom0) $('a2Nom').value = [...cg.pseudo].slice(0, 16).join(''); });
+  $('a2Nom').onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') $('a2Go').click(); };
+  // les personnages déjà créés sur cet appareil
+  import('./ui-compte.js').then((C) => {
+    const l = C.persos().filter((x) => x.jeton !== C.jetonActif());
+    $('a2Persos').innerHTML = l.length ? `<small>Continuer avec</small>${l.map((x) => `<button class="a2Perso" data-jouer="${esc(x.jeton)}">${esc(x.nom)} · niv. ${x.niv || 1}</button>`).join('')}` : '';
+    $('a2Persos').querySelectorAll('[data-jouer]').forEach((b) => b.onclick = () => C.jouer(b.dataset.jouer));
+  });
+  const majClasses = () => {
+    $('a2Classes').innerHTML = LISTE_CLASSES.map((k) => `<button role="radio" aria-checked="${k === classe}" class="a2Classe${k === classe ? ' choisi' : ''}" data-c="${k}" title="${esc(DESC_CLASSES[k])}"><span>${CLASSES[k].ico}</span>${esc(CLASSES[k].nom)}</button>`).join('');
+    $('a2Classes').querySelectorAll('.a2Classe').forEach((b) => b.onclick = () => { classe = b.dataset.c; sfx.tick?.(); majClasses(); });
+    $('a2Go').disabled = !clan;
+    // v114 : la carte du clan choisi montre le héros de la classe choisie
+    $('a2Clans').querySelectorAll('.a2Clan').forEach((b) => { const k = b.dataset.k, c = k === clan && classe ? classe : CLASSE_ILLU[k]; b.style.setProperty('--img', `url(${import.meta.env.BASE_URL}clans/heros/${k}_${c}.webp), url(${import.meta.env.BASE_URL}clans/accueil/${k}.webp)`); });
+  };
+  $('a2Clans').innerHTML = CLANS.map((k) => `<button class="a2Clan ${k}" data-k="${k}" style="--img:url(${import.meta.env.BASE_URL}clans/accueil/${k}.webp)"><span class="a2Ico">${ELEMENTS[k].ico}</span><b>${esc(ELEMENTS[k].clan)}</b><small>${esc(RESUME_CLAN[k])}</small></button>`).join('');
+  $('a2Clans').querySelectorAll('.a2Clan').forEach((b) => b.onclick = () => {
+    clan = b.dataset.k; classe = CLASSE_ILLU[clan]; sfx.tick?.();
+    $('a2Clans').querySelectorAll('.a2Clan').forEach((x) => x.classList.toggle('choisi', x === b));
+    ec.dataset.clan = clan; majClasses();
+  });
+  majClasses();
+  $('a2Jouer').onclick = () => { demarrerSon(); sfx.tick?.(); page(2); };
+  $('a2Conf').onclick = (e) => { e.preventDefault(); import('./ui-confidentialite.js').then((m) => m.fenetreConfidentialite()); };
+  $('a2Go').onclick = () => {
+    if (!clan) return;
+    const nom = $('a2Nom').value.trim() || nomAuHasard();
+    try { localStorage.setItem('pseudo', nom); } catch { /* rien */ }
+    $('a2Go').disabled = true;
+    faire('creer', { clan, nom, classe }).then((r) => {
+      $('a2Go').disabled = false;
+      if (!r.ok) { $('a2Nom').focus(); return toast(esc(r.raison || 'Impossible de créer ton profil.')); }
+      entrerMonde();
+    });
+  };
+  page(1);
+}
 export function ecranClan(seulementClasse = false) {
   $('ecranClan').classList.remove('cache'); $('ecranMonde').classList.add('cache');
+  $('btStyleCrea').textContent = '✨ Nouveau style'; $('btStyleCrea').classList.toggle('cache', style2);
+  $('btStyleCrea').onclick = basculerStyle;
+  if (style2 && !seulementClasse) { cg.jeuFin(); cg.chargementFin(); import('./ui-invitation.js').then((I) => I.quitterSalle()); return accueilNouveau(); }
+  $('ecranClan').classList.remove('a2'); $('accueil2').classList.add('cache');
   cg.jeuFin(); cg.chargementFin();   // v106 : l'écran de création est un menu
   import('./ui-invitation.js').then((I) => I.quitterSalle());
   $('nomJoueur').value = p?.nom || localStorage.getItem('pseudo') || '';
@@ -253,6 +322,10 @@ export function fenetreSon() {
 $('btSon').onclick = () => fenetreSon();
 // v107 : français / anglais (on recharge pour que tout, carte comprise, soit redessiné dans la bonne langue)
 $('btLangue').textContent = langue === 'en' ? '🌐 Français' : '🌐 English';
+$('btStyle').textContent = style2 ? '↩ Ancien style' : '✨ Nouveau style';
+$('btStyle').onclick = () => basculerStyle();   // v112
+$('btConf').onclick = () => import('./ui-confidentialite.js').then((m) => m.fenetreConfidentialite());   // v111
+$('lienConf').onclick = (e) => { e.preventDefault(); import('./ui-confidentialite.js').then((m) => m.fenetreConfidentialite()); };
 $('btLangue').onclick = () => { changerLangue(langue === 'en' ? 'fr' : 'en'); location.reload(); };
 // le menu « Plus » de la barre du haut (v56) : les boutons moins fréquents
 export function menuBarre(ouvert) {
@@ -276,11 +349,23 @@ addEventListener('resize', () => { if (!$('menuListe').classList.contains('cache
 $('btMenu').onclick = (e) => { e.stopPropagation(); menuBarre(); };
 $('menuListe').addEventListener('click', (e) => { if (e.target.closest('button')) menuBarre(false); });
 addEventListener('pointerdown', (e) => { if (!e.target.closest('#menuBarre')) menuBarre(false); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape') menuBarre(false); });
+addEventListener('keydown', (e) => { if (toucheFermer(e)) menuBarre(false); });
 addEventListener('keydown', (e) => { if ((e.key === 'm' || e.key === 'M') && e.target.tagName !== 'INPUT') basculerSon(); });
 $('fenetre').addEventListener('pointerdown', (e) => { if (e.target === $('fenetre')) fermer(); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('fenetre').classList.contains('cache')) fermer(); });
+addEventListener('keydown', (e) => { if (toucheFermer(e) && !$('fenetre').classList.contains('cache')) { e.preventDefault(); fermer(); } });   // v117 : Échap ou ⌫ (Échap quitte le plein écran sur CrazyGames)
 $('btParcelle').onclick = () => fenetreParcelle();
+// v119 : le sac des ressources s'ouvre dans une liste posée sur la page (la barre peut défiler ou flouter, elle la couperait)
+function fermerSac() { document.getElementById('sacRessListe')?.remove(); }
+$('ressources').addEventListener('click', (e) => {
+  const sac = e.target.closest('.sacRess'); if (!sac) return;
+  if (document.getElementById('sacRessListe')) return fermerSac();
+  const r = sac.getBoundingClientRect(), l = document.createElement('div');
+  l.id = 'sacRessListe'; l.className = 'sacListe'; l.innerHTML = sac.querySelector('.sacListe').innerHTML;
+  l.style.top = `${r.bottom + 8}px`; l.style.left = `${Math.max(8, Math.min(r.left, innerWidth - 268))}px`;
+  document.body.appendChild(l); e.stopPropagation();
+});
+addEventListener('click', (e) => { if (!e.target.closest('#sacRessListe')) fermerSac(); });
+$('btZoomPlus').onclick = () => monde.zoomer(1); $('btZoomMoins').onclick = () => monde.zoomer(-1);   // v118
 $('btDeck').onclick = () => fenetreDeck();
 export const guide = (() => {
   const CLEG = 'clansGuide';
@@ -295,7 +380,7 @@ export const guide = (() => {
   const habitant = (i) => { const id = PC.pnjDe(p, i); return id ? PNJ_PAR_ID[id] : null; };
   const recTxt = (r) => Object.entries(r).map(([k, v]) => (k === 'monture' ? '🐴 un poney' : `${v} ${ICO_RESS[k] || k}`)).join(' + ');
   const ETAPES = PC.ETAPES.map((e, i) => ({
-    txt: () => { const h = habitant(i); return `<b>${esc(h?.nom || '')}</b> <small>(${esc(h?.role || '')})</small> : « ${esc(e.txt)} »<br><small>Récompense : ${recTxt(e.rec)}</small>`; },
+    txt: () => { if (style2) return `<b class="a2Obj">${esc(e.titre)}</b> ${esc(e.txt)} <small class="a2Rec">🎁 ${recTxt(e.rec)}</small>`; const h = habitant(i); return `<b>${esc(h?.nom || '')}</b> <small>(${esc(h?.role || '')})</small> : « ${esc(e.txt)} »<br><small>Récompense : ${recTxt(e.rec)}</small>`; },
     cible: () => {
       if (e.parler) { const h = habitant(i); if (!h) return null; const q = posPnj(h, Date.now() / 1000); return { x: q.x, y: q.y, nom: h.nom }; }
       if (i === 1) return lieu('autel');
@@ -347,7 +432,7 @@ export const guide = (() => {
       sfx.orb();
     }
     let e, titre;
-    if (etat.n < ETAPES.length) { e = ETAPES[etat.n]; titre = `Guide · ${etat.n + 1} / ${ETAPES.length}`; }
+    if (etat.n < ETAPES.length) { e = ETAPES[etat.n]; titre = style2 ? `🎯 Objectif ${etat.n + 1} / ${ETAPES.length}` : `Guide · ${etat.n + 1} / ${ETAPES.length}`; }
     else {
       // une astuce que le joueur vient de suivre : on la retire
       for (const a of ASTUCES) if (!etat.vu[`a_${a.id}`] && a.fait()) { etat.vu[`a_${a.id}`] = true; garder(); if (etat.actuelle === a.id) { sfx.orb(); attente = Date.now() + 20000; } }

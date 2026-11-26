@@ -42,7 +42,8 @@ let avisClasseVu = false, avisDeckVu = false;
 export function recevoirProfil(m) {
   if (!m) return;
   // v68 : les cartes d'une autre classe ont été changées en éclats
-  if (m.p?.avisClasse?.n && !avisClasseVu) { avisClasseVu = true; const a = m.p.avisClasse; setTimeout(() => toast(`🎴 Chaque classe ne joue plus que ses propres cartes de classe : tes ${a.n} carte${a.n > 1 ? 's' : ''} d’autres classes ${a.n > 1 ? 'ont été changées' : 'a été changée'} en ${nf(a.eclats)} éclats.`), 1500); }
+  // v116 : les cartes d'élément des autres clans (et, depuis la v68, des autres classes) sont devenues des éclats
+  if (m.p?.avisClasse?.n && !avisClasseVu) { avisClasseVu = true; const a = m.p.avisClasse; setTimeout(() => toast(a.elem ? `🎴 Chaque clan ne joue plus que les cartes de son élément (et les cartes neutres) : tes ${a.n} carte${a.n > 1 ? 's' : ''} d’autres éléments ${a.n > 1 ? 'ont été changées' : 'a été changée'} en ${nf(a.eclats)} éclats.` : `🎴 Chaque classe ne joue plus que ses propres cartes de classe : tes ${a.n} carte${a.n > 1 ? 's' : ''} d’autres classes ${a.n > 1 ? 'ont été changées' : 'a été changée'} en ${nf(a.eclats)} éclats.`), 1500); }
   // v83 : decks remis à 2 exemplaires par carte (1 par légendaire)
   if (m.p?.avisDeck && !avisDeckVu) { avisDeckVu = true; setTimeout(() => toast(`🃏 Nouvelle règle : 2 exemplaires d'une même carte au plus par deck (1 pour une légendaire). ${m.p.avisDeck} carte${m.p.avisDeck > 1 ? 's ont' : ' a'} été retirée${m.p.avisDeck > 1 ? 's' : ''} de ton deck.`), 1500); }
   const avant = p ? Q.etat(p) : null, gagneesAvant = p ? piecesGagnees() : null, grAvant = p ? GR.aReclamer(p) : null, nivAvant = p && m.p && p.nom === m.p.nom && p.clan === m.p.clan ? P.niveau(p) : null;

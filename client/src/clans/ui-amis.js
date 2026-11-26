@@ -82,7 +82,8 @@ let montre = false;
 export function proposerCadeau() {
   if (montre || !p || !CX.etat(p).dispo || globalThis.__pasDeCadeau) return;   // (les tests de bout en bout le coupent)
   montre = true;
-  setTimeout(() => { if ($('fenetre').classList.contains('cache') && $('combat').classList.contains('cache')) fenetreCadeau(); }, 2500);
+  // v112 (nouveau style) : pas de cadeau pendant les premiers pas, il attendra la session suivante
+  setTimeout(() => { if (document.body.classList.contains('a2Debut')) { montre = false; return; } if ($('fenetre').classList.contains('cache') && $('combat').classList.contains('cache')) fenetreCadeau(); }, 2500);
 }
 $('btAmis').onclick = () => { menuBarre(false); fenetreAmis(); };
 $('btCadeauJour').onclick = () => { menuBarre(false); fenetreCadeau(); };

@@ -4,6 +4,7 @@
 //  pour zoomer, glisser pour se déplacer. Un clic sur un lieu y met la
 //  flèche du guide.
 // =====================================================================
+import { toucheFermer, NOM_FERMER } from './touches.js';
 import { MONDE, LIEUX, CENTRES, CENTRE_FAILLE, CENTRE_CIMES, CENTRE_AMBRE, CENTRE_CIEL, PASSE_AMBRE, PONT_CIEL, CARREFOUR } from '../../../shared/clans/geo.js';
 import { SANCTUAIRES } from '../../../shared/clans/territoires.js';
 import { REPERES } from '../../../shared/clans/reperes.js';
@@ -41,7 +42,7 @@ const zoomerAutour = (k, px, py) => { const [wx, wy] = versMonde(px, py); zoom *
 function creer() {
   el = document.createElement('div'); el.id = 'grandeCarte'; el.className = 'cache';
   el.innerHTML = `<canvas></canvas>
-    <div class="gcHaut"><b>🗺️ Carte du monde</b><span class="gcAide">Molette ou pincer : zoom · glisser : se déplacer · clic sur un lieu : y aller</span><button class="bouton" id="gcFermer" title="Fermer (C ou Échap)">✕</button></div>
+    <div class="gcHaut"><b>🗺️ Carte du monde</b><span class="gcAide">Molette ou pincer : zoom · glisser : se déplacer · clic sur un lieu : y aller</span><button class="bouton" id="gcFermer" title="Fermer (C ou ${NOM_FERMER})">✕</button></div>
     <div class="gcZoom"><button class="bouton" id="gcPlus" title="Zoomer">＋</button><button class="bouton" id="gcMoins" title="Dézoomer">－</button><button class="bouton" id="gcMoi" title="Centrer sur moi">📍</button><button class="bouton" id="gcTout" title="Voir tout le monde">🌍</button></div>
     <div class="gcInfo" id="gcInfo"></div>`;
   document.body.append(el);
@@ -75,7 +76,7 @@ function lieux() {
   const e = monde.etatCarte(), l = LIEUX.map((p) => ({ x: p.x, y: p.y, nom: p.nom, ico: ICO_LIEU(p), coul: p.terr ? COUL[p.terr] : '#ffe070' }));
   l.push({ x: e.maison.x, y: e.maison.y + 20, nom: 'Ta maison', ico: '🏠', coul: '#ffffff' });
   // v108 : les lieux à visiter ; ceux d'une quête en cours sont marqués (anneau doré + « ❗ »)
-  const cibles = new Set([...QP.lieuxAVoir(moi).map((r) => r.id), ...QP.objetsAVoir(moi).map((o) => QP.QUETES[o.id].objets[o.i][0])]);
+  const cibles = new Set([...QP.lieuxAVoir(moi).map((r) => r.lieu), ...QP.objetsAVoir(moi).map((o) => QP.QUETES[o.id].objets[o.i][0])]);
   for (const r of REPERES) l.push({ x: r.x, y: r.y, nom: cibles.has(r.id) ? `❗ ${r.nom} (quête)` : r.nom, ico: r.ico, coul: cibles.has(r.id) ? '#ffd860' : '#c8b088', quete: cibles.has(r.id) });
   for (const s of SANCTUAIRES) l.push({ x: s.x, y: s.y, nom: s.nom, ico: '🏛️', coul: COUL[e.sanct?.[s.id]?.prop || s.terr] || '#aaa' });
   if (e.mondial) l.push({ x: e.mondial.x, y: e.mondial.y, nom: `${BOSS_MONDIAUX[e.mondial.terr]?.nom || 'Boss mondial'} (boss mondial)`, ico: '💀', coul: '#ff3a2a' });
@@ -136,5 +137,5 @@ export const carteOuverte = () => ouverte;
 addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'c' || e.key === 'C') { ouverte ? fermerCarte() : (monde.etatCarte && ouvrirCarte()); }
-  else if (e.key === 'Escape' && ouverte) fermerCarte();
+  else if (toucheFermer(e) && ouverte) { e.preventDefault(); fermerCarte(); }
 });

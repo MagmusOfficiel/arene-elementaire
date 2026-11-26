@@ -7,6 +7,7 @@
 //  - on affiche le tout avec un zoom entier, sans lissage : pixels nets.
 // =====================================================================
 import { tradPhrases } from './i18n.js';
+import { style2 } from './style2.js';
 import { REPERES } from '../../../shared/clans/reperes.js';
 import { dessinerRepere, dessinerObjetQuete } from './reperesArt.js';
 import { MONDE, NT, TUILE, CENTRES, CARREFOUR, LIEUX, MAISONS, OUVRAGES, maisonDe, posMaison, emplacementMaison, territoireDe, obstacles, alea, praticable, dansFaille, lisiereFaille, NIV_FAILLE, dansCimes, lisiereCimes, CIMES_X, NIV_CIMES, CENTRE_CIMES, dansAmbre, lisiereAmbre, AMBRE_X, NIV_AMBRE, CENTRE_AMBRE, dansCiel, lisiereCiel, CIEL_Y, NIV_CIEL, CENTRE_CIEL, PASSE_AMBRE, PONT_CIEL, FAILLE_Y, CENTRE_FAILLE, SOLIDES } from '../../../shared/clans/geo.js';
@@ -520,7 +521,13 @@ export function creerMonde(canvas, rappels) {
     monClan = clan; monNom = nom; maClasse = classe || 'combattant'; maCle = cle || nom;
     const m = maisonDe(clan, maCle); joueur.x = m.x; joueur.y = m.y + 40; cam = { x: joueur.x, y: joueur.y }; actif = true; redim();
   }
-  function redim() { canvas.width = innerWidth * dpr(); canvas.height = innerHeight * dpr(); z = Math.max(2, Math.round(canvas.height / 400)); }
+  // v118 : le zoom de la carte revient à celui d'avant (réglage de base), et le joueur peut zoomer / dézoomer
+  // (molette sur la carte, touches + et −, boutons ＋ / －) : de −2 à +3 crans, gardé sur l'appareil
+  let cranZoom = (() => { try { const v = +localStorage.getItem('clansZoom'); return Number.isFinite(v) ? Math.max(-2, Math.min(3, Math.round(v))) : 0; } catch { return 0; } })();
+  const zoomBase = () => Math.max(2, Math.round(canvas.height / 400));
+  function redim() { canvas.width = innerWidth * dpr(); canvas.height = innerHeight * dpr(); z = Math.max(1, zoomBase() + cranZoom); }
+  function zoomer(d) { const n = Math.max(-2, Math.min(3, cranZoom + d)); if (n === cranZoom || zoomBase() + n < 1) return; cranZoom = n; try { localStorage.setItem('clansZoom', n); } catch { /* rien */ } redim(); }
+  canvas.addEventListener('wheel', (e) => { if (!actif) return; e.preventDefault(); zoomer(e.deltaY < 0 ? 1 : -1); }, { passive: false });
   addEventListener('resize', redim);
   let ox = 0, oy = 0;   // décalage écran du monde (entier)
 
@@ -539,7 +546,8 @@ export function creerMonde(canvas, rappels) {
     { const o = OUVRAGES[monClan]; if (Math.hypot(joueur.x - o.x, joueur.y - (o.y + 12)) < 52) best = { id: 'projet', nom: PROJETS[monClan].nom, action: 'projet', x: o.x, y: o.y }; }
     if (marchand.present && Math.hypot(joueur.x - marchand.x, joueur.y - marchand.y) < PORTEE_MARCHAND) best = { id: 'marchand', nom: 'le marchand ambulant', action: 'marchand', x: marchand.x, y: marchand.y };
     for (const f of filons) if (Math.hypot(joueur.x - f.x, joueur.y - f.y) < 36) best = { ...f, nom: 'un filon rare', action: 'filon' };
-    for (const o of rappels.objetsQuete?.() || []) if (Math.hypot(joueur.x - o.x, joueur.y - o.y) < 40) best = { ...o, action: 'objetQuete' };
+    // v112 : l'objet de quête le plus proche (avant : le dernier de la liste, donc parfois celui d'à côté)
+    { let dO = 44, oP = null; for (const o of rappels.objetsQuete?.() || []) { const d = Math.hypot(joueur.x - o.x, joueur.y - o.y); if (d < dO) { dO = d; oP = o; } } if (oP) best = { ...oP, action: 'objetQuete' }; }
     for (const h of pnjIci(Date.now() / 1000)) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 30) best = { id: h.n.id, nom: h.n.nom, action: 'pnj', x: h.x, y: h.y };
     for (const [id, a] of autres) if (a.clan !== monClan && duelPossible(a) && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
     // près du boss mondial, on l'affronte (prioritaire : pas de duel par erreur)
@@ -553,7 +561,8 @@ export function creerMonde(canvas, rappels) {
     if (!actif || !rappels.libre() || e.target.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
     if (placement && (k === 'e' || k === ' ' || k === 'enter')) { dispatchEvent(new CustomEvent('clans:poserMaison')); e.preventDefault(); return; }
-    if (placement && k === 'escape') { dispatchEvent(new CustomEvent('clans:annulerMaison')); e.preventDefault(); return; }
+    if (placement && (k === 'escape' || k === 'backspace')) { dispatchEvent(new CustomEvent('clans:annulerMaison')); e.preventDefault(); return; }
+    if (k === '+' || k === '=' || k === '-' || k === '_') { zoomer(k === '+' || k === '=' ? 1 : -1); e.preventDefault(); return; }
     if (DIR[k]) { touches.add(k); but = null; e.preventDefault(); } else if (k === 'e' || k === ' ') { agir(); e.preventDefault(); }
   });
   addEventListener('keyup', (e) => touches.delete(e.key.toLowerCase()));
@@ -567,7 +576,7 @@ export function creerMonde(canvas, rappels) {
     // un clic sur un autre joueur : sa fiche (v60)
     for (const [id, a] of autres) if (Math.abs(x - a.x) < 10 && y > a.y - 30 && y < a.y + 4) { rappels.fiche?.(id); return; }
     const m = posMaison(monClan, maCle);
-    const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, ...(marchand.present ? [{ x: marchand.x, y: marchand.y - 12, r: 26, id: 'marchand', nom: 'le marchand ambulant', action: 'marchand' }] : []), ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' }))].find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
+    const l = [...LIEUX, ...(mondial ? [{ ...mondial, r: 50, action: 'mondial' }] : []), { x: m.x, y: m.y + 16, r: 30, id: 'maison', nom: 'Ta maison', action: 'parcelle' }, { x: OUVRAGES[monClan].x, y: OUVRAGES[monClan].y - 10, r: 30, id: 'projet', nom: PROJETS[monClan].nom, action: 'projet' }, ...(marchand.present ? [{ x: marchand.x, y: marchand.y - 12, r: 26, id: 'marchand', nom: 'le marchand ambulant', action: 'marchand' }] : []), ...filons.map((f) => ({ ...f, r: 14, nom: 'un filon rare', action: 'filon' })), ...(rappels.objetsQuete?.() || []).map((o) => ({ ...o, r: 14, action: 'objetQuete' }))]   /* v112 : cliquer un objet de quête va le ramasser */.find((p) => Math.hypot(x - p.x, y - p.y) < p.r + 10);
     but = { x, y, lieu: l || null };
   });
 
@@ -698,7 +707,8 @@ export function creerMonde(canvas, rappels) {
 
   // ---------- dessin ----------
   const R = Math.round;
-  function ombre(x, y, w) { ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(R(x - w / 2), R(y - 1), R(w), 3); ctx.fillRect(R(x - w / 2 + 2), R(y - 2), R(w - 4), 5); }
+  // v118 : le sol adouci et la lumière du nouveau style (v112) ont été retirés : la carte garde son rendu d'origine
+  function ombre(x, y, w) { if (style2) { ctx.fillStyle = 'rgba(10,6,20,.26)'; ctx.beginPath(); ctx.ellipse(x, y + 0.5, w * 0.55, 2.6, 0, 0, Math.PI * 2); ctx.fill(); return; } ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(R(x - w / 2), R(y - 1), R(w), 3); ctx.fillRect(R(x - w / 2 + 2), R(y - 2), R(w - 4), 5); }
   function dessinerPerso(p, t) {
     const f = p.marche ? 1 + (Math.floor(t * 8) % 2) : 0, row = LIGNE_DIR[p.dir] ?? 0;
     ombre(p.x, p.y, 12);
@@ -927,19 +937,24 @@ export function creerMonde(canvas, rappels) {
       ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillText(lab, x + s * 0.6, y + s * 0.6); ctx.fillStyle = st.txt; ctx.fillText(lab, x, y);
     }
     function poserEtiquettes() {
-      const poses = [], h = 15 * s, chevauche = (a) => poses.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
+      const poses = [], h = (style2 ? 18 : 15) * s, chevauche = (a) => poses.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (const e of etiq.sort((a, b) => b.prio - a.prio)) {
-        const police = `${e.gras ? 900 : 700} ${R(11.5 * s)}px ${POLICE}`; ctx.font = police;
-        const w = largeur(e.txt, police) + 10 * s, hh = e.sous ? h * 2 : h;
+        const police = style2 ? `600 ${R(12 * s)}px "Fredoka", ${POLICE}` : `${e.gras ? 900 : 700} ${R(11.5 * s)}px ${POLICE}`; ctx.font = police;
+        const w = largeur(e.txt, police) + (style2 ? (e.barre ? 22 : 16) : 10) * s, hh = e.sous ? h * 2 : h;
         let y = e.y, r = null;
         for (let k = 0; k < 4; k++) { const c = { x0: e.x - w / 2, x1: e.x + w / 2, y0: y - hh + h / 2, y1: y + h / 2 }; if (!chevauche(c)) { r = c; break; } y -= h + 2 * s; }
         if (!r) { if (e.prio < 3) continue; r = { x0: e.x - w / 2, x1: e.x + w / 2, y0: e.y - hh + h / 2, y1: e.y + h / 2 }; y = e.y; }
         poses.push(r);
         if (y !== e.y) { ctx.fillStyle = 'rgba(240,230,208,.35)'; ctx.fillRect(R(e.x), R(y + h / 2), R(s), R(e.y - y - h / 2)); }   // un fil vers l'objet
+        if (style2) {   // v112 : des pastilles arrondies, une pointe de couleur du clan
+          ctx.fillStyle = 'rgba(18,12,30,.7)'; ctx.beginPath(); ctx.roundRect(R(e.x - w / 2), R(y - h / 2), R(w), R(h), h / 2); ctx.fill();
+          if (e.barre) { ctx.fillStyle = e.barre; ctx.beginPath(); ctx.arc(R(e.x - w / 2 + h / 2), R(y), 2.5 * s, 0, Math.PI * 2); ctx.fill(); }
+        } else {
         ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(R(e.x - w / 2), R(y - h / 2), R(w), R(h));
         if (e.barre) { ctx.fillStyle = e.barre; ctx.fillRect(R(e.x - w / 2), R(y - h / 2), R(2 * s), R(h)); }
-        ctx.fillStyle = e.coul; ctx.fillText(e.txt, e.x, y + s);
+        }
+        ctx.fillStyle = e.coul; ctx.fillText(e.txt, e.x + (style2 && e.barre ? 3 * s : 0), y + s);
         if (e.sous) rubanTitre(e.sous, e.sousSt, e.x, y - h + s);
       }
     }
@@ -1069,5 +1084,5 @@ export function creerMonde(canvas, rappels) {
   requestAnimationFrame(boucle);
   // v101 : ce que la grande carte a besoin de savoir
   const etatCarte = () => ({ fond, mini, joueur, autres: [...autres.values()], mondial, filons, clan: monClan, maison: posMaison(monClan, maCle), cible, pnj: pnjIci(temps), sanct });
-  return { etatCarte, get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { zoomer, etatCarte, get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

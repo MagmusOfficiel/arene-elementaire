@@ -8,7 +8,7 @@
 // =====================================================================
 import { CARTES, RARES, RARETES } from './cartes.js';
 import { MONSTRES, BOSS_CAUCHEMAR, TERRITOIRES, tousDe } from './monstres.js';
-import { pourClasse } from './profil.js';
+import { pourClasse, pourClan } from './profil.js';
 
 export const TERRES = Object.keys(TERRITOIRES);
 export const ORDRE_RARETE = Object.keys(RARETES);
@@ -47,7 +47,7 @@ export const maitrise = (p, m) => niveauFiche(p, m) >= 3;
 
 // ---------- les cartes ----------
 // celles que ce joueur peut avoir (élément + sa classe + sa branche), rangées par rareté puis par nom
-export const cartesDe = (p) => Object.keys(CARTES).filter((id) => pourClasse(id, p.classe, p.branche || null))
+export const cartesDe = (p) => Object.keys(CARTES).filter((id) => pourClasse(id, p.classe, p.branche || null) && pourClan(id, p.clan))   // v116
   .sort((a, b) => ORDRE_RARETE.indexOf(CARTES[a].rarete) - ORDRE_RARETE.indexOf(CARTES[b].rarete) || CARTES[a].nom.localeCompare(CARTES[b].nom, 'fr'));
 export const possede = (p, id) => (p.collection?.[id]?.n || 0) > 0;
 
@@ -76,7 +76,7 @@ export function recompenses(p) {
     l.push({ cle: `b-${t}-1`, livre: 'bestiaire', terr: t, ico: TERRITOIRES[t].ico, txt: `${TERRITOIRES[t].nom} : vaincre ${moitie} monstres différents`, v: Math.min(v, moitie), max: moitie, rec: { essence: 250 } });
     l.push({ cle: `b-${t}-2`, livre: 'bestiaire', terr: t, ico: TERRITOIRES[t].ico, txt: `${TERRITOIRES[t].nom} : vaincre tous les monstres`, v, max: ms.length, rec: { eclats: 30, rare: 6 } });
     // v101 : toutes les fiches de la région « maîtrisées » (titan compris) → un titre
-    { const tous = [...ms, BOSS_CAUCHEMAR[t]]; l.push({ cle: `b-${t}-3`, livre: 'bestiaire', terr: t, ico: '🏅', txt: `${TERRITOIRES[t].nom} : maîtriser toutes les fiches (titan compris)`, v: tous.filter((m) => maitrise(p, m)).length, max: tous.length, rec: { eclats: 80, rare: 10, titre: `gri:b_${t}` } }); }
+    { const tous = [...ms, BOSS_CAUCHEMAR[t]]; l.push({ cle: `b-${t}-3`, livre: 'bestiaire', terr: t, ico: '🏅', txt: `${TERRITOIRES[t].nom} : maîtriser tous les monstres ★★★, titan compris`, aide: 'Une fiche est maîtrisée (★★★) après 25 victoires sur un monstre normal, 12 sur un rare ou une élite, 6 sur un boss et 3 sur le titan.', v: tous.filter((m) => maitrise(p, m)).length, max: tous.length, rec: { eclats: 80, rare: 10, titre: `gri:b_${t}` } }); }
   }
   l.push({ cle: 'b-titans', livre: 'bestiaire', ico: '💀', txt: 'Vaincre tous les titans du Cauchemar', v: TITANS.filter((m) => vu(p, m.id)).length, max: TITANS.length, rec: { eclats: 80, rare: 6 } });
   l.push({ cle: 'b-tout', livre: 'bestiaire', ico: '📕', txt: 'Compléter tout le bestiaire', v: TOUS_MONSTRES.filter((m) => vu(p, m.id)).length, max: TOUS_MONSTRES.length, rec: { eclats: 120, titre: 'gri:bestiaire' } });

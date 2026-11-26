@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Les Clans Élémentaires — admin des joueurs</title>
+<style>
+  @font-face { font-family: 'Nunito'; font-weight: 400 900; src: url(/clans/polices/nunito-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Nunito'; font-weight: 700; src: url(/clans/polices/nunito-latin-700-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Fredoka'; font-weight: 600; src: url(/clans/polices/fredoka-latin-600-normal.woff2) format('woff2'); }
+  :root { --or: #e8c060; --papier: #f0e6d0; --fond: #0e0b14; --carte: #18141f; --ligne: rgba(255,255,255,.08); --vert: #7ad87a; --rouge: #ff8a7a; --feu: #e0552a; --eau: #3a8ae0; --plante: #3aa84a; --gris: #a89e8a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(ellipse at 50% 0, #241a30, var(--fond) 60%); color: var(--papier); font: 14px/1.45 'Nunito', system-ui, sans-serif; font-variant-numeric: tabular-nums; min-height: 100vh; }
+  header { padding: 18px 24px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  h1 { margin: 0; font: 600 22px 'Fredoka', system-ui, sans-serif; color: var(--or); flex: 1; min-width: 260px; }
+  h1 small { display: block; font: 13px 'Nunito', system-ui, sans-serif; color: var(--gris); margin-top: 2px; }
+  h1 a { color: var(--gris); font-size: 13px; font-family: 'Nunito', sans-serif; }
+  input, select, button { font: inherit; color: var(--papier); background: #221c2c; border: 1px solid rgba(232,192,96,.35); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; } button:hover { border-color: var(--or); }
+  button.or { background: linear-gradient(#e8c060, #b08a30); color: #1a1208; border: none; font-weight: 800; }
+  button.petit { padding: 3px 8px; font-size: 12.5px; }
+  main { padding: 0 24px 40px; display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 18px; align-items: start; }
+  .boite { background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px; padding: 14px; }
+  #recherche { width: 100%; margin-bottom: 8px; }
+  #compte { color: var(--gris); font-size: 12.5px; margin-bottom: 8px; }
+  #liste { max-height: calc(100vh - 190px); overflow: auto; }
+  .ligneJ { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+  .ligneJ:hover { background: rgba(255,255,255,.05); } .ligneJ.actif { background: rgba(232,192,96,.14); }
+  .ligneJ b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ligneJ small { color: var(--gris); }
+  .pt { width: 8px; height: 8px; border-radius: 50%; background: #444; flex: none; } .pt.on { background: var(--vert); box-shadow: 0 0 6px var(--vert); }
+  .clan { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .clan.feu { background: var(--feu); } .clan.eau { background: var(--eau); } .clan.plante { background: var(--plante); }
+  .vide { padding: 30px; text-align: center; color: var(--gris); }
+  h2 { margin: 0 0 4px; font: 600 22px 'Fredoka', system-ui, sans-serif; display: flex; gap: 10px; align-items: center; }
+  .sous { color: var(--gris); margin-bottom: 12px; }
+  .sous code { background: #221c2c; padding: 1px 6px; border-radius: 5px; font-size: 12px; user-select: all; }
+  h3 { margin: 16px 0 8px; font: 600 16px 'Fredoka', system-ui, sans-serif; color: var(--or); }
+  .xp { height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; margin: 6px 0 4px; } .xp i { display: block; height: 100%; background: linear-gradient(90deg, #b08a30, #ffd870); }
+  .rang { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #niv { width: 80px; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+  .ress { display: flex; align-items: center; gap: 8px; background: #1e1928; border: 1px solid var(--ligne); border-radius: 9px; padding: 6px 8px; }
+  .ress span { flex: 1; font-size: 13px; } .ress span small { display: block; color: var(--gris); font-size: 12px; }
+  .ress input { width: 96px; text-align: right; }
+  .ress input.change { border-color: var(--vert); }
+  .vite { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  #message { width: 100%; margin-top: 10px; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .mode label { margin-right: 10px; cursor: pointer; }
+  #retour { margin-top: 10px; padding: 8px 12px; border-radius: 8px; display: none; } #retour.ok { display: block; background: rgba(122,216,122,.12); color: #c8f0c8; } #retour.ko { display: block; background: rgba(255,138,122,.12); color: #ffc8c0; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } #liste { max-height: 40vh; } header, main { padding-left: 12px; padding-right: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛠️ Admin des joueurs <small id="sousTitre">Entre la clé du serveur (ADMIN_CLE, ou JOURNAL_CLE) · <a href="/clans/admin.html">équilibrage</a></small></h1>
+  <input id="cle" type="password" placeholder="Clé admin">
+  <button id="btCharger">Ouvrir</button>
+</header>
+<main>
+  <section class="boite">
+    <input id="recherche" placeholder="🔎 Nom du joueur, ou début de son code">
+    <div id="compte"></div>
+    <div id="liste"><div class="vide">Entre la clé pour voir les joueurs.</div></div>
+  </section>
+  <section class="boite" id="fiche"><div class="vide">Choisis un joueur dans la liste.</div></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = (n) => Number(n || 0).toLocaleString('fr-FR');
+const NOMS = { essence: ['✨', 'Essence'], eclats: ['💎', 'Éclats'], braises: ['🔥', 'Braises (Feu)'], perles: ['🫧', 'Perles (Eau)'], seve: ['🌿', 'Sève (Plante)'],
+  cristal: ['🔶', 'Cristal de lave (rare, Feu)'], perle_noire: ['⚫', 'Perle noire (rare, Eau)'], graine_or: ['🌰', 'Graine d’or (rare, Plante)'],
+  fragments: ['🟣', 'Fragments de faille'], eclat_vide: ['🌀', 'Éclat du vide (rare)'], plumes: ['🪶', 'Plumes d’orage'], cristal_foudre: ['⚡', 'Cristal de foudre (rare)'],
+  poussiere_etoile: ['🌟', 'Poussière d’étoile'], coeur_etoile: ['💫', 'Cœur d’étoile (rare)'], sable_dore: ['🏜️', 'Sable doré'], larme_ambre: ['🟠', 'Larme d’ambre (rare)'] };
+const CLANS = { feu: 'Feu', eau: 'Eau', plante: 'Plante' };
+const CLASSES = { combattant: 'Combattant', mage: 'Mage', tireur: 'Tireur', escrimeur: 'Escrimeur' };
+let joueurs = [], ressources = [], nivMax = 100, choisi = null, minuterie = 0;
+try { $('cle').value = sessionStorage.getItem('clansAdminCle') || ''; } catch { /* rien */ }
+
+async function api(chemin, opts = {}) {
+  const r = await fetch(`/api/clans/admin${chemin}`, { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-cle': $('cle').value.trim(), ...(opts.headers || {}) } });
+  const j = await r.json().catch(() => ({ erreur: `Erreur ${r.status}` }));
+  if (!r.ok) throw new Error(j.erreur || `Erreur ${r.status}`);
+  return j;
+}
+async function charger() {
+  try { sessionStorage.setItem('clansAdminCle', $('cle').value.trim()); } catch { /* rien */ }
+  $('liste').innerHTML = '<div class="vide">Chargement…</div>';
+  try {
+    const r = await api(`/joueurs?q=${encodeURIComponent($('recherche').value.trim())}`);
+    joueurs = r.joueurs; ressources = r.ressources; nivMax = r.nivMax;
+    $('compte').textContent = `${nf(r.total)} joueur${r.total > 1 ? 's' : ''} gardé${r.total > 1 ? 's' : ''} · ${r.enLigne} en ligne${joueurs.length < r.total ? ` · ${joueurs.length} affiché${joueurs.length > 1 ? 's' : ''}` : ''}`;
+    liste();
+    if (choisi) ouvrir(choisi, true);
+  } catch (e) { $('liste').innerHTML = `<div class="vide">❌ ${esc(e.message)}</div>`; $('compte').textContent = ''; }
+}
+function liste() {
+  $('liste').innerHTML = joueurs.length ? joueurs.map((j) => `<div class="ligneJ${j.jeton === choisi ? ' actif' : ''}" data-j="${esc(j.jeton)}"><i class="pt${j.enLigne ? ' on' : ''}" title="${j.enLigne ? 'en ligne' : 'hors ligne'}"></i><i class="clan ${esc(j.clan)}"></i><b>${esc(j.nom)}</b><small>${esc(CLASSES[j.classe] || '—')} · niv. ${j.niv}</small></div>`).join('') : '<div class="vide">Aucun joueur.</div>';
+  $('liste').querySelectorAll('.ligneJ').forEach((el) => el.onclick = () => ouvrir(el.dataset.j));
+}
+async function ouvrir(jeton, garderRetour = false) {
+  choisi = jeton; liste();
+  try { fiche(await api(`/joueur/${encodeURIComponent(jeton)}`), garderRetour); }
+  catch (e) { $('fiche').innerHTML = `<div class="vide">❌ ${esc(e.message)}</div>`; }
+}
+function fiche(j, garderRetour) {
+  const ancienRetour = garderRetour ? $('retour')?.outerHTML : '';
+  const dans = j.xpSuivant ? Math.round(((j.xp - j.xpNiv) / (j.xpSuivant - j.xpNiv)) * 100) : 100;
+  $('fiche').innerHTML = `
+    <h2><i class="pt${j.enLigne ? ' on' : ''}"></i><i class="clan ${esc(j.clan)}"></i>${esc(j.nom)}</h2>
+    <div class="sous">Clan ${esc(CLANS[j.clan] || j.clan)} · ${esc(CLASSES[j.classe] || '—')} · ${j.enLigne ? '<b style="color:var(--vert)">en ligne</b> (il voit le changement tout de suite)' : 'hors ligne (modifié dans sa sauvegarde)'} · code <code>${esc(j.jeton)}</code></div>
+    <h3>Niveau ${j.niv}</h3>
+    <div class="xp"><i style="width:${dans}%"></i></div>
+    <div class="sous">${nf(j.xp)} XP${j.xpSuivant ? ` · ${nf(j.xpSuivant - j.xp)} pour le niveau ${j.niv + 1}` : ' · niveau maximum'} — victoires ${nf(j.xpDetail.victoires)}, boss ${nf(j.xpDetail.boss)}, quêtes ${nf(j.xpDetail.quetes)}</div>
+    <div class="rang">Fixer le niveau à <input id="niv" type="number" min="1" max="${nivMax}" value="${j.niv}">
+      <button class="petit" data-n="1">+1</button><button class="petit" data-n="5">+5</button><button class="petit" data-n="10">+10</button>
+      ${[30, 50, 70, 90, nivMax].map((n) => `<button class="petit" data-f="${n}">${n}</button>`).join('')}</div>
+    <h3>Ressources</h3>
+    <div class="mode"><label><input type="radio" name="mode" value="ajouter" checked> Ajouter (un nombre négatif retire)</label><label><input type="radio" name="mode" value="fixer"> Fixer la valeur</label></div>
+    <div class="vite">
+      <button class="petit" data-v="essence:1000">+1 000 ✨</button><button class="petit" data-v="essence:10000">+10 000 ✨</button>
+      <button class="petit" data-v="eclats:100">+100 💎</button><button class="petit" data-v="eclats:1000">+1 000 💎</button>
+      <button class="petit" data-mat="200">+200 matériaux de son clan</button>
+    </div>
+    <div class="grille">${ressources.map((k) => `<div class="ress"><span>${NOMS[k]?.[0] || '•'} ${esc(NOMS[k]?.[1] || k)}<small>a : ${nf(j.ress[k])}</small></span><input type="number" data-k="${k}" placeholder="0"></div>`).join('')}</div>
+    <input id="message" maxlength="140" placeholder="Message pour le joueur (facultatif) — ex. « Merci d’avoir signalé le bug ! »">
+    <div class="actions"><button class="or" id="btAppliquer">✔ Appliquer</button><button id="btEffacer">Effacer</button></div>
+    ${ancienRetour || '<div id="retour"></div>'}`;
+  const champ = (k) => $('fiche').querySelector(`input[data-k="${k}"]`);
+  const marquer = () => $('fiche').querySelectorAll('.ress input').forEach((i) => i.classList.toggle('change', i.value !== '' && +i.value !== 0));
+  $('fiche').querySelectorAll('.ress input').forEach((i) => i.oninput = marquer);
+  $('fiche').querySelectorAll('[data-n]').forEach((b) => b.onclick = () => { $('niv').value = Math.min(nivMax, j.niv + +b.dataset.n); });
+  $('fiche').querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { $('niv').value = b.dataset.f; });
+  $('fiche').querySelectorAll('[data-v]').forEach((b) => b.onclick = () => { const [k, v] = b.dataset.v.split(':'); const c = champ(k); c.value = (+c.value || 0) + +v; marquer(); });
+  $('fiche').querySelector('[data-mat]').onclick = (e) => { const k = { feu: 'braises', eau: 'perles', plante: 'seve' }[j.clan]; const c = k && champ(k); if (c) { c.value = (+c.value || 0) + +e.target.dataset.mat; marquer(); } };
+  $('btEffacer').onclick = () => { $('fiche').querySelectorAll('.ress input').forEach((i) => { i.value = ''; }); $('niv').value = j.niv; $('message').value = ''; marquer(); };
+  $('btAppliquer').onclick = async () => {
+    const mode = $('fiche').querySelector('input[name=mode]:checked').value, ress = {};
+    $('fiche').querySelectorAll('.ress input').forEach((i) => { if (i.value !== '') ress[i.dataset.k] = +i.value; });
+    const corps = { ress, mode, message: $('message').value };
+    if (+$('niv').value !== j.niv) corps.niveau = +$('niv').value;
+    if (!Object.keys(ress).length && corps.niveau == null) return retour('Rien à changer.', false);
+    if (mode === 'fixer' && !confirm('Fixer ces ressources à ces valeurs exactes ?')) return;
+    $('btAppliquer').disabled = true;
+    try {
+      const r = await api(`/joueur/${encodeURIComponent(j.jeton)}`, { method: 'POST', body: JSON.stringify(corps) });
+      fiche(r.joueur); majLigne(r.joueur);
+      retour(r.rien ? 'Rien n’a changé.' : `✅ Fait${r.enLigne ? ' : le joueur a reçu un message' : ' (joueur hors ligne : il le verra à sa prochaine connexion)'}.${r.avertissements?.length ? ` ⚠️ ${r.avertissements.join(' ')}` : ''}`, true);
+    } catch (e) { retour(`❌ ${e.message}`, false); $('btAppliquer').disabled = false; }
+  };
+}
+function retour(t, ok) { const r = $('retour'); if (!r) return; r.className = ok ? 'ok' : 'ko'; r.textContent = t; }
+function majLigne(j) { const i = joueurs.findIndex((x) => x.jeton === j.jeton); if (i >= 0) { joueurs[i] = { ...joueurs[i], ...j }; liste(); } }
+$('btCharger').onclick = charger;
+$('cle').onkeydown = (e) => { if (e.key === 'Enter') charger(); };
+$('recherche').oninput = () => { clearTimeout(minuterie); minuterie = setTimeout(charger, 300); };
+if ($('cle').value) charger();
+</script>
+</body>
+</html>

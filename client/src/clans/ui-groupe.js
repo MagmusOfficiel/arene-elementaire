@@ -46,6 +46,7 @@ export function brancherMessagesGroupe(r, { fenetreExpedition, traiterSalle, bil
     const avant = groupe; groupe = g;
     if (g?.depart) { toast(`👥 Le groupe part en expédition !`); fenetreExpedition(g.terr); return; }
     if (!g && avant) toast('👥 Le groupe est dissous.');
+    if (g?.retour) toast('👥 Fin de l’expédition : ton groupe reste ensemble. Repartez quand vous voulez depuis un portail !');   // v111
     if (vueFenetre() === 'expedition' && $('combat').classList.contains('cache')) { const t = g?.terr || p.expedition?.territoire || avant?.terr || terrVue; if (t) fenetreExpedition(t); }
   });
   r.onMessage('groupeSalle', (m) => traiterSalle(m.salle, m.res));

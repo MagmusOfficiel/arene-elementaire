@@ -7,7 +7,7 @@ import * as A from '../../../shared/clans/arene.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { decor, ambiance, creerFx, PALETTES } from './scene.js';
 import { sfx } from '../sfx.js';
-import { banniere, defausserMain, dessinerSprite, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler, impact } from './ui-combat.js';
+import { banniere, defausserMain, dessinerSprite, dessinerHeros, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler, impact } from './ui-combat.js';
 import { $, ICO_RESS, ILLUS, carteHTML, centre, esc, nf, p, pause, room, statutsHTML, toast } from './ui-commun.js';
 import { etourdir, fermer, monde, ouvrir } from './ui-monde.js';
 import { finArene } from './ui-social.js';
@@ -23,7 +23,7 @@ export function afficherDuel(v) {
     sc.className = 'scene'; $('duBanniere').replaceChildren(); sc.querySelector('.rayons')?.remove(); journalVu = 0;
     const terr = v.arene ? 'arene' : (monde.territoire() || 'arene');
     decor($('duDecor'), terr); ambDu?.arreter(); ambDu = ambiance($('duAmbiance'), terr); fxDu ||= creerFx($('duFx'));
-    dessinerSprite($('duSprite'), p.clan, p.classe, 'droite', AP.code(p)); dessinerSprite($('duSpriteAdv'), a.clan, a.classe, 'gauche', a.app || '');
+    dessinerHeros($('duSprite'), p.clan, p.classe, 'droite', AP.code(p), p.branche || null); dessinerHeros($('duSpriteAdv'), a.clan, a.classe, 'gauche', a.app || '', a.branche || null);
     stopAuraDu?.(); setStopAuraDu(lancerAuras(fxDu, () => [[$('duHeros').querySelector('.combattant'), AP.portee(p).aura], [advDu().querySelector('.combattant'), AP.lireCode(a.app).aura]]));
     delete $('duHeros').querySelector('.jauge').dataset.pv; delete advDu().querySelector('.jauge').dataset.pv;
     regler(sc);
