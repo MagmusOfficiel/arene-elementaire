@@ -5,6 +5,7 @@
 //  Chaque tutoriel n'est montré qu'une fois par appareil.
 // =====================================================================
 import { $ } from './ui-commun.js';
+import { style2 } from './style2.js';
 
 const vu = (cle) => { try { return localStorage.getItem(`clansTuto:${cle}`) === '1'; } catch { return false; } };
 const marquer = (cle) => { try { localStorage.setItem(`clansTuto:${cle}`, '1'); } catch { /* rien */ } };
@@ -49,6 +50,12 @@ export const fermerCoach = () => actif?.fin();
 
 // ---------- le premier combat ----------
 export function tutoCombat() {
+  // v112 (nouveau style) : trois bulles courtes, le reste se découvre en jouant
+  if (style2) return coach('combat', [
+    { cible: '#cbMain', txt: '🃏 <b>Clique une carte</b>, puis <b>un ennemi</b>.' },
+    { cible: '#cbEnergie', txt: '⚡ Chaque carte coûte de l’<b>énergie</b>. Elle revient pleine à chaque tour.' },
+    { cible: '#btFinTour', txt: '⏭ Plus d’énergie ? <b>Fin du tour</b> : les ennemis jouent, puis à toi !' },
+  ]);
   return coach('combat', [
     { cible: '#cbMain', txt: '🃏 <b>Ta main</b> : 5 cartes tirées de ton deck à chaque tour. Le rond en haut à gauche d’une carte, c’est son <b>coût en énergie</b>.' },
     { cible: '#cbEnergie', txt: '⚡ <b>Ton énergie</b> : 3 par tour (4 avec une branche d’Ascension). Elle revient pleine à chaque tour, alors dépense-la !' },

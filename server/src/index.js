@@ -8,6 +8,7 @@ import express from 'express';
 import colyseus from 'colyseus';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { ClansRoom } from './ClansRoom.js';
+import { brancherAdmin } from './clansAdmin.js';
 import { noterErreur, listeErreurs } from './journal.js';
 import { noterMesure, resumeMesures } from './mesures.js';
 import { equilibrage, remettreEquilibrage } from './stats.js';
@@ -77,6 +78,9 @@ app.post('/api/clans/equilibrage/reset', (req, res) => {
   if (!process.env.JOURNAL_CLE || req.query.cle !== process.env.JOURNAL_CLE) return res.status(403).json({ erreur: 'Remise à zéro possible seulement avec JOURNAL_CLE défini sur le serveur.' });
   remettreEquilibrage(); res.json({ ok: true });
 });
+
+// v112 : le panneau admin des joueurs (niveaux, ressources) — page /clans/admin-joueurs.html
+brancherAdmin(app);
 
 // Comptes : créer, lire, sauvegarder (le code du compte sert de clé)
 // le compte ne garde que la liste des personnages des Clans (et le pseudo)

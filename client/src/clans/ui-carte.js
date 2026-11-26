@@ -4,6 +4,7 @@
 //  pour zoomer, glisser pour se déplacer. Un clic sur un lieu y met la
 //  flèche du guide.
 // =====================================================================
+import { toucheFermer, NOM_FERMER } from './touches.js';
 import { MONDE, LIEUX, CENTRES, CENTRE_FAILLE, CENTRE_CIMES, CENTRE_AMBRE, CENTRE_CIEL, PASSE_AMBRE, PONT_CIEL, CARREFOUR } from '../../../shared/clans/geo.js';
 import { SANCTUAIRES } from '../../../shared/clans/territoires.js';
 import { REPERES } from '../../../shared/clans/reperes.js';
@@ -41,7 +42,7 @@ const zoomerAutour = (k, px, py) => { const [wx, wy] = versMonde(px, py); zoom *
 function creer() {
   el = document.createElement('div'); el.id = 'grandeCarte'; el.className = 'cache';
   el.innerHTML = `<canvas></canvas>
-    <div class="gcHaut"><b>🗺️ Carte du monde</b><span class="gcAide">Molette ou pincer : zoom · glisser : se déplacer · clic sur un lieu : y aller</span><button class="bouton" id="gcFermer" title="Fermer (C ou Échap)">✕</button></div>
+    <div class="gcHaut"><b>🗺️ Carte du monde</b><span class="gcAide">Molette ou pincer : zoom · glisser : se déplacer · clic sur un lieu : y aller</span><button class="bouton" id="gcFermer" title="Fermer (C ou ${NOM_FERMER})">✕</button></div>
     <div class="gcZoom"><button class="bouton" id="gcPlus" title="Zoomer">＋</button><button class="bouton" id="gcMoins" title="Dézoomer">－</button><button class="bouton" id="gcMoi" title="Centrer sur moi">📍</button><button class="bouton" id="gcTout" title="Voir tout le monde">🌍</button></div>
     <div class="gcInfo" id="gcInfo"></div>`;
   document.body.append(el);
@@ -136,5 +137,5 @@ export const carteOuverte = () => ouverte;
 addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'c' || e.key === 'C') { ouverte ? fermerCarte() : (monde.etatCarte && ouvrirCarte()); }
-  else if (e.key === 'Escape' && ouverte) fermerCarte();
+  else if (toucheFermer(e) && ouverte) { e.preventDefault(); fermerCarte(); }
 });

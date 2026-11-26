@@ -86,6 +86,7 @@ export const ACTIONS = {
     // tests de bout en bout seulement (jamais en production) : un profil riche pour tout essayer
     if (+process.env.CLANS_TEST_NIVEAU > 1) ctx.p.stats.victoires = (+process.env.CLANS_TEST_NIVEAU - 1) * 6;   // tests seulement
     if (process.env.CLANS_TEST_DEPART === '1') { const r = ctx.p.ress; r.essence = 50000; r.eclats = 3000; for (const k of ['braises', 'perles', 'seve']) r[k] = 800; for (const k of ['cristal', 'perle_noire', 'graine_or']) r[k] = 60; }
+    if (process.env.CLANS_TEST_VICTOIRES) ctx.p.stats.victoires = +process.env.CLANS_TEST_VICTOIRES;   // v112 : tests (héros déjà monté)
     if (process.env.CLANS_TEST_NIVEAU) ctx.p.stats.victoires = P.xpPourNiveau(+process.env.CLANS_TEST_NIVEAU);   // tests : un personnage de haut niveau
     return { ok: true };
   },

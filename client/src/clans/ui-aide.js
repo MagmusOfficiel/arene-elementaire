@@ -4,6 +4,7 @@
 //  commandes, les ressources (à quoi elles servent, où les trouver),
 //  les statuts du combat et les systèmes du jeu.
 // =====================================================================
+import { toucheFermer, NOM_FERMER } from './touches.js';
 import { CLASSES, ELEMENTS, RARES, STATUTS } from '../../../shared/clans/cartes.js';
 import { $, ICO_RESS, esc, p } from './ui-commun.js';
 import { dansMonde, menuBarre, monde, ouvrir } from './ui-monde.js';
@@ -17,7 +18,7 @@ function contenu() {
     const t = monde.tactile;
     return `${ligne('🚶', 'Se déplacer', t ? 'Le joystick en bas à gauche. Touche la mini-carte pour y aller tout seul.' : '<kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou les flèches. Un clic sur la carte ou la mini-carte t’y emmène.')}
       ${ligne('✋', 'Agir', t ? 'Le gros bouton ✋ quand une action s’affiche (autel, portail, maison, marchand…).' : '<kbd>E</kbd> quand une action s’affiche en bas de l’écran (autel, portail, maison, marchand…).')}
-      ${ligne('⌨️', 'Raccourcis', t ? 'Tout est dans la barre du haut et le menu ☰.' : '<kbd>J</kbd> quêtes · <kbd>P</kbd> passe · <kbd>F</kbd> familiers · <kbd>N</kbd> écurie · <kbd>H</kbd> ta fiche · <kbd>U</kbd> ascension · <kbd>M</kbd> son · <kbd>?</kbd> cette aide · <kbd>Échap</kbd> fermer.<br>En combat : <kbd>1</kbd>…<kbd>9</kbd> jouer une carte · <kbd>E</kbd> fin du tour · <kbd>V</kbd> vitesse · clic droit annuler.')}
+      ${ligne('⌨️', 'Raccourcis', t ? 'Tout est dans la barre du haut et le menu ☰.' : `<kbd>J</kbd> quêtes · <kbd>P</kbd> passe · <kbd>F</kbd> familiers · <kbd>N</kbd> écurie · <kbd>H</kbd> ta fiche · <kbd>U</kbd> ascension · <kbd>M</kbd> son · <kbd>?</kbd> cette aide · <kbd>${NOM_FERMER}</kbd> fermer.<br>En combat : <kbd>1</kbd>…<kbd>9</kbd> jouer une carte · <kbd>E</kbd> fin du tour · <kbd>V</kbd> vitesse · clic droit annuler.`)}
       ${ligne('🎯', 'Le but', 'Fais grandir ton personnage et ton clan : tire des cartes à l’autel, construis ton deck, pars en expédition, améliore tes cartes, et affronte les autres joueurs en duel et dans l’arène.')}
       ${ligne(CLASSES[p.classe]?.ico || '🎴', 'Ta classe', `Ton talent de ${esc(CLASSES[p.classe]?.nom || 'classe')} : ${esc(CLASSES[p.classe]?.desc || '')} Tu ne tires et ne joues que <b>les cartes de ta classe</b> (marquées ${CLASSES[p.classe]?.ico || ''}), plus les cartes d’élément et neutres. Au <b>niveau 20</b> : l’Ascension (menu ☰, touche U) t’ouvre une branche avec un talent et des sorts en plus.`)}
       ${ligne('🏠', 'Ta maison', 'Ta parcelle produit des ressources même quand tu n’es pas là. Passe récolter, et améliore ses bâtiments.')}`;

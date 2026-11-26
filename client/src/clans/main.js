@@ -10,7 +10,9 @@
 // Le code est réparti dans les modules ui-*.js (v51) ; ici, seulement le démarrage.
 // ui-commun.js ne dépend d'aucun autre module ui-* : il est évalué en premier.
 import './i18n.js';   // v107 : en premier, pour traduire la page dès sa construction
+import './style2.js';   // v112 : le réglage « nouveau style » (avant le reste)
 import './style.css';
+import './style2.css';
 import * as C from '../../../shared/clans/combat.js';
 import * as P from '../../../shared/clans/profil.js';
 import * as X from '../../../shared/clans/expedition.js';

@@ -198,7 +198,11 @@ export const QUETES_ZONE = {};
 for (const id of Object.keys(QUETES)) { const z = zoneDe(id); if (z) (QUETES_ZONE[z] ||= []).push(id); }
 const VILLAGES = new Set(['feu', 'eau', 'plante']);
 // l'XP d'une quête pour ce joueur : les quêtes de village ne rapportent de l'XP que dans son propre village
-export const xpQuete = (p, id) => { const q = QUETES[id]; if (!q?.xp) return 0; const z = zoneDe(id); return VILLAGES.has(z) && z !== p?.clan ? 0 : q.xp; };
+// v112 : les quêtes rapportaient trop (les joueurs dépassaient le niveau de la zone suivante) : 40 % de moins.
+// Les quêtes d’une zone donnent maintenant environ 60 % de l’XP pour atteindre la zone suivante ;
+// les expéditions font le reste. Pour régler, il suffit de changer ce coefficient (et le test de calibrage).
+export const COEF_XP_QUETES = 0.6;
+export const xpQuete = (p, id) => { const q = QUETES[id]; if (!q?.xp) return 0; const z = zoneDe(id); return VILLAGES.has(z) && z !== p?.clan ? 0 : Math.max(1, Math.round(q.xp * COEF_XP_QUETES)); };
 export function xpQuetes(p) { let x = 0; for (const [id, s] of Object.entries(p?.pnjQ || {})) if (s?.fait) x += xpQuete(p, id); return x; }
 // la quête qu'un habitant propose en ce moment : la première pas encore rendue (null : il n'a plus rien)
 export function queteDe(p, pnj) { for (const id of QUETES_DE[pnj] || []) if (!p?.pnjQ?.[id]?.fait) return id; return null; }

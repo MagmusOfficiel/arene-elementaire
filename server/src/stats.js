@@ -165,6 +165,18 @@ export async function supprimerProfilClans(jeton, cleMaison) {
   if (data.clansProfils?.[jeton]) { delete data.clansProfils[jeton]; dirty = true; }
   return true;
 }
+// v112 (panneau admin) : tous les profils gardés, en résumé { jeton, p } (en base : SCAN puis MGET par paquets)
+export async function listerProfilsClans(max = 2000) {
+  if (persistance !== 'base') return Object.entries(data.clansProfils || {}).slice(0, max).map(([jeton, v]) => ({ jeton, p: v.p, maj: v.maj }));
+  const cles = []; let cur = '0';
+  do { const [c, l] = await redis(['SCAN', cur, 'MATCH', `${DB_CLE}:clans:*`, 'COUNT', '500']); cur = String(c); cles.push(...l); } while (cur !== '0' && cles.length < max);
+  const out = [];
+  for (let i = 0; i < cles.length; i += 100) {
+    const lot = cles.slice(i, i + 100), vals = await redis(['MGET', ...lot]);
+    lot.forEach((k, n) => { try { if (vals[n]) out.push({ jeton: k.slice(`${DB_CLE}:clans:`.length), p: JSON.parse(vals[n]) }); } catch { /* illisible */ } });
+  }
+  return out;
+}
 export async function ecrireProfilClans(jeton, p) {
   if (!jetonValide(jeton) || !p || supprimes.has(jeton)) return;
   if (persistance === 'base') { await redis(['SET', `${DB_CLE}:clans:${jeton}`, JSON.stringify(p)]); return; }

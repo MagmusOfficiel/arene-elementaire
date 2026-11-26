@@ -41,7 +41,7 @@ def serveur():
     if not (RACINE / 'client/dist/index.html').exists():
         print('Le jeu n’est pas compilé : lance d’abord `npm run build`.'); sys.exit(2)
     env = {k: v for k, v in os.environ.items() if not k.startswith('UPSTASH')}
-    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', CLANS_TEST_DEPART='1', CLANS_TEST_MARCHAND='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',
+    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', ADMIN_CLE='test-admin', CLANS_TEST_DEPART='1', CLANS_TEST_MARCHAND='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',
                STATS_FILE=str(Path(tempfile.mkdtemp()) / 'stats.json'))
     pr = subprocess.Popen(['node', 'src/index.js'], cwd=RACINE / 'server', env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     for _ in range(60):
@@ -50,11 +50,13 @@ def serveur():
         except Exception: time.sleep(0.5)
     pr.kill(); print('Le serveur de test ne démarre pas.'); sys.exit(2)
 
-def page(b, nom, mobile=False):
+def page(b, nom, mobile=False, nouveau=False):
     vp = {'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 760}
     ctx = b.new_context(viewport=vp, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     pg = ctx.new_page(); pg.nom = nom
     pg.add_init_script('globalThis.__marchandToujours = true; globalThis.__pasDeCadeau = true; globalThis.__pasDeTuto = true')   # v74 : le marchand ne passe plus qu’une heure sur trois ; v93 : pas de cadeau du jour qui s’ouvre tout seul
+    # v112 : le nouveau style est là par défaut ; les scénarios d'origine jouent dans l'ancien (toute l'interface visible d'emblée)
+    if not nouveau: pg.add_init_script("try { localStorage.setItem('clansStyle', 'ancien') } catch (e) {}")
     pg.on('pageerror', lambda e: erreurs_js.append(f'{nom} : {e}'))
     pg.on('dialog', lambda d: d.accept())
     return pg
@@ -315,6 +317,56 @@ def scenario(b):
     T.wait_for_selector('.salle.possible', timeout=30000); T.locator('.salle.possible').first.click(force=True)
     jouer_combat(T)
     verifier(etat(T, 'p.stats.combats') >= 1, 'un combat joué jusqu’au bout sur téléphone')
+
+    etape('Nouveau style (v112) : accueil et interface progressive')
+    N = page(b, 'Neuf', nouveau=True)
+    N.goto(URL); N.wait_for_selector('#accueil2:not(.cache)', timeout=30000)
+    verifier(N.locator('#ecranClan .creation').is_hidden(), 'l’ancien écran de création est caché')
+    N.click('#a2Jouer'); verifier(N.locator('#a2Go').is_disabled(), '« Jouer » attend le choix du clan')
+    N.click('.a2Clan.eau'); verifier(N.locator('.a2Classe.choisi[data-c="mage"]').count() == 1, 'la classe de l’illustration est déjà choisie')
+    verifier(len(N.input_value('#a2Nom')) >= 3, 'un nom est déjà rempli')
+    N.click('.a2Classe[data-c="escrimeur"]'); N.fill('#a2Nom', 'Neuf'); N.click('#a2Go')
+    N.wait_for_selector('#ecranMonde:not(.cache)', timeout=60000); N.wait_for_timeout(800)
+    verifier(etat(N, '[p.clan, p.classe, p.nom].join()') == 'eau,escrimeur,Neuf', 'personnage créé en un écran')
+    verifier(N.locator('#btDeck').is_hidden() and N.locator('#btQuetes').is_hidden() and N.locator('#btMenu').is_visible(), 'au début, seul le menu est en haut')
+    verifier('Objectif' in N.inner_text('#guideEtape'), 'le guide montre un objectif')
+    N.evaluate("__clans.act('expeCommencer', { terr: 'eau', palier: 1 })"); N.wait_for_timeout(500); N.reload()
+    N.wait_for_selector('.salle.possible', timeout=30000); N.locator('.salle.possible').first.click(force=True)
+    N.wait_for_selector('#combat:not(.cache)', timeout=15000); N.wait_for_timeout(800)
+    verifier(N.locator('#cbHeros .portraitH[data-clan="eau"]').is_visible() and N.locator('#cbSprite').is_hidden(), 'en combat, le héros est un portrait illustré (v114)')
+    verifier('heros/eau_escrimeur.webp' in N.get_attribute('#cbHeros .portraitH', 'style'), 'avec le portrait de sa classe : Escrimeur de l’Eau (v115)')
+    verifier(N.evaluate("fetch('/clans/heros/eau_escrimeur.webp').then(r => r.ok)"), 'l’image du portrait est bien servie')
+    verifier(N.evaluate("Promise.all(['feu','eau','plante'].flatMap(c => ['gardien','berserker','archimage','invocateur','sniper','artificier','duelliste','ombre'].map(b => fetch(`/clans/heros/${c}_${b}.webp`).then(r => r.ok)))).then(l => l.every(Boolean))"), 'les 24 portraits des classes avancées sont servis (v116)')
+    N.evaluate("__clans.act('expeAbandon', {})"); N.wait_for_timeout(500); N.reload(); N.wait_for_selector('#ecranMonde:not(.cache)', timeout=60000); N.wait_for_timeout(600)
+    N.evaluate("document.getElementById('btMenu').click(); document.getElementById('btAide').click()"); N.wait_for_timeout(400)
+    N.keyboard.press('Backspace'); N.wait_for_timeout(300)
+    verifier(N.locator('#fenetre.cache').count() == 1, 'Retour arrière ferme une fenêtre (Échap quitte le plein écran sur CrazyGames) (v117)')
+    N.click('#btMenu'); verifier('Ancien style' in N.inner_text('#btStyle'), 'le menu propose de revenir à l’ancien style')
+
+    etape('Panneau admin des joueurs (v112)')
+    Ad = page(b, 'Admin'); Ad.goto(URL + 'clans/admin-joueurs.html')
+    Ad.fill('#cle', 'mauvaise'); Ad.click('#btCharger'); Ad.wait_for_timeout(600)
+    verifier('Clé incorrecte' in Ad.inner_text('#liste'), 'une mauvaise clé est refusée')
+    Ad.fill('#cle', 'test-admin'); Ad.click('#btCharger'); Ad.wait_for_selector('.ligneJ', timeout=8000)
+    Ad.fill('#recherche', 'Neuf'); Ad.wait_for_timeout(900)
+    verifier(Ad.locator('.ligneJ').count() == 1 and Ad.locator('.ligneJ .pt.on').count() == 1, 'la recherche trouve « Neuf », en ligne')
+    Ad.click('.ligneJ'); Ad.wait_for_selector('#btAppliquer', timeout=5000)
+    e0 = etat(N, 'p.ress.essence')
+    Ad.fill('#niv', '30'); Ad.click('[data-v="essence:1000"]'); Ad.fill('#message', 'Cadeau de test'); Ad.click('#btAppliquer')
+    Ad.wait_for_selector('#retour.ok', timeout=5000)
+    N.wait_for_function('__clans.P.niveau(__clans.p) === 30', timeout=5000)
+    verifier(etat(N, 'p.ress.essence') == e0 + 1000, 'le joueur connecté reçoit 1 000 essences tout de suite')
+    verifier(etat(N, 'c.P.niveau(p)') == 30, 'et passe au niveau 30')
+    verifier('Cadeau de test' in N.inner_text('#chatMsgs'), 'avec un message dans le chat')
+    Ad.click('input[name=mode][value=fixer]'); Ad.fill('input[data-k="eclats"]', '7'); Ad.click('#btAppliquer'); Ad.wait_for_timeout(800)
+    verifier(etat(N, 'p.ress.eclats') == 7, 'fixer une ressource à une valeur exacte')
+    N.close(); Ad.wait_for_timeout(22000)   # la place est gardée 20 s après une coupure
+    Ad.click('#btCharger'); Ad.wait_for_timeout(900); Ad.click('.ligneJ'); Ad.wait_for_selector('#btAppliquer', timeout=5000)
+    Ad.click('input[name=mode][value=ajouter]'); Ad.fill('input[data-k="essence"]', '-500'); Ad.click('#btAppliquer'); Ad.wait_for_selector('#retour.ok', timeout=5000)
+    verifier('hors ligne' in Ad.inner_text('#retour'), 'un joueur hors ligne est modifié dans sa sauvegarde')
+    jet = Ad.get_attribute('.ligneJ', 'data-j')
+    ess = Ad.evaluate(f"fetch('/api/clans/admin/joueur/{jet}', {{ headers: {{ 'x-admin-cle': 'test-admin' }} }}).then(r => r.json()).then(j => j.ress.essence)")
+    verifier(ess == e0 + 500, f'retirer des ressources avec un nombre négatif ({ess})')
 
 
 def main():

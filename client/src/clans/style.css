@@ -1002,3 +1002,11 @@ body.tactile #guide.replie #guideEtape::after { content: ' ▸ (toucher pour lir
 .pnjObjectifs { margin: 8px auto; padding: 0; list-style: none; font-size: 13.5px; line-height: 1.6; text-align: center; }
 .pnjObjectifs li { margin: 2px 0; }
 .xpQ { color: #9fe0ff; }
+/* v111 : confidentialité et conditions */
+.mentionConf { font-size: 11.5px; opacity: .75; margin: 8px auto 0; max-width: 420px; text-align: center; line-height: 1.4; }
+.mentionConf a { color: inherit; text-decoration: underline; }
+.confidentialite { text-align: left; max-width: 640px; margin: 0 auto; }
+.confidentialite h2 { text-align: center; }
+.confidentialite h3 { margin: 14px 0 4px; font-size: 15px; color: #e8c060; }
+.confidentialite ul { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5; }
+.confidentialite .bouton { display: block; margin: 16px auto 0; }

@@ -209,7 +209,10 @@ test('ressources rares : monstres rares, cartes exclusives, géographie', () => 
   const p = P.nouveauProfil('feu', 'T', 0, 'mage'); p.ress.essence = 1e6;
   for (let i = 0; i < 60; i++) for (const x of P.tirer(p, 10, i + 3).cartes) assert.ok(!CARTES[x.id].exclusif, x.id);
   assert.equal(P.fabriquer(p, 'trident').ok, false);
-  p.ress.perle_noire = 15; assert.ok(P.fabriquer(p, 'trident').ok); assert.equal(p.collection.trident.n, 1); assert.equal(p.ress.perle_noire, 0);
+  // v116 : le Trident est une carte Eau, un joueur du Feu ne peut pas la forger, même avec les perles noires
+  p.ress.perle_noire = 15; assert.equal(P.fabriquer(p, 'trident').ok, false); assert.equal(p.ress.perle_noire, 15);
+  const pe = P.nouveauProfil('eau', 'E', 0, 'mage'); pe.ress.essence = 1e6; pe.ress.perle_noire = 15;
+  assert.ok(P.fabriquer(pe, 'trident').ok); assert.equal(pe.collection.trident.n, 1); assert.equal(pe.ress.perle_noire, 0);
   // un ancien profil reçoit les nouveaux champs
   const v = P.nouveauProfil('eau', 'V', 0); delete v.ress.cristal; delete v.duels; P.completer(v); assert.equal(v.ress.cristal, 0); assert.ok(v.duels);
   // la géographie partagée
