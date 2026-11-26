@@ -521,7 +521,13 @@ export function creerMonde(canvas, rappels) {
     monClan = clan; monNom = nom; maClasse = classe || 'combattant'; maCle = cle || nom;
     const m = maisonDe(clan, maCle); joueur.x = m.x; joueur.y = m.y + 40; cam = { x: joueur.x, y: joueur.y }; actif = true; redim();
   }
-  function redim() { canvas.width = innerWidth * dpr(); canvas.height = innerHeight * dpr(); z = style2 ? Math.max(3, Math.round(canvas.height / 290)) : Math.max(2, Math.round(canvas.height / 400)); }
+  // v118 : le zoom de la carte revient à celui d'avant (réglage de base), et le joueur peut zoomer / dézoomer
+  // (molette sur la carte, touches + et −, boutons ＋ / －) : de −2 à +3 crans, gardé sur l'appareil
+  let cranZoom = (() => { try { const v = +localStorage.getItem('clansZoom'); return Number.isFinite(v) ? Math.max(-2, Math.min(3, Math.round(v))) : 0; } catch { return 0; } })();
+  const zoomBase = () => Math.max(2, Math.round(canvas.height / 400));
+  function redim() { canvas.width = innerWidth * dpr(); canvas.height = innerHeight * dpr(); z = Math.max(1, zoomBase() + cranZoom); }
+  function zoomer(d) { const n = Math.max(-2, Math.min(3, cranZoom + d)); if (n === cranZoom || zoomBase() + n < 1) return; cranZoom = n; try { localStorage.setItem('clansZoom', n); } catch { /* rien */ } redim(); }
+  canvas.addEventListener('wheel', (e) => { if (!actif) return; e.preventDefault(); zoomer(e.deltaY < 0 ? 1 : -1); }, { passive: false });
   addEventListener('resize', redim);
   let ox = 0, oy = 0;   // décalage écran du monde (entier)
 
@@ -556,6 +562,7 @@ export function creerMonde(canvas, rappels) {
     const k = e.key.toLowerCase();
     if (placement && (k === 'e' || k === ' ' || k === 'enter')) { dispatchEvent(new CustomEvent('clans:poserMaison')); e.preventDefault(); return; }
     if (placement && (k === 'escape' || k === 'backspace')) { dispatchEvent(new CustomEvent('clans:annulerMaison')); e.preventDefault(); return; }
+    if (k === '+' || k === '=' || k === '-' || k === '_') { zoomer(k === '+' || k === '=' ? 1 : -1); e.preventDefault(); return; }
     if (DIR[k]) { touches.add(k); but = null; e.preventDefault(); } else if (k === 'e' || k === ' ') { agir(); e.preventDefault(); }
   });
   addEventListener('keyup', (e) => touches.delete(e.key.toLowerCase()));
@@ -700,30 +707,7 @@ export function creerMonde(canvas, rappels) {
 
   // ---------- dessin ----------
   const R = Math.round;
-  // v112 (nouveau style) : le sol plus vivant et adouci — la partie visible est floutée à sa taille réelle
-  // (petite image), puis posée lissée par-dessus le sol net : on garde le détail, sans le grain
-  const doux = document.createElement('canvas'), gd = doux.getContext('2d');
-  function solDoux(x0, y0, x1, y1) {
-    const w = x1 - x0, h = y1 - y0, dx = ox + x0 * z, dy = oy + y0 * z;
-    ctx.filter = 'saturate(1.18) brightness(1.04)';
-    ctx.drawImage(fond, x0, y0, w, h, dx, dy, w * z, h * z);
-    ctx.filter = 'none';
-    if (leger) return;
-    if (doux.width !== w || doux.height !== h) { doux.width = w; doux.height = h; }
-    gd.filter = 'blur(1.1px) saturate(1.25)'; gd.clearRect(0, 0, w, h); gd.drawImage(fond, x0, y0, w, h, 0, 0, w, h); gd.filter = 'none';
-    ctx.globalAlpha = 0.8; ctx.imageSmoothingEnabled = true; ctx.drawImage(doux, 0, 0, w, h, dx, dy, w * z, h * z);
-    ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = false;
-  }
-  // v112 : la lumière (soleil chaud en haut, bords plus sombres)
-  function lumiere() {
-    const W = canvas.width, Hh = canvas.height;
-    const g = ctx.createLinearGradient(0, 0, W * 0.4, Hh);
-    g.addColorStop(0, 'rgba(255,214,150,.16)'); g.addColorStop(0.55, 'rgba(255,214,150,0)'); g.addColorStop(1, 'rgba(60,40,120,.14)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hh);
-    const v = ctx.createRadialGradient(W / 2, Hh / 2, Math.min(W, Hh) * 0.45, W / 2, Hh / 2, Math.hypot(W, Hh) * 0.6);
-    v.addColorStop(0, 'rgba(8,4,20,0)'); v.addColorStop(1, 'rgba(8,4,20,.42)');
-    ctx.fillStyle = v; ctx.fillRect(0, 0, W, Hh);
-  }
+  // v118 : le sol adouci et la lumière du nouveau style (v112) ont été retirés : la carte garde son rendu d'origine
   function ombre(x, y, w) { if (style2) { ctx.fillStyle = 'rgba(10,6,20,.26)'; ctx.beginPath(); ctx.ellipse(x, y + 0.5, w * 0.55, 2.6, 0, 0, Math.PI * 2); ctx.fill(); return; } ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(R(x - w / 2), R(y - 1), R(w), 3); ctx.fillRect(R(x - w / 2 + 2), R(y - 2), R(w - 4), 5); }
   function dessinerPerso(p, t) {
     const f = p.marche ? 1 + (Math.floor(t * 8) % 2) : 0, row = LIGNE_DIR[p.dir] ?? 0;
@@ -854,8 +838,7 @@ export function creerMonde(canvas, rappels) {
     ctx.fillStyle = '#0a0810'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     // le sol : seulement la partie visible
     const x0 = Math.max(0, Math.floor(-ox / z)), y0 = Math.max(0, Math.floor(-oy / z)), x1 = Math.min(MONDE.l, Math.ceil((canvas.width - ox) / z) + 1), y1 = Math.min(MONDE.h, Math.ceil((canvas.height - oy) / z) + 1);
-    if (style2) solDoux(x0, y0, x1, y1);
-    else ctx.drawImage(fond, x0, y0, x1 - x0, y1 - y0, ox + x0 * z, oy + y0 * z, (x1 - x0) * z, (y1 - y0) * z);
+    ctx.drawImage(fond, x0, y0, x1 - x0, y1 - y0, ox + x0 * z, oy + y0 * z, (x1 - x0) * z, (y1 - y0) * z);
     ctx.setTransform(z, 0, 0, z, ox, oy); ctx.imageSmoothingEnabled = false;
     const t0x = Math.floor(x0 / 16), t0y = Math.floor(y0 / 16), t1x = Math.min(NT.l - 1, Math.floor(x1 / 16)), t1y = Math.min(NT.h - 1, Math.floor(y1 / 16));
     dessinerLiquides(t0x, t0y, t1x, t1y);
@@ -932,7 +915,6 @@ export function creerMonde(canvas, rappels) {
     }
     // textes, à l'échelle de l'écran
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (style2) lumiere();
     const s = dpr(), ex = (x) => ox + x * z, ey = (y) => oy + y * z;
     // les étiquettes ne se chevauchent plus (v61) : on les range par importance, chacune cherche une
     // place libre un peu plus haut, et les moins importantes disparaissent s'il n'y a pas de place
@@ -1102,5 +1084,5 @@ export function creerMonde(canvas, rappels) {
   requestAnimationFrame(boucle);
   // v101 : ce que la grande carte a besoin de savoir
   const etatCarte = () => ({ fond, mini, joueur, autres: [...autres.values()], mondial, filons, clan: monClan, maison: posMaison(monClan, maCle), cible, pnj: pnjIci(temps), sanct });
-  return { etatCarte, get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
+  return { zoomer, etatCarte, get leger() { return leger; }, majApparence: (c) => { monApp = c || ''; }, preparer, demarrer, majAutres, majFilons, majMondial, majMaParcelle, majSanctuaires, majProjets, majFamilier: (id) => { monFam = id || ''; }, majTitre: (t, c = '') => { monTitre = t || ''; monTitreC = c || ''; }, majNom: (n, cle) => { monNom = n || monNom; maCle = cle || maCle; }, majMonture: (id) => { maMonture = id || ''; }, majDeco: (c, b) => { maDeco = c || ''; maBranche = b || ''; }, placer: (v) => { placement = !!v; }, parler, proches: (d) => [...autres.values()].filter((a) => a.statut !== 'expedition' && Math.hypot(a.x - joueur.x, a.y - joueur.y) < d).map((a) => ({ id: a.id, nom: a.nom, clan: a.clan, niv: a.niv })), get placement() { return placement; }, emplacement: () => placementCourant(), get monture() { return maMonture; }, get marchand() { return marchand; }, get joueur() { return joueur; }, tactile, agir, action: () => (actif && rappels.libre() ? lieuProche() : null), pousser: (x, y) => { joy = { x, y }; }, guider: (c) => { cible = c; }, maison: () => posMaison(monClan, maCle), territoire: () => territoireDe(joueur.x, joueur.y), arreter: () => { touches.clear(); but = null; } };
 }

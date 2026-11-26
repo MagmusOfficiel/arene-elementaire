@@ -1012,3 +1012,8 @@ Page **`/clans/admin-joueurs.html`** (lien aussi depuis `/clans/admin.html`). Co
 - **Petit écran (800×450, la taille testée par CrazyGames) :** guide, barre du haut et boutons plus compacts, aide clavier masquée.
 - **Deck :** les filtres ne montrent plus que l'élément de son clan (avec les cartes de classe et neutres).
 - **Nouvelles vidéos** (nouveau style, sans son, 19 s, la couverture en première image) : 1920×1080 et 1080×1620. Elles montrent l'accueil, le choix du clan, le monde, la carte d'expédition et un combat.
+
+## Carte : rendu d'origine et zoom réglable (v118)
+
+- Le zoom plus grand, le sol adouci et la lumière du nouveau style ont été retirés de la carte : elle retrouve son rendu d'origine. Le reste du nouveau style (accueil, interface, combat, portraits) ne change pas.
+- **Zoom réglable :** molette sur la carte, touches + et −, ou boutons ＋ / － à gauche de la mini-carte (à droite en bas sur petit écran). De 2 crans en arrière à 3 crans en avant du zoom de base, gardé sur l'appareil (`localStorage.clansZoom`).

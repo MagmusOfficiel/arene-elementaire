@@ -1010,3 +1010,11 @@ body.tactile #guide.replie #guideEtape::after { content: ' ▸ (toucher pour lir
 .confidentialite h3 { margin: 14px 0 4px; font-size: 15px; color: #e8c060; }
 .confidentialite ul { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5; }
 .confidentialite .bouton { display: block; margin: 16px auto 0; }
+
+/* v118 : zoom de la carte (à gauche de la mini-carte) */
+#zoomMonde { position: absolute; right: 222px; bottom: 40px; z-index: 4; display: flex; flex-direction: column; gap: 6px; }
+#zoomMonde button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(232,192,96,.45); background: rgba(8,6,12,.75); color: var(--papier); font: 700 18px/1 'Nunito', system-ui, sans-serif; cursor: pointer; }
+#zoomMonde button:hover { background: rgba(232,192,96,.2); }
+html.style2 #zoomMonde button { border-radius: 999px; background: rgba(20,12,40,.62); backdrop-filter: blur(8px); border-color: rgba(255,255,255,.22); }
+@media (max-width: 760px), (max-height: 500px) { #zoomMonde { right: 12px; bottom: 12px; flex-direction: row; } }
+body.tactile #zoomMonde { bottom: auto; top: calc(var(--hautBarre, 56px) + 150px); right: 12px; flex-direction: column; }

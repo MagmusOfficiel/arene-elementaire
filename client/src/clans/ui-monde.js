@@ -346,6 +346,7 @@ addEventListener('keydown', (e) => { if ((e.key === 'm' || e.key === 'M') && e.t
 $('fenetre').addEventListener('pointerdown', (e) => { if (e.target === $('fenetre')) fermer(); });
 addEventListener('keydown', (e) => { if (toucheFermer(e) && !$('fenetre').classList.contains('cache')) { e.preventDefault(); fermer(); } });   // v117 : Échap ou ⌫ (Échap quitte le plein écran sur CrazyGames)
 $('btParcelle').onclick = () => fenetreParcelle();
+$('btZoomPlus').onclick = () => monde.zoomer(1); $('btZoomMoins').onclick = () => monde.zoomer(-1);   // v118
 $('btDeck').onclick = () => fenetreDeck();
 export const guide = (() => {
   const CLEG = 'clansGuide';

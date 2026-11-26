@@ -330,6 +330,8 @@ def scenario(b):
     verifier(etat(N, '[p.clan, p.classe, p.nom].join()') == 'eau,escrimeur,Neuf', 'personnage créé en un écran')
     verifier(N.locator('#btDeck').is_hidden() and N.locator('#btQuetes').is_hidden() and N.locator('#btMenu').is_visible(), 'au début, seul le menu est en haut')
     verifier('Objectif' in N.inner_text('#guideEtape'), 'le guide montre un objectif')
+    z0 = N.evaluate("document.getElementById('monde').width"); N.click('#btZoomPlus'); N.wait_for_timeout(200)
+    verifier(N.evaluate("+localStorage.getItem('clansZoom')") == 1, 'le bouton ＋ zoome la carte, réglage gardé (v118)'); N.click('#btZoomMoins')
     N.evaluate("__clans.act('expeCommencer', { terr: 'eau', palier: 1 })"); N.wait_for_timeout(500); N.reload()
     N.wait_for_selector('.salle.possible', timeout=30000); N.locator('.salle.possible').first.click(force=True)
     N.wait_for_selector('#combat:not(.cache)', timeout=15000); N.wait_for_timeout(800)

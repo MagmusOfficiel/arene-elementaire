@@ -2630,5 +2630,7 @@
  "⏭ Plus d’énergie ? <b>Fin du tour</b> : les ennemis jouent, puis à toi !": "⏭ Out of energy? <b>End turn</b>: the enemies act, then it’s your turn again!",
  "✨ Nouveau style": "✨ New style",
  "🎴 Chaque clan ne joue plus que les cartes de son élément (et les cartes neutres) : tes {0} carte{1} d’autres éléments {2} en {3} éclats.": "🎴 Each clan now plays only the cards of its own element (and neutral cards): your {0} card{1} from other elements {2} into {3} shards.",
- "Cette carte est réservée au {0}.": "This card is reserved for the {0}."
+ "Cette carte est réservée au {0}.": "This card is reserved for the {0}.",
+ "Zoomer (molette ou +)": "Zoom in (wheel or +)",
+ "Dézoomer (molette ou −)": "Zoom out (wheel or −)"
 }
