@@ -25,6 +25,8 @@ import * as DC from '../../shared/clans/deco.js';
 import * as HF from '../../shared/clans/hautsfaits.js';
 import * as T from '../../shared/clans/territoires.js';
 import * as A from '../../shared/clans/arene.js';
+import * as CO from '../../shared/clans/consecration.js';
+import { CHEFS } from '../../shared/clans/cartes.js';
 import * as AP from '../../shared/clans/apparence.js';
 import { noterDuel } from './clansEquilibrage.js';
 import { deckDepart } from '../../shared/clans/cartes.js';
@@ -66,7 +68,7 @@ export class ClansRoom extends Room {
     sur('fiche', (c, m) => {
       const k = this.joueurs.get(String(m.id || '')); if (!k?.p) return;
       const p = k.p, a = p.arene || {};
-      c.send('fiche', { id: String(m.id), nom: k.nom, clan: k.clan, classe: p.classe, branche: p.branche || '', niv: k.niv, app: k.app || '', fam: k.fam || '', titre: k.titre || '',
+      c.send('fiche', { id: String(m.id), nom: k.nom, clan: k.clan, classe: p.classe, branche: p.branche || '', chef: p.chef || '', niv: k.niv, app: k.app || '', fam: k.fam || '', titre: k.titre || '',
         arene: { elo: a.elo || 1000, meilleur: Math.max(a.meilleur || 0, p.stats.areneMax || 0), v: a.v || 0, d: a.d || 0 }, duels: { g: p.duels?.gagnes || 0, p: p.duels?.perdus || 0 },
         stats: { victoires: p.stats.victoires || 0, boss: p.stats.boss || 0, cauchemar: p.stats.cauchemar || 0, expeditions: p.stats.expeditions || 0 },
         hf: HF.IDS.map((id) => [id, HF.palierDe(p, id)]).filter((x) => x[1] > 0), statut: k.statut || 'libre', pid: pidDe(k.jeton), tour: TO.record(p) });
@@ -138,6 +140,7 @@ export class ClansRoom extends Room {
         if (ctx.p) { j.p = ctx.p; this.arriver(c, j); }
         if (r.ok) { j.sale = true; this.identite(j); }
         if (r.ok && j.groupe && ['expeCombat', 'expeRelique', 'expeMystere', 'expeAbandon'].includes(m.type)) this.apresActionGroupe(c, j, m.type, r.res);
+        if (r.ok && m.type === 'seigneurCombat' && r.res?.premiere) this.broadcast('chat', { systeme: true, t: `👑 ${j.nom} a vaincu ${r.res.nom} pour la première fois !` });   // v124
         if (r.ok && m.type === 'renommer') this.broadcast('chat', { systeme: true, t: `${ancienNom} s’appelle désormais ${j.nom}.` });
         rep({ ok: !!r.ok, raison: r.raison, res: r.res });
       } catch (e) { noterErreur(`clans · act ${m.type}`, e); rep({ ok: false, raison: 'Erreur du serveur.' }); }
@@ -181,7 +184,7 @@ export class ClansRoom extends Room {
       j.manche = null; j.statut = 'libre'; j.prochaineManche = Date.now() + MONDIAL.pause;
       const b = this.mondial; if (!b || b.id !== mc.id) return;
       // on rejoue la manche du joueur : seuls les dégâts vraiment infligés comptent
-      const pv = P.pvMax(j.p), c2 = rejouer({ deck: P.deckCombat(j.p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[mc.terr], pv: mc.pv }], palier: PALIER_MONDIAL, graine: mc.graine, classe: j.p.classe, branche: j.p.branche || null, familier: F.actif(j.p) }, m.coups);
+      const pv = P.pvMax(j.p), c2 = rejouer({ deck: P.deckCombat(j.p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[mc.terr], pv: mc.pv }], palier: PALIER_MONDIAL, graine: mc.graine, classe: j.p.classe, branche: j.p.branche || null, clan: j.p.clan, chef: j.p.chef || null, familier: F.actif(j.p) }, m.coups);
       const reel = c2.ennemis.reduce((t, e) => t + Math.max(0, e.pvMax - Math.max(0, e.pv)), 0);
       const deg = Math.min(mc.pv, degatsValides(reel, mc.debut, Date.now(), b.terr)); if (!deg) return;
       const cle = j.jeton, pa = b.participants.get(cle) || { nom: j.nom, clan: j.clan, jeton: j.jeton, deg: 0 };
@@ -211,6 +214,18 @@ export class ClansRoom extends Room {
       if ((j.protege || 0) > t) return refus('Tu sors d’un duel : reprends ton souffle un instant.');
       if (!j.deck || !cible.deck) return refus('Deck introuvable, réessaie dans un instant.');
       this.lancerDuel(c, j, cl, cible);
+    });
+    // v122 : la Consécration — un duel contre le Fantôme de l'ancien chef (joué par le serveur)
+    sur('consecration', (c, m, j) => {
+      const refus = (t) => c.send('info', { t });
+      if (!CO.peut(j.p)) return refus(j.p.chef ? 'Tu es déjà chef de guerre.' : 'Il faut être niveau 50 avec une branche d’Ascension.');
+      if (j.duel || j.manche) return refus('Termine d’abord ton combat en cours.');
+      if (j.p.expedition || j.statut === 'expedition') return refus('Termine ton expédition d’abord.');
+      if (!j.deck) return refus('Deck introuvable, réessaie dans un instant.');
+      CO.essai(j.p); j.sale = true;
+      const f = CO.fantome(j.p), faux = { sessionId: `fantome${++this.nReflet}`, send() {} };
+      c.send('info', { t: `👻 ${esc(f.nom)} se dresse devant toi…` });
+      this.lancerDuel(c, j, faux, { ...f, essence: 0 }, null, { consec: CO.chefVise(j.p), pv: [CO.PV_CONSACRE, +process.env.CLANS_TEST_FANTOME_PV || CO.PV_FANTOME], bot: 1 });   // (tests : un fantôme fragile)
     });
     sur('duelJouer', (c, m, j) => { const x = this.duels.get(c.sessionId); if (x && jouerDuel(x.d, x.ids.indexOf(c.sessionId), Math.floor(num(m.i, -1)))) this.majDuel(x); });
     sur('duelFin', (c, m, j) => { const x = this.duels.get(c.sessionId); if (x && finTourDuel(x.d, x.ids.indexOf(c.sessionId))) this.majDuel(x); });
@@ -460,13 +475,14 @@ export class ClansRoom extends Room {
   }
   listeFilons() { return [...this.filons.values()]; }
 
-  lancerDuel(ca, a, cb, b, arene = null) {
+  // o (v122) : { consec: chef visé, pv: [PV fixes], bot: 1 } pour le duel de Consécration
+  lancerDuel(ca, a, cb, b, arene = null, o = {}) {
     this.file = this.file.filter((f) => f.sid !== ca.sessionId && f.sid !== cb.sessionId);
-    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, branche: a.branche, pvMax: a.pvMax, deck: a.deck, app: a.app, familier: a.fam }, { nom: b.nom, clan: b.clan, classe: b.classe, branche: b.branche, pvMax: b.pvMax, deck: b.deck, app: b.app, familier: b.fam }, (Math.random() * 1e9) >>> 0);
-    const x = { d, decks: [a.deck, b.deck], ids: [ca.sessionId, cb.sessionId], clients: [ca, cb], noms: [a.nom, b.nom], essence: [a.essence || 0, b.essence || 0], tourVu: 0, limite: 0, arene, bot: arene?.bot ?? null };
+    const d = nouveauDuel({ nom: a.nom, clan: a.clan, classe: a.classe, branche: a.branche, chef: o.consec ? null : a.chef, pvMax: o.pv?.[0] ?? a.pvMax, deck: a.deck, app: a.app, familier: a.fam }, { nom: b.nom, clan: b.clan, classe: b.classe, branche: b.branche, chef: b.chef, fantome: b.fantome, pvMax: o.pv?.[1] ?? b.pvMax, deck: b.deck, app: b.app, familier: b.fam }, (Math.random() * 1e9) >>> 0);
+    const x = { d, decks: [a.deck, b.deck], ids: [ca.sessionId, cb.sessionId], clients: [ca, cb], noms: [a.nom, b.nom], essence: [a.essence || 0, b.essence || 0], tourVu: 0, limite: 0, arene, bot: arene?.bot ?? o.bot ?? null, consec: o.consec || null };
     a.duel = b.duel = true; a.statut = b.statut = arene ? 'arene' : 'duel';
     this.duels.set(ca.sessionId, x); this.duels.set(cb.sessionId, x);
-    if (!arene) {
+    if (!arene && !x.consec) {
       cb.send('info', { t: `⚔️ ${a.nom} t'attaque sur le territoire de son clan !` });
       this.broadcast('chat', { systeme: true, t: `⚔️ ${a.nom} défie ${b.nom} en duel !` });
     }
@@ -479,13 +495,13 @@ export class ClansRoom extends Room {
       x.minuteur = this.clock.setTimeout(() => { if (!x.d.fini) { finTourDuel(x.d, x.d.actif); this.majDuel(x); } }, 40000);
       x.limite = Date.now() + 40000;
     }
-    x.clients.forEach((c, q) => this.joueurs.get(c.sessionId)?.absent || c.send('duel', { ...vueDuel(x.d, q), limite: x.limite, arene: x.arene ? { moi: x.arene.elos[q], adv: x.arene.elos[1 - q], reflet: x.arene.reflet } : null }));
+    x.clients.forEach((c, q) => this.joueurs.get(c.sessionId)?.absent || c.send('duel', { ...vueDuel(x.d, q), limite: x.limite, arene: x.arene ? { moi: x.arene.elos[q], adv: x.arene.elos[1 - q], reflet: x.arene.reflet } : null, consec: x.consec }));
     // le Reflet joue son tour, carte après carte, comme un joueur
     if (x.bot !== null && x.d.actif === x.bot && !x.d.fini && !x.botAttend) {
       x.botAttend = true;
       this.clock.setTimeout(() => {
         x.botAttend = false; if (x.fin || x.d.fini) return;
-        const i = A.coupBot(x.d, x.bot);
+        const i = x.consec ? CO.coupFantome(x.d, x.bot) : A.coupBot(x.d, x.bot);   // v122 : le fantôme calcule ses enchaînements
         if (!(i >= 0 && jouerDuel(x.d, x.bot, i))) finTourDuel(x.d, x.bot);
         this.majDuel(x);
       }, 700 + Math.random() * 700);
@@ -504,6 +520,7 @@ export class ClansRoom extends Room {
   terminerDuel(x, gagnant, raison) {
     if (x.fin) return; x.fin = true; x.minuteur?.clear();
     // statistiques : seulement les duels joués jusqu'au bout (ni abandon ni fuite)
+    if (x.consec) return this.finConsecration(x, gagnant, raison);
     if (gagnant !== null && raison === 'pv') { const pj = (q) => x.d.j[q]; noterDuel({ gagnant: { classe: pj(gagnant).classe, clan: pj(gagnant).clan, deck: x.decks?.[gagnant] }, perdant: { classe: pj(1 - gagnant).classe, clan: pj(1 - gagnant).clan, deck: x.decks?.[1 - gagnant] }, arene: !!x.arene, reflet: !!x.arene?.reflet }); }
     if (x.arene) return this.finArene(x, gagnant, raison);
     const butin = gagnant === null ? 0 : BUTIN_DUEL(x.essence[1 - gagnant]);
@@ -522,6 +539,20 @@ export class ClansRoom extends Room {
     this.broadcast('chat', { systeme: true, t: gagnant === null ? `Le duel entre ${x.noms[0]} et ${x.noms[1]} se termine sur une égalité.` : `🏆 ${x.noms[gagnant]} a vaincu ${x.noms[1 - gagnant]} en duel${raison === 'abandon' ? ' (abandon)' : raison === 'depart' ? ' (fuite)' : ''} !` });
   }
 
+  // v122 : la fin du duel de Consécration (le joueur est toujours le n° 0)
+  finConsecration(x, gagnant, raison) {
+    const c = x.clients[0], j = this.joueurs.get(c.sessionId);
+    x.clients.forEach((k) => this.duels.delete(k.sessionId));
+    const issue = gagnant === 0 && raison === 'pv' ? 'victoire' : gagnant === null && raison === 'pv' ? 'nul' : 'defaite';
+    let chef = null;
+    if (j) {
+      j.duel = false; j.statut = 'libre'; j.protege = Date.now() + 15000;
+      if (j.p && issue === 'victoire') { const r = CO.consacrer(j.p); if (r.ok) chef = r.chef; }
+      if (j.p) { j.sale = true; this.identite(j); this.pousserProfil(c, j); }
+    }
+    c.send('duelResultat', { issue, butin: 0, adv: x.noms[1], raison, vue: vueDuel(x.d, 0), consec: { chef: chef || x.consec, victoire: !!chef, essais: j?.p?.consecration?.essais || 1 } });
+    if (chef && j) this.broadcast('chat', { systeme: true, t: `⚜️ ${j.nom} a vaincu le fantôme de l’ancien chef et devient ${CHEFS[chef].nom} du ${NOMS_CLANS[j.clan]} !` });
+  }
   finArene(x, gagnant, raison) {
     const jour = Q.jourDe();
     x.clients.forEach((c, q) => {
@@ -573,7 +604,7 @@ export class ClansRoom extends Room {
   identite(j) {
     const p = j.p; if (!p) return;
     j.nom = p.nom; j.clan = p.clan; j.classe = p.classe || ''; j.branche = p.branche || null; j.niv = P.niveau(p);
-    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p); j.maison = cleMaison(p); j.mont = MT.actif(p) || ''; j.deco = DC.code(p); j.branche = p.branche || null;
+    j.deck = P.deckCombat(p); j.pvMax = PV_DUEL(P.pvMax(p), j.classe); j.essence = p.ress.essence; j.parcelle = codeParcelle(p.parcelle); j.app = AP.code(p); j.fam = F.actif(p) || ''; j.titre = HF.titreDe(p); j.maison = cleMaison(p); j.mont = MT.actif(p) || ''; j.deco = DC.code(p); j.branche = p.branche || null; j.chef = p.chef || null;
   }
   // ---------- expéditions en groupe (v78) ----------
   sidDe(k) { for (const [sid, x] of this.joueurs) if (x === k) return sid; return null; }

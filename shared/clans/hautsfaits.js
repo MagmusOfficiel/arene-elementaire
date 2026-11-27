@@ -5,9 +5,10 @@
 //  réclamer. Chaque palier atteint débloque un titre que le joueur peut
 //  afficher sous son nom (p.titre = 'victoires:2').
 // =====================================================================
-import { BRANCHES, NIV_MAX } from './cartes.js';
+import { BRANCHES, CHEFS, NIV_MAX } from './cartes.js';
 import * as QP from './quetesPnj.js';
 import * as GR from './grimoire.js';
+import * as SG from './seigneurs.js';
 import { possedes as familiers } from './familiers.js';
 
 const v = (p) => p.stats || {};
@@ -29,6 +30,7 @@ export const HAUTS_FAITS = {
   cimes: { nom: 'Les Cimes', ico: '⚡', txt: 'parties de l’histoire des Cimes Orageuses finies', n: [1, 3, 5], titres: ['Voyageur des cimes', 'Chasseur d’orages', 'Celui qui ferma l’Œil'], val: (p) => QP.histoireCimes(p) },   // v96
   ciel: { nom: 'Le Ciel', ico: '🌌', txt: 'parties de l’histoire des Îles Célestes finies', n: [1, 3, 5], titres: ['Marcheur des nuées', 'Chevalier des étoiles', 'Celui qui éteignit l’Étoile mère'], val: (p) => QP.histoireCiel(p) },   // v99
   ambre: { nom: 'Le Désert', ico: '🏜️', txt: 'parties de l’histoire du Désert d’Ambre finies', n: [1, 3, 5], titres: ['Voyageur des sables', 'Briseur de malédictions', 'Celui qui éteignit le Soleil noir'], val: (p) => QP.histoireAmbre(p) },   // v98
+  seigneurs: { nom: 'Les Seigneurs', ico: '👑', txt: 'Seigneurs de chapitre vaincus', n: [1, 3, 5], titres: ['Défieur de Seigneurs', 'Fléau des Seigneurs', 'Souverain des cinq chapitres'], val: (p) => SG.nbVaincus(p) },   // v124
   tour: { nom: 'La Tour', ico: '🗼', txt: 'meilleur étage de la Tour infinie', n: [10, 50, 100], titres: ['Grimpeur', 'Conquérant de la Tour', 'Maître de la Tour'], val: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) },   // v91
   sommet: { nom: 'Au-delà du sommet', ico: '🌌', txt: 'meilleur étage au-delà de 100 dans la Tour infinie', n: [125, 150, 200], titres: ['Au-delà du ciel', 'Gardien de l’Infini', 'Légende de la Tour'], val: (p) => Math.max(p.tour?.record || 0, p.tour?.max || 0) },   // v99
   familiers: { nom: 'Ami des bêtes', ico: '🐾', txt: 'familiers', n: [1, 3, 6], titres: ['Ami des bêtes', 'Dresseur', 'Gardien de la ménagerie'], val: (p) => familiers(p).length },
@@ -41,9 +43,9 @@ export const etat = (p) => IDS.map((id) => ({ id, ...HAUTS_FAITS[id], v: HAUTS_F
 export const total = (p) => IDS.reduce((s, id) => s + palierDe(p, id), 0);   // sur 3 × 13
 export const MAX = IDS.length * 3;
 // les titres : 'id:palier'
-// le titre de sa branche (v69) : 'br:<branche>'
-export const titreValide = (p, t) => { if (typeof t !== 'string') return false; const [id, n] = t.split(':'); if (id === 'br') return !!BRANCHES[n] && p.branche === n; if (id === 'vil') return !!QP.TITRES[n] && QP.amiDe(p, n); if (id === 'gri') return !!GR.TITRES[n] && GR.aTitre(p, n); return !!HAUTS_FAITS[id] && +n >= 1 && +n <= 3 && palierDe(p, id) >= +n; };
-export const nomTitre = (t) => { const [id, n] = String(t || '').split(':'); if (id === 'br') return BRANCHES[n]?.titre || ''; if (id === 'vil') return QP.TITRES[n] || ''; if (id === 'gri') return GR.TITRES[n] || ''; return HAUTS_FAITS[id]?.titres[+n - 1] || ''; };
+// le titre de sa branche (v69) : 'br:<branche>' ; celui de son chef de guerre (v122) : 'ch:<chef>'
+export const titreValide = (p, t) => { if (typeof t !== 'string') return false; const [id, n] = t.split(':'); if (id === 'br') return !!BRANCHES[n] && p.branche === n; if (id === 'ch') return !!CHEFS[n] && p.chef === n; if (id === 'sg') return SG.valide(n) && SG.vaincu(p, n); if (id === 'vil') return !!QP.TITRES[n] && QP.amiDe(p, n); if (id === 'gri') return !!GR.TITRES[n] && GR.aTitre(p, n); return !!HAUTS_FAITS[id] && +n >= 1 && +n <= 3 && palierDe(p, id) >= +n; };
+export const nomTitre = (t) => { const [id, n] = String(t || '').split(':'); if (id === 'br') return BRANCHES[n]?.titre || ''; if (id === 'ch') return CHEFS[n]?.titre || ''; if (id === 'sg') return SG.SEIGNEURS[n]?.titre || ''; if (id === 'vil') return QP.TITRES[n] || ''; if (id === 'gri') return GR.TITRES[n] || ''; return HAUTS_FAITS[id]?.titres[+n - 1] || ''; };
 export const titreDe = (p) => (titreValide(p, p.titre) ? p.titre : '');
 export function choisirTitre(p, t) {
   if (t === null || t === '') { p.titre = ''; return { ok: true }; }

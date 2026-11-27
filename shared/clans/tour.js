@@ -94,7 +94,7 @@ export function commencer(p, graine) {
 }
 export function defEtage(p) {
   const n = p.tour?.essai?.etage || prochain(p), pv = pvMax(p);
-  return { deck: deckCombat(p), joueur: { pv, pvMax: pv }, ennemis: ennemisEtage(n), palier: palierEtage(n), graine: p.tour?.essai?.graine || 1, classe: p.classe, branche: p.branche || null, familier: F.actif(p) };
+  return { deck: deckCombat(p), joueur: { pv, pvMax: pv }, ennemis: ennemisEtage(n), palier: palierEtage(n), graine: p.tour?.essai?.graine || 1, classe: p.classe, branche: p.branche || null, clan: p.clan, chef: p.chef || null, familier: F.actif(p) };
 }
 export function finir(p, c) {
   const e = p.tour?.essai;

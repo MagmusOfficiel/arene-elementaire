@@ -31,6 +31,8 @@ import * as DC from '../../shared/clans/deco.js';
 import * as PC from '../../shared/clans/parcours.js';
 import * as GR from '../../shared/clans/grimoire.js';
 import * as DC2 from '../../shared/clans/decksConseilles.js';
+import * as SG from '../../shared/clans/seigneurs.js';
+import { REPERE } from '../../shared/clans/reperes.js';
 import { PNJ_PAR_ID, posPnj } from '../../shared/clans/pnj.js';
 import { noterCombat } from './clansEquilibrage.js';
 import { CARTES, CLANS, CLASSES } from '../../shared/clans/cartes.js';
@@ -213,6 +215,20 @@ export const ACTIONS = {
     const r = TO.finir(p, c);
     if (r.victoire) Q.evenement(p, 'tour', 1, { etage: r.etage });   // v93 : quêtes de la Tour
     if (r.victoire && ctx?.cle) tourEnregistrer(ctx.cle, { nom: p.nom, clan: p.clan, classe: p.classe, etage: p.tour.max });   // v92 : le classement du mois
+    return r.ok ? { ok: true, res: r } : { ok: false };
+  },
+  // v124 : les Seigneurs de chapitre — on les défie à leur monument ; le combat est rejoué par le serveur
+  seigneurDebut(p, m, ctx) {
+    const id = String(m.id || ''); if (!SG.valide(id)) return { ok: false };
+    const pres_ = !ctx?.pos || SG.SEIGNEURS[id].lieux.some((l) => REPERE[l] && Math.hypot(ctx.pos.x - REPERE[l].x, ctx.pos.y - REPERE[l].y) < 160);
+    if (!pres_) return { ok: false, raison: 'Approche-toi de son monument pour le défier.' };
+    const r = SG.commencer(p, id, graine()); return r.ok ? { ok: true, res: { id, graine: r.graine } } : r;
+  },
+  seigneurCombat(p, m) {
+    if (!p.seigneurEssai) return { ok: false, raison: 'Aucun combat de Seigneur en cours.' };
+    const c = rejouer(SG.defCombat(p), m.coups);
+    if (!c.fini) return { ok: false, raison: 'Combat inachevé.' };
+    const r = SG.finir(p, c);
     return r.ok ? { ok: true, res: r } : { ok: false };
   },
   ascensionChanger(p, m) { return AS.changer(p, typeof m.b === 'string' ? m.b : ''); },

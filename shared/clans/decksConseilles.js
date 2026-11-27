@@ -29,7 +29,7 @@ function score(id, style) {
 }
 // les cartes que ce clan + cette classe (+ branche) peut avoir : son élément, les neutres, sa classe
 export const pool = (clan, classe, branche = null) => Object.keys(CARTES).filter((id) => {
-  const c = CARTES[id]; return (c.element === clan || c.element === 'neutre') && pourClasse(id, classe, branche) && !(c.exclusif && c.exclusif !== clan);
+  const c = CARTES[id]; return !c.cachee && !c.trophee && (c.element === clan || c.element === 'neutre') && pourClasse(id, classe, branche) && !(c.exclusif && c.exclusif !== clan);
 });
 // le deck conseillé (14 cartes) ; possede(id) -> nombre d'exemplaires, pour « ce que j'ai »
 // quotas : de quoi taper et de quoi tenir dans tous les styles

@@ -14,7 +14,7 @@ test('8 branches, 2 par classe, 6 sorts chacune avec un texte', () => {
   assert.equal(Object.keys(BRANCHES).length, 8);
   for (const cl of ['combattant', 'mage', 'tireur', 'escrimeur']) assert.equal(branchesDe(cl).length, 2);
   for (const b of Object.keys(BRANCHES)) {
-    const l = Object.values(CARTES).filter((c) => c.branche === b);
+    const l = Object.values(CARTES).filter((c) => c.branche === b && !c.chef);   // v122 : les sorts de chef sont à part
     assert.equal(l.length, 6, b);
     for (const c of l) { assert.equal(c.classe, BRANCHES[b].classe); assert.ok(decrire(c.id).length > 5, c.id); }
   }

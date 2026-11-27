@@ -6,7 +6,7 @@ import { toucheFermer, NOM_FERMER } from './touches.js';
 import * as RQ from '../../../shared/clans/reliques.js';
 import * as F from '../../../shared/clans/familiers.js';
 import { feuilleFamilier } from './familiersArt.js';
-import { BRANCHES, CARTES, CLASSES, RARES, STATUTS } from '../../../shared/clans/cartes.js';
+import { BRANCHES, CARTES, CHEFS, CLASSES, RARES, STATUTS } from '../../../shared/clans/cartes.js';
 import { style2 } from './style2.js';
 import { TERRITOIRES, PALIERS, MALEDICTIONS } from '../../../shared/clans/monstres.js';
 import * as C from '../../../shared/clans/combat.js';
@@ -42,18 +42,18 @@ function combo(sc) {
 export function flash(sc, couleur) { const f = document.createElement('div'); f.className = 'flash'; f.style.background = couleur; sc.append(f); setTimeout(() => f.remove(), 380); }
 export function dessinerSprite(canvas, clan, classe, dir, app = '') { const g = canvas.getContext('2d'); g.clearRect(0, 0, 24, 26); g.drawImage(feuillePerso(clan, classe || 'combattant', app), 0, ['bas', 'haut', 'droite', 'gauche'].indexOf(dir) * 26, 24, 26, 0, 0, 24, 26); }
 // v113 (nouveau style) : en combat, le héros est un portrait illustré, comme les monstres (l'illustration de son clan)
-function portraitHeros(canvas, clan, classe, branche) {
+function portraitHeros(canvas, clan, classe, branche, chef = null, fantome = false) {
   let el = canvas.parentElement.querySelector('.portraitH');
   if (!el) { el = document.createElement('div'); el.className = 'portraitH'; canvas.before(el); }
-  el.dataset.clan = clan;
+  el.dataset.clan = clan; el.classList.toggle('fantome', !!fantome);   // v122 : le Fantôme de l'ancien chef, assombri
   // v116 : la classe avancée (Ascension) a son propre portrait ; sinon celui de la classe, sinon l'illustration du clan
   // (plus tard, une 3e classe se range de la même façon : clans/heros/<clan>_<id>.webp, en tête de liste)
   const B = import.meta.env.BASE_URL, k = classe || 'combattant';
-  el.style.backgroundImage = [...(branche ? [`${B}clans/heros/${clan}_${branche}.webp`] : []), `${B}clans/heros/${clan}_${k}.webp`, `${B}clans/accueil/${clan}.webp`].map((u) => `url(${u})`).join(', ');
-  const c = (branche && BRANCHES[branche]) || CLASSES[k];
+  el.style.backgroundImage = [...(chef ? [`${B}clans/heros/${clan}_${chef}.webp`] : []), ...(branche ? [`${B}clans/heros/${clan}_${branche}.webp`] : []), `${B}clans/heros/${clan}_${k}.webp`, `${B}clans/accueil/${clan}.webp`].map((u) => `url(${u})`).join(', ');
+  const c = (chef && CHEFS[chef]) || (branche && BRANCHES[branche]) || CLASSES[k];
   el.innerHTML = c ? `<b title="${esc(c.nom)}">${c.ico}</b>` : '';
 }
-export function dessinerHeros(canvas, clan, classe, dir, app = '', branche = null) { dessinerSprite(canvas, clan, classe, dir, app); if (style2) portraitHeros(canvas, clan, classe, branche); }
+export function dessinerHeros(canvas, clan, classe, dir, app = '', branche = null, chef = null, fantome = false) { dessinerSprite(canvas, clan, classe, dir, app); canvas.classList.toggle('fantome', !!fantome); if (style2) portraitHeros(canvas, clan, classe, branche, chef, fantome); }
 export const PAL_AURA = { a_braises: 'feu', a_bulles: 'eau', a_lucioles: 'plante', a_or: 'or' };
 export function lancerAuras(fx, liste) {
   const id = setInterval(() => {
@@ -129,14 +129,14 @@ export function lancerCombat(def, type) {
   setCombat(C.nouveauCombat(def)); setCarteChoisie(null); typeCombat = type; coups = []; animCb = false;
   $('fenetre').classList.add('cache');
   const sc = $('combat'); sc.className = 'scene'; $('cbBanniere').replaceChildren(); sc.querySelector('.rayons')?.remove();
-  const terr = mondialEnCours?.terr || p.expedition?.territoire || p.clan;
+  const terr = def.decor || mondialEnCours?.terr || p.expedition?.territoire || p.clan;   // v124 : le décor du Seigneur
   decor($('cbDecor'), terr);
   ambCb?.arreter(); ambCb = ambiance($('cbAmbiance'), terr);
   fxCb ||= creerFx($('cbFx'));
-  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr]?.nom || 'Boss mondial'}`, ascension: '🌟 Épreuve d’ascension', tour: `🗼 Tour infinie · étage ${p.tour?.essai?.etage || ''}` }[type] || 'Combat';
-  $('cbInfo').innerHTML = type === 'tour' ? (p.tour?.essai?.etage % 10 === 0 ? 'Étage du boss : abats-le, ses gardes avec' : 'Cinq monstres : les sorts de zone font merveille') : type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
+  $('cbTitre').textContent = { combat: 'Combat', elite: 'Combat d’élite', boss: 'Combat contre le boss', mondial: `☠ ${BOSS_MONDIAUX[terr]?.nom || 'Boss mondial'}`, ascension: '🌟 Épreuve d’ascension', tour: `🗼 Tour infinie · étage ${p.tour?.essai?.etage || ''}`, seigneur: `👑 ${combat.ennemis[0]?.nom || 'Seigneur'}` }[type] || 'Combat';
+  $('cbInfo').innerHTML = type === 'seigneur' ? infoSeigneur() : type === 'tour' ? (p.tour?.essai?.etage % 10 === 0 ? 'Étage du boss : abats-le, ses gardes avec' : 'Cinq monstres : les sorts de zone font merveille') : type === 'ascension' ? 'Bats la Chimère de l’ascension pour choisir ta branche' : type === 'mondial' ? `${TERRITOIRES[terr].nom} · tes dégâts s'ajoutent à ceux de tous les joueurs` : `${TERRITOIRES[terr].nom} · ${PALIERS[p.expedition.palier - 1].nom}${(p.expedition.mods || []).map((k) => ` <span class="malediction" title="${esc(MALEDICTIONS[k].desc)}">${MALEDICTIONS[k].ico} ${MALEDICTIONS[k].nom}</span>`).join('')}`;
   sc.classList.toggle('cauchemar', !!PALIERS[p.expedition?.palier - 1]?.cauchemar && type !== 'mondial');
-  dessinerHeros($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p), p.branche || null);
+  dessinerHeros($('cbSprite'), p.clan, p.classe, 'droite', AP.code(p), p.branche || null, p.chef || null);
   // le familier, à côté du héros (expéditions et boss mondial)
   { const cv = $('cbFam'), g = cv.getContext('2d'), fam = combat.familier; g.clearRect(0, 0, 12, 11); cv.classList.toggle('cache', !fam); if (fam) g.drawImage(feuilleFamilier(fam), 0, 0, 12, 11, 0, 0, 12, 11); cv.title = fam ? `${F.FAMILIERS[fam].nom} : ${F.FAMILIERS[fam].desc}` : ''; }
   stopAuraCb?.(); stopAuraCb = lancerAuras(fxCb, () => [[$('cbHeros').querySelector('.combattant'), AP.portee(p).aura]]);
@@ -145,9 +145,22 @@ export function lancerCombat(def, type) {
   dessinerCombat(true, true);
   regler(sc);
   rejouerAnim($('cbHeros'), 'entreeG');
-  banniere('cbBanniere', `${type === 'boss' || type === 'mondial' ? '☠ ' : ''}${$('cbTitre').textContent}<small>${esc(combat.ennemis.map((e) => e.nom).join(' · '))}</small>`, type === 'boss' || type === 'mondial' ? 'rouge' : '', 1300);
+  sc.classList.toggle('seigneur', type === 'seigneur');
+  banniere('cbBanniere', `${type === 'boss' || type === 'mondial' || type === 'seigneur' ? '☠ ' : ''}${$('cbTitre').textContent}<small>${esc(combat.ennemis.map((e) => e.nom).join(' · '))}</small>`, type === 'boss' || type === 'mondial' || type === 'seigneur' ? 'rouge' : '', 1300);
   if (type === 'boss' || type === 'mondial') sfx.rugissement?.();
   setTimeout(() => import('./ui-coach.js').then((m) => m.tutoCombat()), 1900);   // v94 : le tutoriel, au tout premier combat
+}
+// v124 : la ligne d'info d'un combat de Seigneur (élément du Triarque, énigme du Sphinx, sablier, étoiles)
+const NOM_EL = { feu: '🔥 Feu', eau: '💧 Eau', plante: '🌿 Plante' }, FAIBLE = { feu: 'eau', eau: 'plante', plante: 'feu' };
+function infoSeigneur() {
+  const c = combat; if (!c) return '';
+  const b = c.ennemis.find((e) => e.seigneur) || c.ennemis[0], t = [];
+  if (b?.element) t.push(`Forme : <b>${NOM_EL[b.element]}</b> · faible à ${NOM_EL[FAIBLE[b.element]]} (×1,5), résiste à ${NOM_EL[b.element]} (×0,5)`);
+  if (c.enigme) t.push(`<span class="enigmeCb">❓ Énigme : <b>${esc(C.ENIGMES.find((x) => x.k === c.enigme)?.txt || '')}</b></span>`);
+  if (c.limite) t.push(`⏳ Sablier : <b>${Math.max(0, c.limite - c.tour + 1)}</b> tour${c.limite - c.tour + 1 > 1 ? 's' : ''} restant${c.limite - c.tour + 1 > 1 ? 's' : ''}`);
+  if (b?.etoiles) { const n = c.ennemis.filter((e) => e.etoile && e.pv > 0).length; t.push(n ? `⭐ ${n} étoile${n > 1 ? 's' : ''} : <b>${esc(b.nom)} est intouchable</b>` : `✨ <b>${esc(b.nom)} est exposé !</b>`); }
+  if (c.ennemis.some((e) => e.paratonnerre && e.pv > 0)) { const n = c.ennemis.filter((e) => e.paratonnerre && e.pv > 0).length; t.push(`🗼 ${n} paratonnerre${n > 1 ? 's' : ''} : l’éclair perd ${Math.min(90, 30 * n)} %`); }
+  return t.join(' · ') || 'Un Seigneur de chapitre : lis ses intentions et adapte-toi.';
 }
 // ce que l'ennemi va faire, en toutes lettres (au survol de son intention) — v61
 const TITRES_INTENTION = {
@@ -157,6 +170,9 @@ const TITRES_INTENTION = {
   groupe: (t) => `Il protège tout son groupe : ${t} de bouclier pour chaque monstre.`,
   soin: (t) => `Il soigne tout son groupe : ${t} PV pour chaque monstre blessé.`,
   epines: (t) => `Il se couvre d'épines : chaque attaque que tu lui portes te renvoie ${t} dégâts.`,
+  charge: () => 'Il charge un éclair énorme : il frappera au tour suivant. Accumule du bouclier ou étourdis-le !',
+  invoque: (t) => `Il invoque des renforts (${t}).`,
+  enigme: () => 'Il va poser une énigme : réussis-la à ton prochain tour pour le confondre.',
   malus: (t) => (t === '❓' ? 'Brouillard : ses intentions sont cachées.' : `Il va t'infliger un mauvais statut : ${t.replace('🔥', 'brûlure ').replace('💧', 'trempé ').replace('🥀', 'affaibli ')}.`),
 };
 // voir le contenu de la pioche (dans le désordre) ou de la défausse
@@ -194,9 +210,9 @@ export function dessinerCombat(donner = false, entree = false) {
   $('cbEnnemis').innerHTML = c.ennemis.map((e, n) => {
     const its = C.decrireIntention(c, e, prev), illus = ILLUS_MONSTRES.has(e.id);
     return `<div class="ennemi ${e.rang || ''} ${e.maudit ? 'maudit' : ''} ${typeCombat === 'mondial' ? 'mondial' : ''} ${e.pv <= 0 ? 'parti' : ''} ${e.pv > 0 && e.pv / e.pvMax < 0.35 ? 'blesse' : ''} ${carteChoisie != null ? 'ciblable' : ''} ${entree ? 'entreeD' : ''}" data-e="${e.uid}" style="--respire:${(3 + ((n * 0.7 + e.pvMax) % 1.4)).toFixed(2)}s;--decale:-${((n * 1.3 + e.pvMax * 0.37) % 3).toFixed(2)}s;${entree ? `animation-delay:${150 + n * 120}ms` : ''}">
-      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}${it.bonus ? ' renforce' : ''}" title="${esc(TITRES_INTENTION[it.type](it.txt))}${it.bonus ? ' — plus fort à cause d’un trempé ou de la force qu’il gagne juste avant' : ''}${it.allie ? ' — sur ton invocation' : ''}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵', groupe: '🛡️👥', soin: '💚' }[it.type]}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
+      <div class="intention ${its.some((x) => x.type === 'attaque') ? 'menace' : ''}">${its.map((it) => `<span class="${it.type}${it.bonus ? ' renforce' : ''}" title="${esc(TITRES_INTENTION[it.type](it.txt))}${it.bonus ? ' — plus fort à cause d’un trempé ou de la force qu’il gagne juste avant' : ''}${it.allie ? ' — sur ton invocation' : ''}">${{ attaque: '🗡️', defense: '🛡️', buff: '💪', malus: '', epines: '🌵', groupe: '🛡️👥', soin: '💚', charge: '', invoque: '✨', enigme: '' }[it.type] ?? ''}${it.txt}</span>`).join('') || '<span>…</span>'}</div>
       <div class="corps"><div class="portrait" style="${illus ? `background-image:url(${import.meta.env.BASE_URL}clans/monstres/${e.id}.webp)` : ''}">${illus ? '' : e.ico}</div><div class="ombre"></div></div>
-      <div class="nomE">${e.maudit ? '<span class="tagMaudit">MAUDIT</span> ' : ''}${esc(e.nom)}</div>
+      <div class="nomE">${e.maudit ? '<span class="tagMaudit">MAUDIT</span> ' : ''}${e.element ? `<span class="tagEl ${e.element}">${NOM_EL[e.element]?.split(' ')[0] || ''}</span> ` : ''}${e.etoiles && c.ennemis.some((o) => o.etoile && o.pv > 0) ? '<span class="tagEl inv">⭐ intouchable</span> ' : ''}${esc(e.nom)}</div>
       <div class="jauge" data-pv="${e.pv}"><span class="bouclier ${e.bloc ? 'vu' : ''}">${e.bloc || ''}</span><div class="barre vie ${e.bloc ? 'protege' : ''}"><i class="fantome" style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><i style="width:${(Math.max(0, e.pv) / e.pvMax) * 100}%"></i><b>${Math.max(0, e.pv)} / ${e.pvMax}</b></div></div>
       <div class="statuts">${statutsHTML(e)}</div></div>`;
   }).join('');
@@ -205,7 +221,8 @@ export function dessinerCombat(donner = false, entree = false) {
   majAllie(c.allie);
   $('cbStatuts').innerHTML = statutsHTML(j);
   $('combat').classList.toggle('critique', !c.fini && j.pv > 0 && j.pv / j.pvMax < 0.3);   // v105 : PV bas, l'écran pulse en rouge
-  majMenace(c); $('cbTour').textContent = c.fini ? '' : `Tour ${c.tour}`;
+  majMenace(c); $('cbTour').textContent = c.fini ? '' : `Tour ${c.tour}${c.limite ? ` / ${c.limite}` : ''}`;
+  if (typeCombat === 'seigneur') $('cbInfo').innerHTML = infoSeigneur();
   $('cbReliques').innerHTML = (c.reliques || []).map((id) => `<i title="${esc(RQ.RELIQUES[id].nom)} : ${esc(RQ.RELIQUES[id].desc)}">${RQ.RELIQUES[id].ico}</i>`).join('');
   $('cbEnergieTxt').textContent = `${c.energie}/${c.energieMax}`;
   $('cbEnergie').classList.toggle('vide', c.energie === 0);
@@ -213,7 +230,7 @@ export function dessinerCombat(donner = false, entree = false) {
   if (cl) {
     const br = BRANCHES[c.branche], per = C.periodeVisee(c);
     const etat = p.classe === 'tireur' ? (C.viseeProchaine(c) ? ' — <b>la prochaine attaque est doublée !</b>' : ` — tir ${(c.tirs % per) + 1}/${per}`) : p.classe === 'escrimeur' ? (c.attaquesTour ? ` — <b>+${c.branche === 'duelliste' ? 2 * c.attaquesTour : 2} par coup actif</b>` : '') : p.classe === 'mage' ? (c.arcanes ? ' — utilisé ce tour' : ' — <b>prêt</b>') : '';
-    $('cbTalent').innerHTML = `<b>${cl.ico} ${cl.talent}</b> : ${cl.desc}${etat}${br ? `<br><b>${br.ico} ${esc(br.talent)}</b> : ${esc(br.desc)}` : ''}`;
+    $('cbTalent').innerHTML = `<b>${cl.ico} ${cl.talent}</b> : ${cl.desc}${etat}${br ? `<br><b>${br.ico} ${esc(br.talent)}</b> : ${esc(br.desc)}` : ''}${CHEFS[c.chef] ? `<br><b>${CHEFS[c.chef].ico} ${esc(CHEFS[c.chef].talent)}</b> : ${esc(CHEFS[c.chef].desc)}` : ''}`;
     $('cbTalent').classList.toggle('pret', (p.classe === 'tireur' && C.viseeProchaine(c)) || (p.classe === 'escrimeur' && c.attaquesTour > 0));
   }
   const n = c.main.length;
@@ -365,6 +382,22 @@ export async function jouerEvenements(evs) {
       case 'energie': rejouerAnim($('cbEnergie'), 'change'); break;
       case 'tourEnnemi': banniere('cbBanniere', 'Tour ennemi', 'rouge', 950); await pauseCb(700); break;
       case 'resiste': { if (!z) break; nombre(z, '🛡 résiste', 'statut', -10); await pauseCb(200); break; }
+      case 'phase': {   // v124 : le Seigneur change de phase
+        banniere('cbBanniere', `☠ ${esc(e.nom)}<small>${esc(combat?.ennemis.find((x) => x.uid === e.a)?.nom || '')}</small>`, 'rouge', 1600);
+        secouer($('combat'), true); if (z) { const c = centre(z); fx.rayons(c.x, c.y, e.element === 'eau' ? '#7fd6ff' : e.element === 'plante' ? '#9cf07a' : '#ff9a5a', { n: 26, len: 360, vie: 0.9, ep: 7 }); }
+        dessinerCombat(); await pauseCb(900); break;
+      }
+      case 'invoque': { dessinerCombat(); const z2 = elEnnemi(e.a); if (z2) rejouerAnim(z2, 'entreeD'); await pauseCb(380); break; }
+      case 'felure': { if (!z) break; nombre(z, `🪨 +${e.n} fêlure${e.n > 1 ? 's' : ''}`, 'statut', -10); rejouerAnim($('cbDefausse'), 'change'); await pauseCb(420); break; }
+      case 'enigme': {
+        if (!z) break;
+        if (e.pose) { banniere('cbBanniere', `❓ Énigme<small>${esc(C.ENIGMES.find((x) => x.k === e.pose)?.txt || '')}</small>`, '', 2200); await pauseCb(1200); }
+        else if (e.ok) { nombre(z, `✅ confondu −${e.deg}`, 'statut', -10); majJauge(jaugeDe(e.a), e.pv, pvMaxDe(e.a), null); await pauseCb(500); }
+        else { nombre(z, '❌ énigme ratée', 'statut', -10); await pauseCb(420); }
+        break;
+      }
+      case 'sablier': banniere('cbBanniere', '⏳ Le sablier est vide', 'rouge', 1600); await pauseCb(900); break;
+      case 'esquive': { if (!z) break; nombre(z, '🌫️ esquive', 'statut', -10); await pauseCb(220); break; }   // v123
       case 'etourdi': { if (!z) break; nombre(z, '💫 étourdi', 'statut', -10); rejouerAnim(z, 'touche'); await pauseCb(260); break; }   // v96
       case 'agit': {
         const el = elEnnemi(e.a); if (!el) break;
@@ -444,6 +477,12 @@ export async function finCombat() {
     envoiCombat = false; fermerScene(); setCombat(null); typeCombat = null;
     return (await import('./ui-tour.js')).apresEtage(rep);
   }
+  if (typeCombat === 'seigneur') {   // v124
+    envoiCombat = true; $('cbAide').textContent = 'Le serveur valide le combat…';
+    const rep = await act('seigneurCombat', { coups });
+    envoiCombat = false; fermerScene(); setCombat(null); typeCombat = null;
+    return (await import('./ui-seigneurs.js')).apresCombat(rep);
+  }
   if (typeCombat === 'ascension') {
     envoiCombat = true; $('cbAide').textContent = 'Le serveur valide l’épreuve…';
     const rep = await act('ascensionCombat', { coups });
@@ -479,7 +518,7 @@ export function lancerMondial(m) {
   if (!$('combat').classList.contains('cache')) return;
   mondialEnCours = { terr: m.terr };
   const pv = P.pvMax(p);
-  lancerCombat({ deck: P.deckCombat(p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[m.terr], pv: m.pv }], palier: PALIER_MONDIAL, graine: m.graine, classe: p.classe, branche: p.branche || null, familier: F.actif(p) }, 'mondial');
+  lancerCombat({ deck: P.deckCombat(p), joueur: { pv, pvMax: pv }, ennemis: [{ ...BOSS_MONDIAUX[m.terr], pv: m.pv }], palier: PALIER_MONDIAL, graine: m.graine, classe: p.classe, branche: p.branche || null, clan: p.clan, chef: p.chef || null, familier: F.actif(p) }, 'mondial');
 }
 export function finManche() {
   const deg = combat.ennemis.reduce((t, e) => t + Math.max(0, e.pvMax - Math.max(0, e.pv)), 0), gagne = combat.fini === 'victoire';

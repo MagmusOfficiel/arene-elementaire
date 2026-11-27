@@ -77,6 +77,8 @@ const NOMS = { essence: ['✨', 'Essence'], eclats: ['💎', 'Éclats'], braises
   poussiere_etoile: ['🌟', 'Poussière d’étoile'], coeur_etoile: ['💫', 'Cœur d’étoile (rare)'], sable_dore: ['🏜️', 'Sable doré'], larme_ambre: ['🟠', 'Larme d’ambre (rare)'] };
 const CLANS = { feu: 'Feu', eau: 'Eau', plante: 'Plante' };
 const CLASSES = { combattant: 'Combattant', mage: 'Mage', tireur: 'Tireur', escrimeur: 'Escrimeur' };
+const BR = { combattant: [['gardien', 'Gardien'], ['berserker', 'Berserker']], mage: [['archimage', 'Archimage'], ['invocateur', 'Invocateur']], tireur: [['sniper', 'Sniper'], ['artificier', 'Artificier']], escrimeur: [['duelliste', 'Duelliste'], ['ombre', 'Lame d’ombre']] };
+const CHEFS = { porte_banniere: 'Porte-Bannière', chef_horde: 'Chef de Horde', grand_arcaniste: 'Grand Arcaniste', seigneur_betes: 'Seigneur des Bêtes', oeil_aigle: 'Œil de l’Aigle', maitre_artilleur: 'Maître Artilleur', champion_clan: 'Champion du Clan', main_noire: 'Main Noire' };
 let joueurs = [], ressources = [], nivMax = 100, choisi = null, minuterie = 0;
 try { $('cle').value = sessionStorage.getItem('clansAdminCle') || ''; } catch { /* rien */ }
 
@@ -118,6 +120,9 @@ function fiche(j, garderRetour) {
     <div class="rang">Fixer le niveau à <input id="niv" type="number" min="1" max="${nivMax}" value="${j.niv}">
       <button class="petit" data-n="1">+1</button><button class="petit" data-n="5">+5</button><button class="petit" data-n="10">+10</button>
       ${[30, 50, 70, 90, nivMax].map((n) => `<button class="petit" data-f="${n}">${n}</button>`).join('')}</div>
+    <h3>Ascension et chef de guerre</h3>
+    <div class="rang">Branche : <select id="branche"><option value="">${j.branche ? 'garder' : '— aucune —'}</option>${(BR[j.classe] || []).map(([k, n]) => `<option value="${k}"${j.branche === k ? ' disabled' : ''}>${n}${j.branche === k ? ' (actuelle)' : ''}</option>`).join('')}</select>
+      ${j.chef ? `· chef : <b>${esc(CHEFS[j.chef] || j.chef)}</b> <label><input type="checkbox" id="retirerChef"> retirer (il pourra retenter la Consécration)</label>` : '· pas encore chef de guerre (Consécration au niveau 50)'}</div>
     <h3>Ressources</h3>
     <div class="mode"><label><input type="radio" name="mode" value="ajouter" checked> Ajouter (un nombre négatif retire)</label><label><input type="radio" name="mode" value="fixer"> Fixer la valeur</label></div>
     <div class="vite">
@@ -142,6 +147,8 @@ function fiche(j, garderRetour) {
     $('fiche').querySelectorAll('.ress input').forEach((i) => { if (i.value !== '') ress[i.dataset.k] = +i.value; });
     const corps = { ress, mode, message: $('message').value };
     if (+$('niv').value !== j.niv) corps.niveau = +$('niv').value;
+    if ($('branche').value) corps.branche = $('branche').value;
+    if ($('retirerChef')?.checked) corps.chef = 'retirer';
     if (!Object.keys(ress).length && corps.niveau == null) return retour('Rien à changer.', false);
     if (mode === 'fixer' && !confirm('Fixer ces ressources à ces valeurs exactes ?')) return;
     $('btAppliquer').disabled = true;

@@ -47,7 +47,7 @@ export const maitrise = (p, m) => niveauFiche(p, m) >= 3;
 
 // ---------- les cartes ----------
 // celles que ce joueur peut avoir (élément + sa classe + sa branche), rangées par rareté puis par nom
-export const cartesDe = (p) => Object.keys(CARTES).filter((id) => pourClasse(id, p.classe, p.branche || null) && pourClan(id, p.clan))   // v116
+export const cartesDe = (p) => Object.keys(CARTES).filter((id) => pourClasse(id, p.classe, p.branche || null, p.chef || null) && pourClan(id, p.clan))   // v116
   .sort((a, b) => ORDRE_RARETE.indexOf(CARTES[a].rarete) - ORDRE_RARETE.indexOf(CARTES[b].rarete) || CARTES[a].nom.localeCompare(CARTES[b].nom, 'fr'));
 export const possede = (p, id) => (p.collection?.[id]?.n || 0) > 0;
 

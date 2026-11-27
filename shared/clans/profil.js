@@ -55,11 +55,11 @@ function tirerRarete(r, p, garantieEpique) {
   for (const [rar, t] of TAUX) { acc += t; if (x < acc) return garantieEpique && (rar === 'rare' || rar === 'commune') ? 'epique' : rar; }
   return 'commune';
 }
-function tirerCarte(r, clan, rarete, classe, branche) {
+function tirerCarte(r, clan, rarete, classe, branche, chef = null) {
   // le pool : l'élément de son clan et les cartes de sa classe sortent bien plus souvent
   // les cartes des autres classes ne sortent jamais (v68)
   const poids = (c) => (c.classe ? 5 : c.element === clan ? 5 : c.element === 'neutre' ? 2 : 1.2);
-  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif && pourClasse(c.id, classe, branche) && pourClan(c.id, clan));   // v116 : jamais l'élément d'un autre clan
+  const pool = Object.values(CARTES).filter((c) => c.rarete === rarete && !c.exclusif && !c.trophee && pourClasse(c.id, classe, branche, chef) && pourClan(c.id, clan));   // v122 : les sorts de chef sortent aussi (pour son chef)   // v116 : jamais l'élément d'un autre clan
   const tot = pool.reduce((s, c) => s + poids(c), 0);
   let x = r() * tot;
   for (const c of pool) { x -= poids(c); if (x <= 0) return c.id; }
@@ -73,7 +73,7 @@ export function tirer(p, n = 1, graine = Date.now()) {
   const r = alea(graine), res = [];
   for (let i = 0; i < n; i++) {
     const garantie = n === 10 && i === 9 && !res.some((x) => ['epique', 'legendaire'].includes(CARTES[x.id].rarete));
-    const rar = tirerRarete(r, p, garantie), id = tirerCarte(r, p.clan, rar, p.classe, p.branche);
+    const rar = tirerRarete(r, p, garantie), id = tirerCarte(r, p.clan, rar, p.classe, p.branche, p.chef || null);
     p.tirages.total++; p.tirages.depuisLegendaire = rar === 'legendaire' ? 0 : p.tirages.depuisLegendaire + 1;
     const c = (p.collection[id] ||= { n: 0, niv: 1 });
     const nouveau = c.n === 0;
@@ -110,6 +110,7 @@ export function coutFabrication(id, remise = 0) {
   return remiser({ [RARES[c.exclusif].id]: r.rare, essence: r.essence }, remise);
 }
 export function fabriquer(p, id, remise = 0) {
+  if (!pourClasse(id, p.classe, p.branche, p.chef)) return { ok: false, raison: `Cette relique est réservée à une autre classe.` };
   if (!pourClan(id, p.clan)) return { ok: false, raison: `Cette carte est réservée au ${ELEMENTS[CARTES[id].element].clan}.` };
   const cout = coutFabrication(id, remise); if (!cout) return { ok: false };
   const c = (p.collection[id] ||= { n: 0, niv: 1 });
@@ -146,10 +147,11 @@ export function completer(p) {
 // ---------- les cartes de classe (v68) : chaque classe ne joue que ses propres cartes de classe ----------
 // une carte sans classe (élément ou neutre) va à tout le monde
 // une carte de branche (v69) ne va qu'à sa branche
-export const pourClasse = (id, classe, branche = null) => { const c = CARTES[id]; return !c?.classe || (c.classe === classe && (!c.branche || c.branche === branche)); };
+// v122 : une carte de chef ne va qu'à son chef
+export const pourClasse = (id, classe, branche = null, chef = null) => { const c = CARTES[id]; return !c?.classe || (c.classe === classe && (!c.branche || c.branche === branche) && (!c.chef || c.chef === chef)); };
 // v116 : une carte d'élément (Feu, Eau, Plante) ne va qu'au clan de cet élément ; les cartes neutres et de zone vont à tous
-export const pourClan = (id, clan) => { const c = CARTES[id]; return !c || !CLANS.includes(c.element) || c.element === clan; };
-export const jouable = (id, p) => pourClasse(id, p.classe, p.branche) && pourClan(id, p.clan);
+export const pourClan = (id, clan) => { const c = CARTES[id]; if (c?.cachee) return false; return !c || !CLANS.includes(c.element) || c.element === clan; };   // v124 : les cartes cachées (Fêlure) ne sont à personne
+export const jouable = (id, p) => pourClasse(id, p.classe, p.branche, p.chef) && pourClan(id, p.clan);
 // un ancien profil qui avait des cartes d'une autre classe : elles partent du deck et deviennent des éclats
 export function convertirAutresClasses(p) {
   if (!p?.classe || !p.collection) return { n: 0, eclats: 0 };
@@ -158,7 +160,7 @@ export function convertirAutresClasses(p) {
   for (const [id, c] of Object.entries(p.collection)) {
     if (!CARTES[id] || jouable(id, p) || !(c.n > 0)) continue;
     n += c.n; eclats += c.n * RARETES[CARTES[id].rarete].eclats * (c.niv || 1);
-    if (pourClasse(id, p.classe, p.branche)) elem += c.n;
+    if (pourClasse(id, p.classe, p.branche, p.chef)) elem += c.n;
     delete p.collection[id];
   }
   if (!n) return { n: 0, eclats: 0, elem: 0 };
@@ -178,7 +180,7 @@ export function convertirAutresClasses(p) {
 // ---------- le deck ----------
 export function ajouterAuDeck(p, id) {
   if (!pourClan(id, p.clan)) return { ok: false, raison: `Cette carte est réservée au ${ELEMENTS[CARTES[id].element].clan}.` };
-  if (!pourClasse(id, p.classe, p.branche)) return { ok: false, raison: CARTES[id].branche ? `Cette carte est réservée à la branche ${BRANCHES[CARTES[id].branche].nom}.` : `Cette carte est réservée à la classe ${CLASSES[CARTES[id].classe].nom}.` };
+  if (!pourClasse(id, p.classe, p.branche, p.chef)) return { ok: false, raison: CARTES[id].branche ? `Cette carte est réservée à la branche ${BRANCHES[CARTES[id].branche].nom}.` : `Cette carte est réservée à la classe ${CLASSES[CARTES[id].classe].nom}.` };
   const possede = p.collection[id]?.n || 0, dedans = p.deck.filter((x) => x === id).length;
   if (dedans >= possede) return { ok: false, raison: 'Tu n’as pas d’autre exemplaire de cette carte.' };
   if (dedans >= copiesMax(id)) return { ok: false, raison: CARTES[id].rarete === 'legendaire' ? 'Une seule légendaire de chaque sorte par deck.' : `${COPIES_MAX} exemplaires au plus dans un deck.` };
@@ -206,7 +208,7 @@ export function remplirDeck(p, cartes) {
   const deck = [...cartes];
   for (const id of [...deckDepart(p.clan, p.classe || 'combattant'), ...Object.keys(p.collection)]) {
     if (deck.length >= DECK_MIN) break;
-    if (!CARTES[id] || !pourClasse(id, p.classe, p.branche)) continue;
+    if (!CARTES[id] || !pourClasse(id, p.classe, p.branche, p.chef)) continue;
     const c = (p.collection[id] ||= { n: 0, niv: 1 }), k = deck.filter((x) => x === id).length;
     if (k >= copiesMax(id)) continue;
     if (k >= c.n) c.n++;
@@ -217,7 +219,7 @@ export function remplirDeck(p, cartes) {
 // un deck enregistré peut ne plus être valable (cartes perdues…) : on garde ce qui l'est
 export function nettoyerDeck(p, cartes) {
   const deck = [], compte = {};
-  for (const id of Array.isArray(cartes) ? cartes : []) { if (!CARTES[id] || !p.collection[id] || !pourClasse(id, p.classe, p.branche) || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(copiesMax(id), p.collection[id].n)) deck.push(id); }
+  for (const id of Array.isArray(cartes) ? cartes : []) { if (!CARTES[id] || !p.collection[id] || !pourClasse(id, p.classe, p.branche, p.chef) || deck.length >= DECK_MAX) continue; compte[id] = (compte[id] || 0) + 1; if (compte[id] <= Math.min(copiesMax(id), p.collection[id].n)) deck.push(id); }
   return deck;
 }
 export function choisirDeck(p, i) {

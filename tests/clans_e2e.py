@@ -41,7 +41,7 @@ def serveur():
     if not (RACINE / 'client/dist/index.html').exists():
         print('Le jeu n’est pas compilé : lance d’abord `npm run build`.'); sys.exit(2)
     env = {k: v for k, v in os.environ.items() if not k.startswith('UPSTASH')}
-    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', ADMIN_CLE='test-admin', CLANS_TEST_DEPART='1', CLANS_TEST_MARCHAND='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500',
+    env.update(PORT=str(PORT), CLANS_SECRET='test-e2e', ADMIN_CLE='test-admin', CLANS_TEST_DEPART='1', CLANS_TEST_MARCHAND='1', CLANS_CAPTURE_VITESSE='10', CLANS_ARENE_REFLET='1500', CLANS_TEST_FANTOME_PV='4',
                STATS_FILE=str(Path(tempfile.mkdtemp()) / 'stats.json'))
     pr = subprocess.Popen(['node', 'src/index.js'], cwd=RACINE / 'server', env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     for _ in range(60):
@@ -382,6 +382,48 @@ def scenario(b):
     jet = Ad.get_attribute('.ligneJ', 'data-j')
     ess = Ad.evaluate(f"fetch('/api/clans/admin/joueur/{jet}', {{ headers: {{ 'x-admin-cle': 'test-admin' }} }}).then(r => r.json()).then(j => j.ress.essence)")
     verifier(ess == e0 + 500, f'retirer des ressources avec un nombre négatif ({ess})')
+
+    etape('Consécration : le duel contre le fantôme de l’ancien chef (v122)')
+    K = page(b, 'Chef'); creer(K, 'Bannier', 'feu', 'combattant')
+    Ad.click('#btCharger'); Ad.wait_for_timeout(900); Ad.fill('#recherche', 'Bannier'); Ad.wait_for_timeout(900); Ad.click('.ligneJ'); Ad.wait_for_selector('#btAppliquer', timeout=5000)
+    Ad.fill('#niv', '50'); Ad.select_option('#branche', 'gardien'); Ad.click('#btAppliquer'); Ad.wait_for_selector('#retour.ok', timeout=5000)
+    K.wait_for_function("__clans.p.branche === 'gardien' && __clans.P.niveau(__clans.p) === 50", timeout=8000)
+    verifier(True, 'le panneau admin fixe le niveau 50 et la branche Gardien')
+    K.keyboard.press('u'); K.wait_for_selector('#btFantome', timeout=5000)
+    verifier('Porte-Bannière' in K.inner_text('.consecration'), 'la fenêtre de l’Ascension présente la Consécration du Porte-Bannière')
+    K.click('#btFantome'); K.wait_for_selector('#duel:not(.cache)', timeout=10000)
+    verifier('Consécration' in K.inner_text('#duTitre') and 'Fantôme' in K.inner_text('#duTitre'), 'le duel contre le fantôme commence')
+    verifier(K.locator('#duSpriteAdv.fantome').count() == 1, 'le fantôme est dessiné en spectre')
+    for _ in range(40):
+        if K.locator('#duel.cache').count(): break
+        K.evaluate("for (let i = 0; i < 6; i++) __clans.room.send('duelJouer', { i: 0 }); setTimeout(() => __clans.room.send('duelFin', {}), 400)")
+        K.wait_for_timeout(1500)
+    K.wait_for_selector('.consecFin', timeout=15000)
+    verifier(etat(K, 'p.chef') == 'porte_banniere', 'victoire : il devient Porte-Bannière')
+    verifier(etat(K, "['ch_etendard', 'ch_mur_vivant', 'ch_serment'].every((id) => p.collection[id]?.n > 0)") and etat(K, 'p.titre') == 'ch:porte_banniere', 'il reçoit les 3 sorts du chef et son titre')
+    verifier('devient Porte-Bannière' in K.inner_text('#chatMsgs'), 'tout le serveur est prévenu dans le chat')
+
+    etape('Seigneurs de chapitre : la scène de combat et la fenêtre (v124)')
+    fermer(K)
+    for sg, decor in [('titan', 'cimes'), ('sphinx', 'ambre'), ('astre', 'ciel'), ('triarque', 'feu'), ('briseur', 'brisees')]:
+        K.evaluate(f"(() => {{ const {{ SG, P, p, lancerCombat }} = __clans, s = SG.SEIGNEURS['{sg}']; lancerCombat({{ deck: P.deckCombat(p), joueur: {{ pv: 400, pvMax: 400 }}, ennemis: s.ennemis(), palier: s.palier, graine: 4, classe: p.classe, branche: p.branche, clan: p.clan, decor: '{decor}' }}, 'seigneur'); }})()")
+        K.wait_for_selector('#combat:not(.cache)', timeout=5000); K.wait_for_timeout(1600)
+        verifier(K.locator('#combat.seigneur').count() == 1 and '👑' in K.inner_text('#cbTitre'), f'{sg} : la scène de Seigneur s’ouvre')
+        for _ in range(4):
+            if K.locator('#combat.cache').count(): break
+            K.click('#btFinTour', force=True); K.wait_for_timeout(2600)
+        if sg == 'sphinx': verifier('Sablier' in K.inner_text('#cbInfo'), 'sphinx : le sablier est affiché')
+        if sg == 'triarque': verifier(K.locator('.tagEl.feu, .tagEl.eau, .tagEl.plante').count() >= 1, 'triarque : son élément est affiché')
+        if sg == 'astre': verifier(K.locator('#cbEnnemis .ennemi').count() >= 2, 'astre : ses étoiles apparaissent')
+        if sg == 'titan': verifier(K.locator('#cbEnnemis .ennemi').count() >= 2, 'titan : ses paratonnerres apparaissent')
+        for _ in range(8):   # on se laisse battre : la fin de combat passe par le serveur, qui renvoie à la fenêtre des Seigneurs
+            if K.locator('#fenetre:not(.cache) .seigneurs').count(): break
+            K.evaluate("(() => { const c = __clans.combat; if (c && !c.fini) { c.joueur.pv = 1; c.joueur.bloc = 0; c.joueur.esquive = 0; c.joueur.renaissance = 0; } })()")
+            if K.locator('#combat:not(.cache) #btFinTour').count(): K.click('#btFinTour', force=True)
+            K.wait_for_timeout(2600)
+        K.wait_for_selector('#fenetre:not(.cache) .seigneurs', timeout=8000)
+        verifier(K.locator('.sgOnglet').count() == 5, f'{sg} : après le combat, la fenêtre des Seigneurs s’ouvre (5 onglets)')
+        fermer(K)
 
 
 def main():

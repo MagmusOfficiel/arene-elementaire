@@ -550,6 +550,8 @@ export function creerMonde(canvas, rappels) {
     { let dO = 44, oP = null; for (const o of rappels.objetsQuete?.() || []) { const d = Math.hypot(joueur.x - o.x, joueur.y - o.y); if (d < dO) { dO = d; oP = o; } } if (oP) best = { ...oP, action: 'objetQuete' }; }
     for (const h of pnjIci(Date.now() / 1000)) if (Math.hypot(joueur.x - h.x, joueur.y - h.y) < 30) best = { id: h.n.id, nom: h.n.nom, action: 'pnj', x: h.x, y: h.y };
     for (const [id, a] of autres) if (a.clan !== monClan && duelPossible(a) && a.statut !== 'expedition' && a.statut !== 'duel' && Math.hypot(joueur.x - a.x, joueur.y - a.y) < 80) best = { id, nom: a.nom, action: 'defier' };
+    // v124 : au pied du monument d'un Seigneur de chapitre, on peut le défier
+    for (const r of REPERES) if (r.seigneur && Math.hypot(joueur.x - r.x, joueur.y - r.y) < 70) best = { id: r.id, nom: `${r.nom} (Seigneur)`, action: 'seigneur', seigneur: r.seigneur, x: r.x, y: r.y };
     // près du boss mondial, on l'affronte (prioritaire : pas de duel par erreur)
     if (mondial && Math.hypot(joueur.x - mondial.x, joueur.y - mondial.y) < 90) best = { ...mondial, action: 'mondial' };
     return best;

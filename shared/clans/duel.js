@@ -5,13 +5,13 @@
 //  tour, puis passe la main. Le serveur fait tourner ce moteur ; les
 //  joueurs ne lui envoient que « je joue la carte n° i » et « fin du tour ».
 // =====================================================================
-import { BRANCHES, CARTES, CLASSES, effetsDe } from './cartes.js';
-import { alea, bonusBranche, calculerDegats, defausserMain, effetsMain, MARQUES, DETONATION } from './combat.js';
+import { BRANCHES, CARTES, CHEFS, CLASSES, effetsDe } from './cartes.js';
+import { alea, bonusBranche, bonusChefCible, blocGarde, CHEF_STATUT, calculerDegats, defausserMain, effetsMain, MARQUES, DETONATION } from './combat.js';
 import { FAMILIERS } from './familiers.js';
 import { DECK_MIN, DECK_MAX } from './profil.js';
 
 export const TOURS_MAX = 50;          // au-delà, le duel s'arrête : le plus de PV (en %) gagne
-const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, marque: 0 });
+const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, marque: 0, ardeur: 0, esquive: 0, renaissance: 0, bourgeon: 0, photosynthese: 0 });
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
 
 // a, b : { nom, clan, classe, pvMax, deck: [{ id, niv }] }
@@ -19,9 +19,11 @@ export function nouveauDuel(a, b, graine = 1) {
   const r = alea(graine);
   let n = 0;
   const joueur = (x) => ({
-    nom: x.nom, clan: x.clan, classe: x.classe, branche: BRANCHES[x.branche]?.classe === x.classe ? x.branche : null, app: typeof x.app === 'string' ? x.app.slice(0, 160) : '', pv: x.pvMax, pvMax: x.pvMax, ...statuts(),
+    nom: x.nom, clan: x.clan, classe: x.classe, branche: BRANCHES[x.branche]?.classe === x.classe ? x.branche : null, app: typeof x.app === 'string' ? x.app.slice(0, 160) : '', pv: x.pvMax, pvMax: x.pvMax, fantome: !!x.fantome, ...statuts(),
     pioche: melanger(x.deck.map((k) => ({ uid: `c${n++}`, id: k.id, niv: k.niv || 1 })), r), main: [], defausse: [], epuisees: [],
-    energie: 0, tirs: 0, attaquesTour: 0, arcanes: false, arcN: 0, tours: 0,
+    energie: 0, tirs: 0, attaquesTour: 0, arcanes: false, arcN: 0, tours: 0, cartesTour: 0, attaquesCombat: 0,
+    // v122 : le chef de guerre (talent) ; un PV fixe possible (duel de Consécration)
+    chef: BRANCHES[x.branche]?.classe === x.classe && CHEFS[x.chef]?.branche === x.branche ? x.chef : null,
     // v84 : 4 énergie avec une branche d'Ascension ; le familier vient aussi en duel
     energieMax: BRANCHES[x.branche]?.classe === x.classe ? 4 : 3, familier: FAMILIERS[x.familier] ? x.familier : null,
   });
@@ -71,11 +73,14 @@ function blesser(cible, v, direct = false) {
 const cib = (x) => (x.allie?.pv > 0 ? x.allie : x);
 function attaquer(att, cible, base, mult = 1) {
   if (cible.pv <= 0) return 0;
+  if (cible.ardeur > 0 && att.pv > 0 && att.brulure !== undefined) att.brulure += cible.ardeur;   // v123 : Aura ardente
+  if (cible.esquive > 0) { cible.esquive--; return 0; }   // v123 : Esquive
   const d = blesser(cible, calculerDegats(base, att, cible) * mult);
   if (cible.epines > 0 && att.pv > 0) blesser(att, cible.epines);
   return d;
 }
 function verifier(d) {
+  for (const j of d.j) if (j.pv <= 0 && j.renaissance > 0) { j.pv = Math.min(j.pvMax, j.renaissance); j.renaissance = 0; j.brulure = 0; d.journal.push(`${j.nom} renaît de ses cendres !`); }   // v123
   const [a, b] = d.j;
   if (a.pv <= 0 || b.pv <= 0) { d.fini = true; d.gagnant = a.pv <= 0 && b.pv <= 0 ? null : a.pv > 0 ? 0 : 1; return true; }
   if (d.tour > TOURS_MAX) { d.fini = true; const pa = a.pv / a.pvMax, pb = b.pv / b.pvMax; d.gagnant = pa === pb ? null : pa > pb ? 0 : 1; return true; }
@@ -84,17 +89,20 @@ function verifier(d) {
 function debutTour(d) {
   d.tour++;
   const j = d.j[d.actif];
-  if (d.tour > 2 || j.classe !== 'combattant') j.bloc = 0;
+  if (d.tour > 2 || j.classe !== 'combattant') j.bloc = blocGarde(j.chef, j.bloc);   // v122 : Rempart du clan
   if (j.brulure > 0) { blesser(j, j.brulure, true); j.brulure--; if (verifier(d)) return; }
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
   j.tours = (j.tours || 0) + 1;
   const f = j.tours === 1 && j.familier ? FAMILIERS[j.familier].effet : {};   // Braisillon et Loutre : au premier tour
-  j.energie = Math.max(1, (j.energieMax || 3) + (f.energie || 0) - (j.paralysie || 0)); j.paralysie = 0; j.attaquesTour = 0; j.arcanes = false; j.arcN = 0;   // v96 : paralysie
+  j.energie = Math.max(1, (j.energieMax || 3) + (f.energie || 0) - (j.paralysie || 0) + (j.chef === 'chef_horde' && j.pv < j.pvMax / 2 ? 1 : 0)); j.paralysie = 0; j.attaquesTour = 0; j.cartesTour = 0; j.arcanes = false; j.arcN = 0;   // v96 : paralysie
   piocher(d, j, 5 + (f.pioche || 0));
+  j.ardeur = 0;   // v123
+  if (j.bourgeon > 0) { j.pv = Math.min(j.pvMax, j.pv + j.bourgeon); j.bourgeon = 0; }
+  if (j.photosynthese > 0) { j.energie += j.photosynthese; j.photosynthese = 0; }
   // Appel : l'allié invoqué frappe l'adversaire
   if (j.appel > 0 && d.tour > 2) attaquer({ force: 0, affaibli: 0, pv: 1 }, cib(d.j[1 - d.actif]), j.appel);
-  if (j.allie?.pv > 0 && j.tours > 1) attaquer(j.allie, cib(d.j[1 - d.actif]), j.allie.deg);   // v87 : l'allié invoqué frappe
+  if (j.allie?.pv > 0 && j.tours > 1) for (let f2 = 0; f2 < (j.chef === 'seigneur_betes' ? 2 : 1); f2++) attaquer(j.allie, cib(d.j[1 - d.actif]), j.allie.deg);   // v122 : deux fois   // v87 : l'allié invoqué frappe
   verifier(d);
 }
 export function coutDe(j, i) {
@@ -116,12 +124,20 @@ export function jouer(d, qui, i) {
     if (j.classe === 'escrimeur' && j.attaquesTour > 0) bonus = j.branche === 'duelliste' ? 2 * j.attaquesTour : 2;
     if (j.classe === 'tireur') { j.tirs++; if (j.tirs % (j.branche === 'sniper' ? 2 : 3) === 0) mult = 2; }
     bonus += bonusBranche(j.branche, j, e);
+    if (j.chef === 'oeil_aigle' && !j.attaquesCombat) mult = Math.max(mult, 3);   // v122 : Premier sang
+    bonus += k.pousse || 0;   // v123
+    j.attaquesCombat = (j.attaquesCombat || 0) + 1;
     if (j.branche === 'ombre' && j.attaquesTour === 0) adv.affaibli += 1;
     j.attaquesTour++;
+    if (j.chef === 'champion_clan' && j.attaquesTour === 2) j.energie += 1;   // v122 : Second souffle
   }
+  j.cartesTour = (j.cartesTour || 0) + 1;
+  if (j.chef === 'grand_arcaniste' && j.cartesTour === 3) j.energie += 2;   // v122 : Résonance
   if (e.sacrifice) j.pv -= Math.min(e.sacrifice, j.pv - 1);
   let inflige = 0;
-  if (e.degats) for (let f = 0; f < (e.fois || 1); f++) inflige += attaquer(j, cib(adv), e.degats + bonus, mult);
+  const dMain = e.degatsParMain ? e.degatsParMain * j.main.length : 0;   // v123
+  if (e.degats) for (let f = 0; f < (e.fois || 1); f++) { const t = cib(adv); inflige += attaquer(j, t, e.degats + dMain + bonus + bonusChefCible(j.chef, t), mult); }
+  if (j.chef === 'maitre_artilleur' && carte.type === 'attaque' && e.tous && CHEF_STATUT[j.clan]) { const [k2, n2] = CHEF_STATUT[j.clan]; adv[k2] += n2; }   // v122 : Obus élémentaires
   if (e.volVie && j.pv > 0) j.pv = Math.min(j.pvMax, j.pv + Math.floor(inflige * e.volVie));   // v99
   if (e.degatsParBrulure) attaquer(j, cib(adv), Math.floor(adv.brulure * e.degatsParBrulure) + bonus, mult);
   if (e.bouclierEnDegats) attaquer(j, cib(adv), j.bloc + bonus, mult);
@@ -130,6 +146,7 @@ export function jouer(d, qui, i) {
   if (e.trempe) adv.trempe += e.trempe;
   if (e.etourdit) adv.paralysie = Math.min(2, (adv.paralysie || 0) + e.etourdit);   // v96 : en duel, l'étourdi perd de l'énergie à son prochain tour
   if (e.affaibli) adv.affaibli += e.affaibli;
+  if (e.doubleBrulure) adv.brulure *= 2;   // v123
   if (e.marque && adv.pv > 0) { adv.marque = (adv.marque || 0) + e.marque; while (adv.marque >= MARQUES && adv.pv > 0) { adv.marque -= MARQUES; adv.pv = Math.max(0, adv.pv - DETONATION); } }   // v98
   if (e.doubleBouclier) j.bloc *= 2;
   if (e.bouclier) j.bloc += e.bouclier;
@@ -138,10 +155,19 @@ export function jouer(d, qui, i) {
   if (e.soin) j.pv = Math.min(j.pvMax, j.pv + e.soin);
   if (e.epines) j.epines += e.epines;
   if (e.regen) j.regen += e.regen;
+  // v123 : les nouvelles mécaniques des éléments
+  if (e.bouclierParRegen) j.bloc += (j.regen || 0) * e.bouclierParRegen;
+  if (e.purifie) { j.brulure = 0; j.trempe = 0; j.affaibli = 0; j.marque = 0; }
+  if (e.brulureSoi) j.brulure += e.brulureSoi;
+  for (const s of ['ardeur', 'esquive', 'bourgeon']) if (e[s]) j[s] = (j[s] || 0) + e[s];
+  if (e.renaissance) j.renaissance = Math.max(j.renaissance || 0, e.renaissance);
+  if (e.energieProchain) j.photosynthese = (j.photosynthese || 0) + e.energieProchain;
   if (e.force) j.force += e.force;
   if (e.energie) j.energie += e.energie;
-  if (e.invoque) j.allie = { ...e.invoque, pvMax: e.invoque.pv, bloc: 0, force: 0, affaibli: 0, trempe: 0, epines: 0, brulure: 0 };   // v87
+  if (e.invoque) j.allie = { ...e.invoque, ...(j.chef === 'seigneur_betes' ? { pv: Math.round(e.invoque.pv * 1.5) } : {}), pvMax: j.chef === 'seigneur_betes' ? Math.round(e.invoque.pv * 1.5) : e.invoque.pv, bloc: 0, force: 0, affaibli: 0, trempe: 0, epines: 0, brulure: 0 };   // v87
   delete k.remise;
+  if (e.pousse) k.pousse = (k.pousse || 0) + e.pousse;   // v123
+  if (e.reflux) for (let r = 0; r < e.reflux && j.defausse.length && j.main.length < 10; r++) j.main.push(j.defausse.pop());
   if (!k.eph) (e.epuise ? j.epuisees : j.defausse).push(k);
   if (e.pioche) piocher(d, j, e.pioche);
   j._r = d._r; effetsMain(j, e); delete j._r;
@@ -160,7 +186,7 @@ export function finTour(d, qui) {
 }
 // ce que voit un joueur : sa main, et seulement le nombre de cartes de l'adversaire
 export function vue(d, qui) {
-  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche, appel: j.appel || 0, app: j.app, pv: j.pv, pvMax: j.pvMax, energieMax: j.energieMax || 3, familier: j.familier || null, allie: j.allie?.pv > 0 ? { nom: j.allie.nom, ico: j.allie.ico, img: j.allie.img, pv: j.allie.pv, pvMax: j.allie.pvMax, deg: j.allie.deg } : null, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, marque: j.marque || 0, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
+  const pub = (j) => ({ nom: j.nom, clan: j.clan, classe: j.classe, branche: j.branche, chef: j.chef || null, fantome: !!j.fantome, appel: j.appel || 0, app: j.app, pv: j.pv, pvMax: j.pvMax, energieMax: j.energieMax || 3, familier: j.familier || null, allie: j.allie?.pv > 0 ? { nom: j.allie.nom, ico: j.allie.ico, img: j.allie.img, pv: j.allie.pv, pvMax: j.allie.pvMax, deg: j.allie.deg } : null, bloc: j.bloc, force: j.force, brulure: j.brulure, trempe: j.trempe, affaibli: j.affaibli, epines: j.epines, regen: j.regen, marque: j.marque || 0, ardeur: j.ardeur || 0, esquive: j.esquive || 0, renaissance: j.renaissance || 0, bourgeon: j.bourgeon || 0, photosynthese: j.photosynthese || 0, energie: j.energie, nMain: j.main.length, nPioche: j.pioche.length, nDefausse: j.defausse.length, tirs: j.tirs, attaquesTour: j.attaquesTour, arcanes: j.arcanes });
   const moi = d.j[qui];
   const ap = apercuMain(d, qui);
   return { moi: { ...pub(moi), main: moi.main.map((k, i) => ({ id: k.id, niv: k.niv, cout: coutDe(moi, i), eph: !!k.eph, ap: ap[i] })) }, adv: pub(d.j[1 - qui]), aMoi: d.actif === qui, tour: d.tour, fini: d.fini, gagnant: d.gagnant === null ? null : d.gagnant === qui ? 'moi' : 'adv', journal: d.journal.slice(-4) };

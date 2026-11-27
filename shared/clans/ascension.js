@@ -7,6 +7,7 @@
 import { BRANCHES, NIV_ASCENSION } from './cartes.js';
 import { niveau, deckCombat, pvMax, convertirAutresClasses } from './profil.js';
 import * as F from './familiers.js';
+import * as CO from './consecration.js';
 
 export const GARDIEN = { id: 'chimere', nom: 'Chimère de l’ascension', ico: '🦁', pv: 230, rang: 'boss',
   intentions: [{ a: 14 }, { d: 12, f: 2 }, { a: 6, n: 3 }, { w: 2, a: 10 }, { b: 4, t: 1, a: 12 }, { a: 22 }] };
@@ -60,7 +61,8 @@ export function changer(p, b) {
   const ancienne = p.branche;
   p.parchemins--; p.branche = b;
   if (p.titre === `br:${ancienne}`) p.titre = null;
+  const chef = CO.suivreBranche(p);   // v122 : un chef de guerre change aussi de chef (ses anciens sorts deviennent des éclats)
   const conv = convertirAutresClasses(p);
   delete p.avisClasse;   // le message de la v68 ne concerne pas ce cas
-  return { ok: true, res: { n: conv.n, eclats: conv.eclats } };
+  return { ok: true, res: { n: conv.n, eclats: conv.eclats, chef } };
 }

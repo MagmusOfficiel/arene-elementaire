@@ -144,6 +144,13 @@ export function dessinerRepere(ctx, r, t) {
   ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(Math.round(r.x - s.width * 0.42), r.y + 6, Math.round(s.width * 0.84), 4);
   ctx.drawImage(s, x, y);
   const lueur = (cx, cy, rr, col, a) => { const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, rr)); g.addColorStop(0, col.replace('A', a)); g.addColorStop(1, col.replace('A', 0)); ctx.fillStyle = g; ctx.fillRect(cx - rr, cy - rr, rr * 2, rr * 2); };
+  // v124 : le monument d'un Seigneur de chapitre — un cercle de runes violet qui pulse au sol
+  if (r.seigneur) {
+    const pu = 0.5 + Math.sin(t * 2.2) * 0.5;
+    lueur(r.x, r.y + 4, 46, 'rgba(170,90,255,A)', 0.16 + pu * 0.12);
+    for (let k = 0; k < 10; k++) { const a = t * 0.6 + (k / 10) * Math.PI * 2; ctx.fillStyle = k % 2 ? '#c89aff' : '#7a3cff'; ctx.globalAlpha = 0.55 + pu * 0.35; ctx.fillRect(Math.round(r.x + Math.cos(a) * 30), Math.round(r.y + 6 + Math.sin(a) * 9), 2, 2); }
+    ctx.globalAlpha = 1;
+  }
   switch (r.type) {
     case 'brasero': {   // la flamme éternelle
       const fx = r.x, fy = r.y - 16;

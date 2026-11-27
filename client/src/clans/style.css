@@ -1036,3 +1036,13 @@ body.tactile #zoomMonde { bottom: auto; top: calc(var(--hautBarre, 56px) + 150px
 .mTuAs .icoRes { width: 18px; height: 18px; vertical-align: -4px; }
 .offre .echange .aDeja { display: block; font-size: 11px; opacity: .75; font-weight: 400; }
 .offre .echange .manque { color: #ff9a8a; }
+
+/* v121 : l'illustration garde toujours sa taille ; c'est le texte qui rétrécit quand il est long */
+.carte .cn, .carte .ci, .carte .ct { flex-shrink: 0; }
+.carte .cd { min-height: 0; overflow: hidden; }
+.carte .cd.long { font-size: 10px; line-height: 1.22; padding: 4px; }
+.carte .cd.tresLong { font-size: 8.8px; line-height: 1.18; padding: 3px 4px; }
+/* v122 : la Consécration dans la fenêtre de l'Ascension */
+.ascension .consecration { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: linear-gradient(135deg, rgba(40,46,90,.55), rgba(20,18,36,.6)); border: 1px solid rgba(150,180,255,.45); }
+.ascension .consecration.fait { background: linear-gradient(135deg, rgba(90,66,20,.5), rgba(30,22,10,.6)); border-color: rgba(255,214,110,.6); }
+.ascension .consecration h3 { margin: 0 0 8px; }

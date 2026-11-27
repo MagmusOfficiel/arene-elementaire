@@ -10,6 +10,8 @@
 import express from 'express';
 import * as P from '../../shared/clans/profil.js';
 import * as QP from '../../shared/clans/quetesPnj.js';
+import * as CO from '../../shared/clans/consecration.js';
+import { BRANCHES, CHEFS } from '../../shared/clans/cartes.js';
 import { ClansRoom } from './ClansRoom.js';
 import { lireProfilClans, ecrireProfilClans, listerProfilsClans, jetonValide } from './stats.js';
 
@@ -24,7 +26,7 @@ function resume(jeton, p, enLigne) {
   return { jeton, enLigne, nom: p.nom, clan: p.clan, classe: p.classe, niv, xp,
     xpNiv: P.xpPourNiveau(niv), xpSuivant: niv >= P.NIVEAU_MAX ? null : P.xpPourNiveau(niv + 1),
     xpDetail: { victoires: p.stats?.victoires || 0, boss: (p.stats?.boss || 0) * P.XP_BOSS, quetes: QP.xpQuetes(p) },
-    ress: Object.fromEntries(RESSOURCES.map((k) => [k, p.ress?.[k] || 0])), creeLe: p.creeLe || null };
+    ress: Object.fromEntries(RESSOURCES.map((k) => [k, p.ress?.[k] || 0])), creeLe: p.creeLe || null, branche: p.branche || null, chef: p.chef || null };
 }
 
 // fixe le niveau : l'XP vient des victoires, des boss et des quêtes ; on règle les victoires
@@ -34,6 +36,19 @@ export function fixerNiveau(p, n) {
   p.stats ||= {}; p.stats.victoires = Math.max(0, P.xpPourNiveau(n) - autre);
   const obtenu = P.niveau(p);
   return { ok: true, niv: obtenu, avertissement: obtenu > n ? `Ses quêtes et ses boss donnent déjà le niveau ${obtenu} : impossible de descendre plus bas.` : null };
+}
+// v122 : fixer la branche d'Ascension (sans épreuve) et retirer le titre de chef de guerre (pour retenter la Consécration)
+export function fixerBranche(p, b) {
+  if (!BRANCHES[b] || BRANCHES[b].classe !== p.classe) return { ok: false, avertissement: 'Cette branche n’est pas pour sa classe.' };
+  if (p.branche === b) return { ok: false };
+  p.branche = b; delete p.ascension; CO.suivreBranche(p); P.convertirAutresClasses(p); delete p.avisClasse;
+  return { ok: true };
+}
+export function retirerChef(p) {
+  if (!p.chef) return { ok: false };
+  if (p.titre === `ch:${p.chef}`) p.titre = null;
+  delete p.chef; delete p.consecration; P.convertirAutresClasses(p); delete p.avisClasse;
+  return { ok: true };
 }
 // ajoute (ou retire, avec un nombre négatif) des ressources, ou les fixe
 export function changerRessources(p, ress, mode = 'ajouter') {
@@ -86,17 +101,20 @@ export function brancherAdmin(app) {
     const nivAvant = P.niveau(p), out = { avertissements: [] };
     if (b.niveau != null && b.niveau !== '') { const r = fixerNiveau(p, b.niveau); if (r.avertissement) out.avertissements.push(r.avertissement); }
     const fait = changerRessources(p, b.ress, b.mode === 'fixer' ? 'fixer' : 'ajouter');
-    const nivApres = P.niveau(p);
-    if (nivApres === nivAvant && !Object.keys(fait).length) return res.json({ ...out, ok: true, rien: true, joueur: resume(jeton, p, !!e) });
+    const nivApres = P.niveau(p), autres = [];
+    if (b.branche) { const r = fixerBranche(p, String(b.branche)); if (r.avertissement) out.avertissements.push(r.avertissement); if (r.ok) autres.push(`branche ${BRANCHES[p.branche].nom}`); }
+    if (b.chef === 'retirer') { const ancien = p.chef; if (retirerChef(p).ok) autres.push(`titre de ${CHEFS[ancien].nom} retiré`); }
+    if (nivApres === nivAvant && !Object.keys(fait).length && !autres.length) return res.json({ ...out, ok: true, rien: true, joueur: resume(jeton, p, !!e) });
     // le message que voit le joueur connecté
     const morceaux = [];
     if (nivApres !== nivAvant) morceaux.push(`niveau ${nivApres}`);
     if (Object.keys(fait).length) morceaux.push(texteDon(fait));
+    morceaux.push(...autres);
     const perso = String(b.message || '').trim().slice(0, 140);
     const msg = `🎁 L’équipe du jeu : ${morceaux.join(' · ')}${perso ? ` — « ${perso} »` : ''}`;
     if (e) e.salle.apresAdmin(e.client, e.j, msg);
     else await ecrireProfilClans(jeton, p);
-    console.log(`🛠️  admin · ${p.nom} (${jeton.slice(0, 6)}…) : niveau ${nivAvant} → ${nivApres}${Object.keys(fait).length ? ` · ${texteDon(fait)}` : ''}${e ? ' (en ligne)' : ''}`);
+    console.log(`🛠️  admin · ${p.nom} (${jeton.slice(0, 6)}…) : niveau ${nivAvant} → ${nivApres}${Object.keys(fait).length ? ` · ${texteDon(fait)}` : ''}${autres.length ? ` · ${autres.join(', ')}` : ''}${e ? ' (en ligne)' : ''}`);
     res.json({ ...out, ok: true, enLigne: !!e, joueur: resume(jeton, p, !!e) });
   });
 }

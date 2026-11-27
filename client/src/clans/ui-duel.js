@@ -2,9 +2,10 @@
 //  LES CLANS ÉLÉMENTAIRES — les duels (et les matchs d’arène)
 //  (découpé de main.js en v51 ; voir main.js pour le démarrage)
 // =====================================================================
-import { CARTES, ELEMENTS, STATUTS } from '../../../shared/clans/cartes.js';
+import { CARTES, CHEFS, ELEMENTS, STATUTS } from '../../../shared/clans/cartes.js';
 import * as A from '../../../shared/clans/arene.js';
 import * as AP from '../../../shared/clans/apparence.js';
+import * as CO from '../../../shared/clans/consecration.js';
 import { decor, ambiance, creerFx, PALETTES } from './scene.js';
 import { sfx } from '../sfx.js';
 import { banniere, defausserMain, dessinerSprite, dessinerHeros, distribuer, flash, lancerAuras, majJauge, nombre, regler, rejouerAnim, secouer, setStopAuraDu, stopAuraDu, voler, impact } from './ui-combat.js';
@@ -20,18 +21,18 @@ export function afficherDuel(v) {
   const sc = $('duel'), a = v.adv, m = v.moi;
   if (premier) {
     $('fenetre').classList.add('cache'); $('combat').classList.add('cache'); monde.arreter();
-    sc.className = 'scene'; $('duBanniere').replaceChildren(); sc.querySelector('.rayons')?.remove(); journalVu = 0;
+    sc.className = `scene${v.consec ? ' consec' : ''}`; $('duBanniere').replaceChildren(); sc.querySelector('.rayons')?.remove(); journalVu = 0;
     const terr = v.arene ? 'arene' : (monde.territoire() || 'arene');
     decor($('duDecor'), terr); ambDu?.arreter(); ambDu = ambiance($('duAmbiance'), terr); fxDu ||= creerFx($('duFx'));
-    dessinerHeros($('duSprite'), p.clan, p.classe, 'droite', AP.code(p), p.branche || null); dessinerHeros($('duSpriteAdv'), a.clan, a.classe, 'gauche', a.app || '', a.branche || null);
+    dessinerHeros($('duSprite'), p.clan, p.classe, 'droite', AP.code(p), p.branche || null, v.consec ? null : p.chef || null); dessinerHeros($('duSpriteAdv'), a.clan, a.classe, 'gauche', a.app || '', a.branche || null, a.chef || null, !!a.fantome);
     stopAuraDu?.(); setStopAuraDu(lancerAuras(fxDu, () => [[$('duHeros').querySelector('.combattant'), AP.portee(p).aura], [advDu().querySelector('.combattant'), AP.lireCode(a.app).aura]]));
     delete $('duHeros').querySelector('.jauge').dataset.pv; delete advDu().querySelector('.jauge').dataset.pv;
     regler(sc);
     rejouerAnim($('duHeros'), 'entreeG'); rejouerAnim(advDu(), 'entreeD');
-    banniere('duBanniere', `${v.arene ? '🏟️ Arène' : '⚔️ Duel'}<small>${esc(p.nom)} contre ${esc(a.nom)}</small>`, 'rouge', 1300);
+    banniere('duBanniere', `${v.consec ? '⚜️ Consécration' : v.arene ? '🏟️ Arène' : '⚔️ Duel'}<small>${esc(p.nom)} contre ${esc(a.nom)}</small>`, v.consec ? 'or' : 'rouge', 1300);
     sfx.gong();
   }
-  $('duTitre').textContent = v.arene ? `🏟️ Arène — ${a.nom} (${A.rangDe(v.arene.adv).ico} ${v.arene.adv})` : `⚔️ Duel contre ${a.nom}`;
+  $('duTitre').textContent = v.consec ? `⚜️ Consécration — ${a.nom}` : v.arene ? `🏟️ Arène — ${a.nom} (${A.rangDe(v.arene.adv).ico} ${v.arene.adv})` : `⚔️ Duel contre ${a.nom}`;
   advDu().querySelector('.nomAdv').innerHTML = `${esc(a.nom)} <span class="badge ${a.clan}">${ELEMENTS[a.clan].ico}</span>`;
   advDu().querySelector('.mainAdv').textContent = '🂠'.repeat(a.nMain);
   // ce qui a changé depuis la dernière vue : on le montre (après le vol de notre carte, s'il y en a un)
@@ -127,12 +128,30 @@ export async function finDuel(r) {
     await pause(1700);
   }
   fermerDuel();
-  if (r.issue === 'defaite' && r.raison !== 'depart') etourdir(Math.max(1, 10 - (Date.now() - t0) / 1000));   // v84
+  if (r.issue === 'defaite' && r.raison !== 'depart' && !r.consec) etourdir(Math.max(1, 10 - (Date.now() - t0) / 1000));   // v84
   const titre = { victoire: '🏆 Victoire !', defaite: '💀 Défaite', nul: '🤝 Égalité' }[r.issue];
   const raison = r.raison === 'abandon' ? (r.issue === 'victoire' ? `${esc(r.adv)} a abandonné.` : 'Tu as abandonné.') : r.raison === 'depart' ? `${esc(r.adv)} a pris la fuite.` : '';
   if (r.arene) return finArene(r, titre, raison);
+  if (r.consec) return finConsecration(r, raison);
   ouvrir(`<h2>${titre}</h2><p>Duel contre <b>${esc(r.adv)}</b>. ${raison}</p>
     <p class="recolte">${r.butin > 0 ? `Tu remportes <b>${nf(r.butin)} ${ICO_RESS.essence}</b> de son essence.` : r.butin < 0 ? `Tu perds <b>${nf(-r.butin)} ${ICO_RESS.essence}</b>.` : 'Personne ne perd rien.'}</p>
     <p class="cout">Après un duel, tu es protégé 2 minutes. Bilan : ${p.duels.gagnes} victoire${p.duels.gagnes > 1 ? 's' : ''}, ${p.duels.perdus} défaite${p.duels.perdus > 1 ? 's' : ''}.</p>
     <button class="bouton" id="btOk">Retour au monde</button>`, () => { $('btOk').onclick = fermer; });
+}
+
+// v122 : la fin du duel de Consécration
+function finConsecration(r, raison) {
+  const ch = CHEFS[r.consec.chef];
+  if (r.consec.victoire) {
+    ouvrir(`<h2>⚜️ ${esc(ch.nom)} !</h2><div class="consecFin"><div class="consecPortrait" style="background-image:url(${import.meta.env.BASE_URL}clans/heros/${p.clan}_${r.consec.chef}.webp), url(${import.meta.env.BASE_URL}clans/heros/${p.clan}_${p.branche}.webp)"></div>
+      <div><p>Le fantôme s’incline et se dissout dans la lumière : <b>tu es le nouveau ${esc(ch.nom)}</b>.</p>
+      <p><b>${ch.ico} ${esc(ch.talent)}</b> : ${esc(ch.desc)}</p><p>Tes 3 sorts de chef sont dans ta collection, et le titre « ${esc(ch.titre)} » est affiché. Leurs autres exemplaires sortent désormais à l’autel.</p></div></div>
+      <div class="liste cartesChef">${CO.sortsChef(r.consec.chef).map((id) => carteHTML(id)).join('')}</div>
+      <button class="bouton" id="btOk">Retour au monde</button>`, () => { $('btOk').onclick = fermer; });
+  } else {
+    ouvrir(`<h2>👻 Le fantôme l’emporte</h2><p>${esc(r.adv)} t’a vaincu. ${raison}</p>
+      <p>Il connaît ses sorts par cœur : observe ses enchaînements, renforce ton deck (améliorer tes cartes aide beaucoup) et reviens le défier. Tu peux réessayer autant que tu veux.</p>
+      <p class="cout">Tentative n° ${r.consec.essais}.</p>
+      <button class="bouton" id="btOk">Retour au monde</button>`, () => { $('btOk').onclick = fermer; });
+  }
 }

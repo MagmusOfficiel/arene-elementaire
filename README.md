@@ -1030,3 +1030,77 @@ Page **`/clans/admin-joueurs.html`** (lien aussi depuis `/clans/admin.html`). Co
 - **Le bug :** les 14 quêtes où il faut aller voir un lieu (par exemple « La statue oubliée » ou « Ranimer la Flamme éternelle » au Feu) ne se validaient jamais. La liste des lieux à voir (`lieuxAVoir`) recopiait le repère par-dessus l'identifiant de la quête : arrivé sur place, le client envoyait au serveur le nom du lieu (`statue_forgeron`) au lieu de celui de la quête (`feu_statue`), et le serveur refusait sans rien dire.
 - **La correction :** chaque lieu à voir porte maintenant `id` (la quête) et `lieu` (le repère). La grande carte surligne les repères par `lieu`. Les joueurs déjà bloqués n'ont qu'à repasser au lieu : la visite est comptée tout de suite.
 - **Test ajouté :** pour chacune des 14 quêtes de lieu, ce que le client envoie est bien accepté sur place. Une simulation vérifie aussi que les quêtes de lieu et d'objet de toutes les zones peuvent être finies.
+
+## Reliques par classe, illustrations entières, textes de cartes courts (v121)
+
+- **Reliques :** les 16 reliques neutres des zones sont réparties entre les classes (`CLASSE_RELIQUES` dans `shared/clans/cartes.js`), une par classe et par zone, avec 2 épiques et 2 légendaires chacune :
+  - Combattant : Golem de pierre, Marteau du tonnerre, Sable aveuglant, Festin des étoiles ;
+  - Mage : Esprit de la faille, Chaîne d'éclairs, Œil de Râ, Faux des étoiles ;
+  - Tireur : Loup spectral, Avatar de la tempête, Flèche du scarabée, Comète vorace ;
+  - Escrimeur : Dragonnet, Œil de la tempête, Jugement du pharaon, Morsure astrale.
+  Avec les 6 reliques de son élément, un joueur voit donc 10 reliques à forger au lieu de 22. La forge refuse les reliques d'une autre classe. Celles déjà forgées par une autre classe deviennent des éclats, comme les autres cartes d'une autre classe.
+- **Illustrations :** l'image d'une carte garde toujours sa taille ; avant, un long texte la rétrécissait. Les textes longs passent en plus petit.
+- **Textes courts :** « Invoque … : 30 PV, frappe 3 par tour », « Étourdit la cible », « Marque la cible 2 fois », « Vol de vie 50 % ». L'explication complète s'affiche en survolant le mot souligné.
+- **Grimoire :** un Combattant Berserker du Feu doit réunir 51 cartes : 17 de classe (Combattant et Berserker), 10 neutres, 14 Feu et 10 reliques (6 Feu, 4 Combattant). Avant la règle des éléments (v116), c'était plus de 100.
+
+## Les chefs de guerre : la Consécration (v122)
+
+Au **niveau 50**, un joueur qui a une branche d'Ascension peut devenir **chef de guerre**. Il y a un chef par branche (`CHEFS` dans `shared/clans/cartes.js`) :
+
+| Branche | Chef | Talent |
+|---|---|---|
+| Gardien | 🚩 Porte-Bannière | Rempart du clan : la moitié du bouclier inutilisé reste au tour suivant |
+| Berserker | 🐗 Chef de Horde | Sang de la horde : +1 énergie par tour sous 50 % des PV |
+| Archimage | 🌌 Grand Arcaniste | Résonance : la 3e carte jouée du tour rend 2 énergie |
+| Invocateur | 🦁 Seigneur des Bêtes | Roi de la meute : alliés invoqués +50 % PV, frappent deux fois |
+| Sniper | 🦅 Œil de l'Aigle | Premier sang : la 1re attaque du combat fait ×3 |
+| Artificier | 🧨 Maître Artilleur | Obus élémentaires : une attaque sur tous applique Brûlure 2 / Trempé 1 / Affaibli 1 selon le clan |
+| Duelliste | 🏆 Champion du Clan | Second souffle : la 2e attaque du tour rend 1 énergie |
+| Lame d'ombre | ✋ Main Noire | Coup de grâce : +3 dégâts aux cibles affaiblies |
+
+- **La quête :** un duel contre le **Fantôme de l'ancien chef** (`shared/clans/consecration.js`), lancé depuis la fenêtre de l'Ascension (touche U). Le fantôme a le même clan, la même classe, la même branche et le talent du chef. Son deck compte 23 cartes niveau 2 : ses sorts de chef, ceux de la branche, de la classe et de l'élément. Son IA (`coupFantome`) essaie chaque carte et la meilleure suivante sur une copie du duel avant de jouer.
+- **PV fixes :** 500 pour le fantôme, 420 pour le joueur, quelle que soit sa maison. La difficulté a été calibrée par simulation : un joueur qui joue bien, avec des cartes niveau 3, gagne environ 4 fois sur 10 ; avec des cartes niveau 2, environ 2 fois sur 10. On peut retenter sans limite, sans étourdissement ni perte.
+- **La victoire :** le talent du chef, ses **3 sorts** (2 épiques et 1 légendaire, un exemplaire de chacun ; les exemplaires suivants sortent à l'autel, seulement pour ce chef), le titre et une annonce à tout le serveur. Le serveur fait tourner le duel (`sur('consecration')` → `lancerDuel(…, { consec, pv, bot })` → `finConsecration`).
+- **Parchemin de réorientation :** le chef suit la nouvelle branche (Porte-Bannière ↔ Chef de Horde, etc.). Les sorts de l'ancien chef deviennent des éclats et ceux du nouveau sont donnés.
+- **Portraits :** `client/public/clans/heros/<clan>_<chef>.webp` (24 images). Ils passent avant le portrait de la branche ; s'il manque, on voit celui de la branche. En duel, le fantôme est assombri et bleuté.
+- **Panneau admin :** on peut fixer la branche d'un joueur et lui retirer son titre de chef, pour qu'il retente la Consécration.
+- **Tests :** `tests/clansconsecration.test.mjs` (données, tirages, récompense, changement de branche, fantôme, talents) et une étape E2E qui joue la Consécration de bout en bout. Avec `CLANS_TEST_FANTOME_PV`, le fantôme est fragile.
+
+## Nouvelles cartes d'élément et nouvelles mécaniques (v123)
+
+12 cartes, 4 par élément, chacune avec une mécanique jamais vue, dans l'esprit de son élément. Elles sortent aux tirages du clan, comme les autres cartes d'élément.
+
+| Élément | Carte | Rareté · coût | Effet |
+|---|---|---|---|
+| Feu | Embrasement | rare · 1 | 4 dégâts, **double la brûlure** de la cible |
+| Feu | Fournaise intérieure | rare · 0 | +2 énergie, mais **tu subis Brûlure 3** |
+| Feu | Mur de flammes | épique · 1 | 7 bouclier, **Aura ardente 4** (qui t'attaque d'ici ton prochain tour prend Brûlure 4) |
+| Feu | Cendres du phénix | légendaire · 2 | **Renaissance 30** : à 0 PV, tu reviens avec 30 PV (une fois), épuisée |
+| Eau | Source pure | rare · 1 | 7 bouclier, **retire tes brûlure, trempé, affaibli et marques** |
+| Eau | Retour des flots | rare · 1 | 3 bouclier, **reprends en main la dernière carte de ta défausse** |
+| Eau | Voile de brume | épique · 1 | **Esquive 1** (la prochaine attaque reçue ne fait rien), pioche 1 |
+| Eau | Marée montante | légendaire · 2 | 6 dégâts **+3 par carte dans ta main** |
+| Plante | Pousse vivace | rare · 1 | 5 dégâts, **Pousse 3** : +3 dégâts à chaque fois que tu la rejoues ce combat |
+| Plante | Bourgeon | rare · 1 | 5 bouclier, **Bourgeon 12** : il éclot au début de ton prochain tour et soigne 12 |
+| Plante | Racines profondes | épique · 1 | Régénération 2, puis **3× ta régénération en bouclier** |
+| Plante | Photosynthèse | légendaire · 1 | Pioche 2, **+3 énergie au prochain tour** |
+
+Les mécaniques marchent contre les monstres (`combat.js`) et en duel (`duel.js`). Les nouveaux statuts (Aura ardente, Esquive, Renaissance, Bourgeon, Photosynthèse) s'affichent sous les PV avec leur explication. Tests : `tests/clanselements2.test.mjs`.
+
+## Les Seigneurs de chapitre (v124)
+
+Cinq boss à part, un par chapitre (`shared/clans/seigneurs.js`). On les défie au pied de leur monument, avec la touche E. Un cercle de runes violet marque ces monuments sur la carte. Un Seigneur s'ouvre quand le palier III de son territoire est vaincu, c'est-à-dire quand le Cauchemar y est débloqué. Chaque Seigneur change de phase à 66 % et à 33 % de ses PV.
+
+| Ch. | Seigneur | Monument | Mécanique |
+|---|---|---|---|
+| 1 | 🔱 Triarque élémentaire | les 3 statues des clans | Feu → Eau → Plante ; ×0,5 contre son élément, ×1,5 avec celui qui le bat |
+| 2 | 🪨 Briseur de mondes | Monolithe fêlé | glisse des **Fêlures** (cartes à 1 énergie qui ne font rien) dans la défausse |
+| 3 | ⛈️ Titan de la Foudre | Cairn des Disparus | **charge** un éclair énorme ; chaque **Paratonnerre** vivant en absorbe 30 % |
+| 4 | 🦁 Sphinx d'Ambre | Sphinx ensablé | **énigmes** tous les 3 tours (réussie : −8 % PV et Affaibli 2 ; ratée : +3 force) ; **sablier** de 15 tours |
+| 5 | 🌠 Astre déchu | Cadran des Étoiles | intouchable tant qu'une **Étoile déchue** brille (elles le soignent) |
+
+- **Première victoire :** une légendaire unique (Cœur du Triarque, Éclat du Briseur, Foudre du Titan, Sablier du Sphinx, Cœur de l'Astre), qui ne sort jamais aux tirages. S'y ajoutent un titre `sg:<id>`, une annonce au serveur et beaucoup de ressources.
+- **Revanches :** rejouables à volonté, avec un butin plus modeste. Le record de tours est noté.
+- **Haut fait « Les Seigneurs » :** 1, 3 puis 5 Seigneurs vaincus.
+- **Moteur** (`combat.js`) : les champs `phases`, `element`, `etoiles` / `etoile`, `paratonnerre` et `sablier` des ennemis, et les intentions `fe` (fêlures), `inv` (invocation), `ch` (charge), `foudre` et `en` (énigme). Le serveur rejoue le combat (`seigneurDebut` puis `seigneurCombat`).
+- **Tests :** `tests/clansseigneurs.test.mjs`.

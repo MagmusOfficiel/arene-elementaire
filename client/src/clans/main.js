@@ -17,6 +17,7 @@ import './ouverture.css';
 import * as C from '../../../shared/clans/combat.js';
 import * as P from '../../../shared/clans/profil.js';
 import * as X from '../../../shared/clans/expedition.js';
+import * as SG from '../../../shared/clans/seigneurs.js';
 import * as AP from '../../../shared/clans/apparence.js';
 import { feuillePerso, dessinerAura } from './monde.js';
 import './combat.css';
@@ -53,4 +54,4 @@ new ResizeObserver(() => document.documentElement.style.setProperty('--hautBarre
 $('ecranClan').classList.add('cache');
 pret.then(() => { if (document.getElementById('ecranClan').classList.contains('cache') && document.getElementById('ecranMonde').classList.contains('cache')) cg.chargementDebut(); });   // v106 : CrazyGames (rien ailleurs)
 connecter();
-window.__clans = { feteNiveau, toast, get room() { return room; }, AP, feuillePerso, dessinerAura, get p() { return p; }, get combat() { return combat; }, get coups() { return coups; }, monde, C, P, X, act, lancerCombat, fenetreExpedition, get etatMondial() { return etatMondial; } };
+window.__clans = { feteNiveau, toast, get room() { return room; }, AP, feuillePerso, dessinerAura, get p() { return p; }, get combat() { return combat; }, get coups() { return coups; }, monde, C, P, X, SG, act, lancerCombat, fenetreExpedition, get etatMondial() { return etatMondial; } };

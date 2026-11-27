@@ -210,6 +210,7 @@ export const monde = creerMonde($('monde'), {
     else if (l.action === 'filon') room?.send('ramasser', { id: l.id });
     else if (l.action === 'objetQuete') ramasserObjet(l);
     else if (l.action === 'mondial') room?.send('mondialEntrer');
+    else if (l.action === 'seigneur') import('./ui-seigneurs.js').then((m) => m.fenetreSeigneur(l.seigneur));   // v124
     else if (l.action === 'defier') { if (p.expedition) return toast('Termine d’abord ton expédition.'); room?.send('defier', { cible: l.id }); }
   },
   position: (j) => {

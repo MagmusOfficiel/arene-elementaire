@@ -5,7 +5,7 @@
 //  puis finit son tour. Les monstres agissent selon leur intention,
 //  affichée à l'avance. Le combat se gagne quand tous sont à 0 PV.
 // =====================================================================
-import { BRANCHES, CARTES, effetsDe } from './cartes.js';
+import { BRANCHES, CARTES, CHEFS, effetsDe } from './cartes.js';
 import { FAMILIERS } from './familiers.js';
 import * as RQ from './reliques.js';
 
@@ -14,20 +14,23 @@ export function alea(graine) {
   return () => { a += 0x6D2B79F5; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 function melanger(l, r) { for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } return l; }
-const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, etourdi: 0, paralysie: 0, marque: 0 });
+const statuts = () => ({ bloc: 0, force: 0, brulure: 0, trempe: 0, affaibli: 0, epines: 0, regen: 0, appel: 0, etourdi: 0, paralysie: 0, marque: 0, ardeur: 0, esquive: 0, renaissance: 0, bourgeon: 0, photosynthese: 0 });
 
 // deck : [{ id, niv }] ; joueur : { pv, pvMax } ; ennemis : modèles de monstres.js ; palier : { pv, deg }
 // classe : son talent s'applique pendant le combat (Endurci, Arcanes, Visée, Enchaînement)
-export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, branche = null, mods = null, familier = null, reliques = null }) {
+export function nouveauCombat({ deck, joueur, ennemis, palier = { pv: 1, deg: 1 }, graine = 1, energieMax = 3, classe = null, branche = null, mods = null, familier = null, reliques = null, clan = null, chef = null }) {
   const r = alea(graine);
   let n = 0;
   const c = {
-    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, branche: BRANCHES[branche]?.classe === classe ? branche : null, tirs: 0, arcN: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, reliques: Array.isArray(reliques) ? reliques.filter(RQ.valide) : [], mods: mods && mods.length ? mods.slice() : null,
+    tour: 0, fini: null, journal: [], energie: 0, energieMax, graine, classe, branche: BRANCHES[branche]?.classe === classe ? branche : null, clan, tirs: 0, cartesTour: 0, attaquesCombat: 0, arcN: 0, attaquesTour: 0, arcanes: false, familier: FAMILIERS[familier] ? familier : null, reliques: Array.isArray(reliques) ? reliques.filter(RQ.valide) : [], mods: mods && mods.length ? mods.slice() : null,
     joueur: { pv: joueur.pv, pvMax: joueur.pvMax, ...statuts() },
-    ennemis: ennemis.map((m, i) => ({ uid: `e${i}`, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, maudit: !!m.maudit, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: Math.floor(r() * m.intentions.length), deg: palier.deg, ...statuts() })),
+    ennemis: ennemis.map((m, i) => ennemiDe(m, `e${i}`, palier, m.phases ? 0 : Math.floor(r() * m.intentions.length))),
     pioche: melanger(deck.map((x) => ({ uid: `c${n++}`, id: x.id, niv: x.niv || 1 })), r), main: [], defausse: [], epuisees: [],
   };
-  c._r = r; c.allie = null;
+  c._r = r; c.allie = null; c._palier = palier;
+  // v124 : les Seigneurs de chapitre — le sablier du Sphinx (combat limité en tours)
+  { const l = Math.max(0, ...c.ennemis.map((e) => e.sablier || 0)); if (l) c.limite = l; }
+  c.chef = c.branche && CHEFS[chef]?.branche === c.branche ? chef : null;   // v122 : le talent du chef de guerre
   if (c.branche) c.energieMax += 1;   // v84 : la 2e classe (branche d'Ascension) donne 4 énergie au lieu de 3
   // malédictions du Cauchemar
   if (c.mods?.includes('rage')) for (const e of c.ennemis) e.force += 2;
@@ -62,6 +65,48 @@ export function bonusBranche(branche, j, e) {
   return b;
 }
 const vivants = (c) => c.ennemis.filter((e) => e.pv > 0);
+// un ennemi en combat (v124 : avec les champs des Seigneurs de chapitre : phases, élément, étoiles, paratonnerres, sablier)
+function ennemiDe(m, uid, palier, i0 = 0) {
+  return { uid, id: m.id, nom: m.nom, ico: m.ico, rang: m.rang, maudit: !!m.maudit, pv: Math.round(m.pv * palier.pv), pvMax: Math.round(m.pv * palier.pv), intentions: m.intentions, i: i0, deg: palier.deg, ...statuts(),
+    ...(m.phases ? { phases: m.phases, phase: 0 } : {}), ...(m.element ? { element: m.element } : {}), ...(m.etoiles ? { etoiles: true } : {}), ...(m.etoile ? { etoile: true } : {}), ...(m.paratonnerre ? { paratonnerre: true } : {}), ...(m.sablier ? { sablier: m.sablier } : {}), ...(m.seigneur ? { seigneur: m.seigneur } : {}) };
+}
+// ---------- v124 : les mécaniques des Seigneurs de chapitre ----------
+// l'élément qui bat l'autre (Triarque) : l'eau éteint le feu, le feu brûle la plante, la plante boit l'eau
+export const BAT = { eau: 'feu', feu: 'plante', plante: 'eau' };
+export const affinite = (elCarte, elCible) => (!elCarte || !elCible || !BAT[elCarte] ? 1 : elCarte === elCible ? 0.5 : BAT[elCarte] === elCible ? 1.5 : 1);
+// les énigmes du Sphinx : posées pendant son tour, vérifiées à la fin de ton tour suivant
+export const ENIGMES = [
+  { k: 'attaques', txt: 'Joue au moins 2 attaques ce tour.', ok: (c) => c.typesTour.attaque >= 2 },
+  { k: 'sansDefense', txt: 'Ne joue aucune défense ce tour (mais joue au moins une carte).', ok: (c) => !c.typesTour.defense && c.cartesTour >= 1 },
+  { k: 'cartes', txt: 'Joue au moins 4 cartes ce tour.', ok: (c) => c.cartesTour >= 4 },
+  { k: 'pouvoir', txt: 'Joue au moins un pouvoir ce tour.', ok: (c) => c.typesTour.pouvoir >= 1 },
+  { k: 'econome', txt: 'Finis ton tour avec au moins 1 énergie.', ok: (c) => c.energie >= 1 },
+];
+function invoquer(c, modele, k = 1) {
+  for (let n = 0; n < k; n++) {
+    if (vivants(c).length >= 5) return;
+    const e = ennemiDe({ ...modele, rang: 'normal' }, `e${c.ennemis.length}`, c._palier || { pv: 1, deg: 1 });
+    c.ennemis.push(e); ev(c, { t: 'invoque', a: e.uid }); c.journal.push(`${e.nom} apparaît !`);
+  }
+}
+function passerPhase(c, e) {
+  while (e.pv > 0 && e.phases[e.phase] && e.pv / e.pvMax <= e.phases[e.phase].seuil) {
+    const ph = e.phases[e.phase++];
+    e.intentions = ph.intentions; e.i = 0;
+    if (ph.element) e.element = ph.element;
+    if (ph.bloc) e.bloc += Math.round(ph.bloc * e.deg);
+    if (ph.force) e.force += ph.force;
+    if (ph.inv) invoquer(c, ph.inv, ph.k || 1);
+    e.etourdi = 0;
+    ev(c, { t: 'phase', a: e.uid, nom: ph.nom, element: e.element || null }); c.journal.push(`${e.nom} : ${ph.nom} !`);
+  }
+}
+// la foudre du Titan : chaque paratonnerre encore debout en absorbe 30 % (au plus 90 %)
+const reductionFoudre = (c) => Math.max(0.1, 1 - 0.3 * c.ennemis.filter((o) => o.paratonnerre && o.pv > 0).length);
+// v122 : les talents des chefs de guerre (communs au combat et au duel)
+export const CHEF_STATUT = { feu: ['brulure', 2], eau: ['trempe', 1], plante: ['affaibli', 1] };
+export const bonusChefCible = (chef, t) => (chef === 'main_noire' && t.affaibli > 0 ? 3 : 0);
+export const blocGarde = (chef, bloc) => (chef === 'porte_banniere' ? Math.floor(bloc / 2) : 0);
 // ---------- journal d'événements (pour les animations) ----------
 // Seulement si l'appelant a mis c.ev = [] : le serveur, qui rejoue les combats, ne le fait pas.
 // Ne change JAMAIS les règles : on note ce qui se passe, c'est tout.
@@ -78,13 +123,19 @@ function piocher(c, k) {
 }
 function debutTour(c) {
   c.tour++;
+  c.typesTour = { attaque: 0, defense: 0, pouvoir: 0 };   // v124 : pour les énigmes du Sphinx
+  if (c.limite && c.tour > c.limite && !c.fini) { c.fini = 'defaite'; c.journal.push('Le sablier est vide : le temps est écoulé.'); ev(c, { t: 'sablier' }); return; }
   const j = c.joueur;
-  j.bloc = 0;
+  j.bloc = blocGarde(c.chef, j.bloc);   // v122 : Rempart du clan
   if (j.brulure > 0) { const [d] = blesser(c, j, j.brulure, true); ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv }); c.journal.push(`Tu brûles : −${j.brulure} PV.`); j.brulure--; if (verifierFin(c)) return; }
   if (j.trempe > 0) j.trempe--;
   if (j.affaibli > 0) j.affaibli--;
-  c.energie = Math.max(1, c.energieMax - (j.paralysie || 0)); j.paralysie = 0; c.attaquesTour = 0; c.arcanes = false; c.arcN = 0;
+  c.energie = Math.max(1, c.energieMax - (j.paralysie || 0) + (c.chef === 'chef_horde' && j.pv < j.pvMax / 2 ? 1 : 0)); j.paralysie = 0; c.attaquesTour = 0; c.cartesTour = 0; c.arcanes = false; c.arcN = 0;
   piocher(c, c.tour === 1 && c.mods?.includes('epuisement') ? 4 : 5);
+  // v123 : l'aura ardente s'éteint ; le bourgeon éclot ; la photosynthèse rend son énergie
+  j.ardeur = 0;
+  if (j.bourgeon > 0) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + j.bourgeon); ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); c.journal.push(`Ton bourgeon éclot : +${j.pv - avant} PV.`); j.bourgeon = 0; }
+  if (j.photosynthese > 0) { c.energie += j.photosynthese; ev(c, { t: 'energie', n: j.photosynthese }); j.photosynthese = 0; }
   if (RQ.a(c.reliques, 'pierre_lune')) j.bloc += 3;
   if (RQ.a(c.reliques, 'sablier') && c.tour % 3 === 0) c.energie += 1;
   ev(c, { t: 'tour', n: c.tour });
@@ -94,7 +145,7 @@ function debutTour(c) {
     if (cible) { attaquer(c, { force: 0, affaibli: 0, pv: 1, bloc: 0 }, cible, j.appel); c.journal.push(`Ton allié invoqué frappe ${cible.nom}.`); verifierFin(c); }
   }
   // v87 : l'allié invoqué frappe au début de chacun de tes tours
-  if (c.tour > 1 && c.allie?.pv > 0) { const v = vivants(c); if (v.length) { attaquer(c, c.allie, v[Math.floor(c._r() * v.length)], c.allie.deg); verifierFin(c); } }
+  if (c.tour > 1 && c.allie?.pv > 0) for (let f = 0; f < (c.chef === 'seigneur_betes' ? 2 : 1) && !c.fini; f++) { const v = vivants(c); if (v.length) { attaquer(c, c.allie, v[Math.floor(c._r() * v.length)], c.allie.deg); verifierFin(c); } }   // v122 : Roi de la meute, deux fois
 }
 // dégâts d'une attaque : force, affaibli (−25 %), trempé (+50 %)
 export function calculerDegats(base, attaquant, cible) {
@@ -108,11 +159,20 @@ function blesser(c, cible, d, direct = false) {
   let b = 0;
   if (!direct && cible.bloc > 0) { b = Math.min(cible.bloc, d); cible.bloc -= b; d -= b; }
   cible.pv = Math.max(0, cible.pv - d);
+  if (cible.phases && d > 0) passerPhase(c, cible);   // v124
   return [d, b];
 }
 function attaquer(c, att, cible, base, mult = 1) {
   if (cible.pv <= 0) return 0;
-  const [d, b] = blesser(c, cible, calculerDegats(base, att, cible) * mult);
+  // v123 : Esquive (le coup ne fait rien) et Aura ardente (l'attaquant prend feu) — pour le joueur
+  if (cible === c.joueur && att.uid) {
+    if (cible.ardeur > 0 && att.pv > 0) { att.brulure += cible.ardeur; ev(c, { t: 'statut', a: att.uid, k: 'brulure', n: cible.ardeur }); }
+    if (cible.esquive > 0) { cible.esquive--; ev(c, { t: 'esquive', a: 'j' }); c.journal.push('Tu esquives le coup !'); return 0; }
+  }
+  // v124 : l'Astre déchu est intouchable tant qu'une de ses étoiles brille ; l'affinité des éléments (Triarque)
+  if (cible.etoiles && c.ennemis.some((o) => o.etoile && o.pv > 0)) { ev(c, { t: 'resiste', a: cible.uid }); c.journal.push(`${cible.nom} est protégé par ses étoiles.`); return 0; }
+  if (cible.element && att === c.joueur) mult *= affinite(c._elem, cible.element);
+  const [d, b] = blesser(c, cible, Math.round(calculerDegats(base, att, cible) * mult));
   ev(c, { t: 'coup', de: qui(att), a: qui(cible), deg: d, bloque: b, pv: cible.pv, bloc: cible.bloc, double: mult > 1 });
   if (cible.pv <= 0 && cible.uid) ev(c, { t: 'mort', a: cible.uid });
   if (cible.epines > 0 && att.pv > 0) {
@@ -142,6 +202,8 @@ function marquer(c, t, n, deg = DETONATION) {
   }
 }
 function verifierFin(c) {
+  const j = c.joueur;
+  if (j.pv <= 0 && j.renaissance > 0) { j.pv = Math.min(j.pvMax, j.renaissance); j.renaissance = 0; j.brulure = 0; ev(c, { t: 'soin', a: 'j', n: j.pv, pv: j.pv }); c.journal.push('Tu renais de tes cendres !'); }   // v123
   if (c.joueur.pv <= 0) { c.fini = 'defaite'; return true; }
   if (!vivants(c).length) { c.fini = 'victoire'; return true; }
   return false;
@@ -178,21 +240,34 @@ export function jouerCarte(c, i, cible) {
     if (RQ.a(c.reliques, 'pointe')) bonus += 1;
     if (c.classe === 'tireur') { c.tirs++; if (c.tirs % periodeVisee(c) === 0) mult = 2; }
     bonus += bonusBranche(c.branche, j, e);
+    if (c.chef === 'oeil_aigle' && c.attaquesCombat === 0) mult = Math.max(mult, 3);   // v122 : Premier sang
+    bonus += k.pousse || 0;   // v123 : Pousse
+    c.attaquesCombat++;
     if (c.branche === 'ombre' && c.attaquesTour === 0) for (const t of cibles) { t.affaibli += 1; ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: 1 }); }
     c.attaquesTour++;
+    if (c.chef === 'champion_clan' && c.attaquesTour === 2) { c.energie += 1; ev(c, { t: 'energie', n: 1 }); }   // v122 : Second souffle
   }
+  c.cartesTour++;
+  if (c.typesTour) c.typesTour[carte.type] = (c.typesTour[carte.type] || 0) + 1;   // v124 : énigmes du Sphinx
+  c._elem = carte.element;   // v124 : l'affinité des éléments (Triarque)
+  if (c.chef === 'grand_arcaniste' && c.cartesTour === 3) { c.energie += 2; ev(c, { t: 'energie', n: 2 }); }   // v122 : Résonance
   if (e.sacrifice) { const d = Math.min(e.sacrifice, j.pv - 1); j.pv -= d; ev(c, { t: 'brule', a: 'j', deg: d, pv: j.pv, sang: true }); }
   let inflige = 0;
-  if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) inflige += attaquer(c, j, t, e.degats + bonus, mult) || 0;
+  const dMain = e.degatsParMain ? e.degatsParMain * c.main.length : 0;   // v123 : Marée montante
+  if (e.degats) for (let f = 0; f < (e.fois || 1); f++) for (const t of cibles) inflige += attaquer(c, j, t, e.degats + dMain + bonus + bonusChefCible(c.chef, t), mult) || 0;
   if (e.volVie) volerVie(c, j, inflige, e.volVie);   // v99
   if (e.degatsParBrulure) for (const t of cibles) attaquer(c, j, t, Math.floor(t.brulure * e.degatsParBrulure) + bonus, mult);
   if (e.bouclierEnDegats) for (const t of cibles) attaquer(c, j, t, j.bloc + bonus, mult);
   if (e.degatsParAffaibli) for (const t of cibles) attaquer(c, j, t, t.affaibli * e.degatsParAffaibli + bonus, mult);
+  // v122 : Obus élémentaires (Maître Artilleur) : une attaque sur tous applique le statut de son élément
+  const obus = c.chef === 'maitre_artilleur' && carte.type === 'attaque' && e.tous && CHEF_STATUT[c.clan];
   for (const t of cibles) {
     const vu = t.pv > 0;
+    if (obus && vu) { const [k2, n2] = obus; t[k2] += n2; ev(c, { t: 'statut', a: t.uid, k: k2, n: n2 }); }
     if (e.brulure) { t.brulure += e.brulure; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'brulure', n: e.brulure }); }
     if (e.trempe) { t.trempe += e.trempe; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'trempe', n: e.trempe }); }
     if (e.affaibli) { t.affaibli += e.affaibli; if (vu) ev(c, { t: 'statut', a: t.uid, k: 'affaibli', n: e.affaibli }); }
+    if (e.doubleBrulure && vu && t.brulure > 0) { const n = t.brulure; t.brulure += n; ev(c, { t: 'statut', a: t.uid, k: 'brulure', n }); }   // v123 : Embrasement
     // v96 : étourdi — mais un monstre qui vient de l'être résiste au tour suivant (pas d'étourdissement en boucle)
     if (e.marque && vu) marquer(c, t, e.marque);   // v98
     if (e.etourdit && vu) { if (t.resiste > 0 || t.etourdi > 0) ev(c, { t: 'resiste', a: t.uid }); else { t.etourdi = 1; ev(c, { t: 'statut', a: t.uid, k: 'etourdi', n: 1 }); } }
@@ -203,11 +278,21 @@ export function jouerCarte(c, i, cible) {
   if (e.soin) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + e.soin); ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); }
   if (e.epines) { j.epines += e.epines; ev(c, { t: 'statut', a: 'j', k: 'epines', n: e.epines }); }
   if (e.regen) { j.regen += e.regen; ev(c, { t: 'statut', a: 'j', k: 'regen', n: e.regen }); }
+  // v123 : les nouvelles mécaniques des éléments
+  if (e.bouclierParRegen && j.regen > 0) { const n = j.regen * e.bouclierParRegen; j.bloc += n; ev(c, { t: 'bloc', a: 'j', n, bloc: j.bloc }); }
+  if (e.purifie) { j.brulure = 0; j.trempe = 0; j.affaibli = 0; j.marque = 0; c.journal.push('L’eau pure te lave de tes maux.'); }
+  if (e.brulureSoi) { j.brulure += e.brulureSoi; ev(c, { t: 'statut', a: 'j', k: 'brulure', n: e.brulureSoi }); }
+  for (const s of ['ardeur', 'esquive', 'bourgeon']) if (e[s]) { j[s] = (j[s] || 0) + e[s]; ev(c, { t: 'statut', a: 'j', k: s, n: e[s] }); }
+  if (e.renaissance) j.renaissance = Math.max(j.renaissance || 0, e.renaissance);
+  if (e.energieProchain) j.photosynthese = (j.photosynthese || 0) + e.energieProchain;
   if (e.force) { j.force += e.force; ev(c, { t: 'statut', a: 'j', k: 'force', n: e.force }); }
   if (e.appel) { j.appel += e.appel; ev(c, { t: 'statut', a: 'j', k: 'appel', n: e.appel }); }
   if (e.energie) { c.energie += e.energie; ev(c, { t: 'energie', n: e.energie }); }
-  if (e.invoque) { c.allie = { uid: 'allie', ...e.invoque, pvMax: e.invoque.pv, ...statuts() }; ev(c, { t: 'invoque', allie: { ...c.allie } }); }   // v87
+  if (e.invoque) { const pvI = c.chef === 'seigneur_betes' ? Math.round(e.invoque.pv * 1.5) : e.invoque.pv; c.allie = { uid: 'allie', ...e.invoque, pv: pvI, pvMax: pvI, ...statuts() }; ev(c, { t: 'invoque', allie: { ...c.allie } }); }   // v87
   delete k.remise;
+  c._elem = null;
+  if (e.pousse) k.pousse = (k.pousse || 0) + e.pousse;   // v123 : la carte grandit
+  if (e.reflux) for (let r = 0; r < e.reflux && c.defausse.length && c.main.length < 10; r++) c.main.push(c.defausse.pop());   // v123 : Retour des flots
   if (!k.eph) (e.epuise ? c.epuisees : c.defausse).push(k);   // une copie éphémère disparaît une fois jouée
   if (e.pioche) piocher(c, e.pioche);
   effetsMain(c, e);
@@ -237,6 +322,14 @@ export function finTour(c) {
   const j = c.joueur;
   defausserMain(c);
   if (j.regen > 0) { const avant = j.pv; j.pv = Math.min(j.pvMax, j.pv + j.regen); j.regen--; ev(c, { t: 'soin', a: 'j', n: j.pv - avant, pv: j.pv }); }
+  // v124 : l'énigme du Sphinx — réussie, il est confondu ; ratée, il se renforce
+  if (c.enigme) {
+    const en = ENIGMES.find((x) => x.k === c.enigme), s = c.ennemis.find((o) => o.uid === c.enigmeDe && o.pv > 0); c.enigme = null;
+    if (s && en) {
+      if (en.ok(c)) { const [d] = blesser(c, s, Math.round(s.pvMax * 0.08), true); s.affaibli += 2; ev(c, { t: 'enigme', a: s.uid, ok: true, deg: d, pv: s.pv }); c.journal.push(`Énigme résolue ! ${s.nom} est confondu : −${d} PV et Affaibli 2.`); if (verifierFin(c)) return; }
+      else { s.force += 3; ev(c, { t: 'enigme', a: s.uid, ok: false }); ev(c, { t: 'statut', a: s.uid, k: 'force', n: 3 }); c.journal.push(`Énigme ratée : ${s.nom} gagne 3 de force.`); }
+    }
+  }
   ev(c, { t: 'tourEnnemi' });
   for (const e of vivants(c)) {
     e.bloc = 0;
@@ -258,9 +351,13 @@ export function finTour(c) {
     if (it.t) { j.trempe += it.t; ev(c, { t: 'statut', a: 'j', k: 'trempe', n: it.t }); }
     if (it.w) { j.affaibli += it.w; ev(c, { t: 'statut', a: 'j', k: 'affaibli', n: it.w }); }
     if (it.m) marquer(c, j, it.m, Math.round(DETONATION_MONSTRE * e.deg));   // v98 : les monstres du désert te marquent
+    // v124 : les intentions des Seigneurs
+    if (it.fe) { for (let n = 0; n < it.fe; n++) c.defausse.push({ uid: `fe${c.tour}_${e.uid}_${n}`, id: 'felure', niv: 1 }); ev(c, { t: 'felure', a: e.uid, n: it.fe }); c.journal.push(`${e.nom} glisse ${it.fe} Fêlure${it.fe > 1 ? 's' : ''} dans ta défausse.`); }
+    if (it.inv) invoquer(c, it.inv, it.k || 1);
+    if (it.en) { const en = ENIGMES[Math.floor(c._r() * ENIGMES.length)]; c.enigme = en.k; c.enigmeDe = e.uid; ev(c, { t: 'enigme', a: e.uid, pose: en.k }); c.journal.push(`${e.nom} pose une énigme : ${en.txt}`); }
     if (it.p) { j.paralysie = (j.paralysie || 0) + it.p; ev(c, { t: 'statut', a: 'j', k: 'paralysie', n: it.p }); }   // v96 : moins d'énergie au prochain tour
     // v87 : l'allié invoqué encaisse les coups à ta place tant qu'il tient debout
-    { let vol = 0; if (it.a) for (let k = 0; k < (it.n || 1); k++) vol += attaquer(c, e, c.allie?.pv > 0 ? c.allie : j, Math.round(it.a * e.deg)) || 0; if (it.v) volerVie(c, e, vol, it.v); }   // v99 : v = vol de vie du monstre
+    { let vol = 0; if (it.a) for (let k = 0; k < (it.n || 1); k++) vol += attaquer(c, e, c.allie?.pv > 0 ? c.allie : j, Math.round(it.a * e.deg * (it.foudre ? reductionFoudre(c) : 1))) || 0; if (it.v) volerVie(c, e, vol, it.v); }   // v99 : v = vol de vie du monstre
     e.i++;
     if (c.mods?.includes('vitalite') && e.pv > 0 && e.pv < e.pvMax) { const avant = e.pv; e.pv = Math.min(e.pvMax, e.pv + 3); ev(c, { t: 'soin', a: e.uid, n: e.pv - avant, pv: e.pv }); }
     if (e.trempe > 0) e.trempe--;
@@ -287,7 +384,7 @@ export function prevoirTour(c) {
     if (it.m) { marquesJ += it.m; while (marquesJ >= MARQUES) { marquesJ -= MARQUES; explo += Math.round(DETONATION_MONSTRE * e.deg); } }
     let deg = 0, degJ = 0, surAllie = false, bonus = false;
     if (it.a) {
-      const att = { force: (e.force || 0) + (it.f || 0), affaibli: e.affaibli }, base = Math.round(it.a * e.deg);
+      const att = { force: (e.force || 0) + (it.f || 0), affaibli: e.affaibli }, base = Math.round(it.a * e.deg * (it.foudre ? reductionFoudre(c) : 1));   // v124 : la foudre du Titan
       deg = calculerDegats(base, att, { trempe: trempeJ });
       bonus = deg > calculerDegats(base, e, j);
       for (let k = 0; k < (it.n || 1); k++) {
@@ -310,6 +407,11 @@ export function decrireIntention(c, e, prev = null) {
   if (it.g) t.push({ type: 'groupe', txt: `${Math.round(it.g * e.deg)}` });
   if (it.s) t.push({ type: 'soin', txt: `${Math.round(it.s * e.deg)}` });
   if (it.e) t.push({ type: 'epines', txt: `${it.e}` });
+  // v124 : les Seigneurs
+  if (it.ch) t.push({ type: 'charge', txt: '⚡ charge' });
+  if (it.fe) t.push({ type: 'malus', txt: `🪨${it.fe} fêlure${it.fe > 1 ? 's' : ''}` });
+  if (it.inv) t.push({ type: 'invoque', txt: `${it.inv.ico}${(it.k || 1) > 1 ? `×${it.k}` : ''}` });
+  if (it.en) t.push({ type: 'enigme', txt: '❓ énigme' });
   if (it.b || it.t || it.w || it.p || it.m || it.v) t.push({ type: 'malus', txt: [it.b && `🔥${it.b}`, it.t && `💧${it.t}`, it.w && `🥀${it.w}`, it.p && `⚡${it.p}`, it.m && `🎯${it.m}`, it.v && '🩸vol', p.explo && `💥−${p.explo}`].filter(Boolean).join(' ') });
   if (e.etourdi > 0) return [{ type: 'malus', txt: '💫 étourdi' }];
   return t;
